@@ -187,18 +187,17 @@ class NWP(Data_2D):
         self.data_xr['Z0'] = (('time', 'yy', 'xx'), array_Z0['Z0'].values)
         self.data_xr['Z0REL'] = (('time', 'yy', 'xx'), array_Z0['Z0REL'].values)
 
-    # todo modify method
     def _select_specific_variables(self):
         try:
             self.data_xr = self.data_xr[self.variables_of_interest]
         except:
             pass
         try:
-            if 'LAT' in list_variables:
+            if 'LAT' in self.variables_of_interest:
                 self.data_xr['LAT'] = self.data_xr['LAT'].isel(time=0)
-            if 'LON' in list_variables:
+            if 'LON' in self.variables_of_interest:
                 self.data_xr['LON'] = self.data_xr['LON'].isel(time=0)
-            if 'ZS' in list_variables:
+            if 'ZS' in self.variables_of_interest:
                 self.data_xr['ZS'] = self.data_xr['ZS'].isel(time=0)
         except:
             pass
@@ -250,5 +249,9 @@ class NWP(Data_2D):
         self.data_xr["X_L93"] = (("yy", "xx"), X_L93)
         self.data_xr["Y_L93"] = (("yy", "xx"), Y_L93)
 
-    def select_timeframe(self):
-        self.data_xr = self.data_xr.sel(time=slice(self.begin, self.end))
+    def select_timeframe(self, begin=None, end=None):
+        if (begin is not None) and (end is not None):
+            self.data_xr = self.data_xr.sel(time=slice(begin, end))
+        else:
+            self.data_xr = self.data_xr.sel(time=slice(self.begin, self.end))
+
