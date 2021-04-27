@@ -38,8 +38,9 @@ class NWP(Data_2D):
 
     def __init__(self, path_to_file, name=None, begin=None, end=None, save_path=None, path_Z0_2018=None, path_Z0_2019=None,
                  variables_of_interest=['Wind', 'Wind_DIR', 'LAT', 'LON', 'ZS'], verbose=True, path_to_file_npy=None,
-                 save=False, load_z0=False):
-        t0 = t()
+                 save=False, load_z0=False, verbose=True):
+        if verbose:
+            t0 = t()
         super().__init__(path_to_file, name)
 
         # List of variables
@@ -53,19 +54,23 @@ class NWP(Data_2D):
 
         # Path to file can be a string or a list of strings
         if _dask:
+
+            # Open netcdf file
             self.data_xr = xr.open_mfdataset(path_to_file, preprocess=self._preprocess_ncfile, concat_dim='time',
                                              parallel=False).astype(np.float32, copy=False)
         else:
             print("\nCan only load a single netcdf file at a time\n")
             self.data_xr = xr.open_dataset(path_to_file)
             self.data_xr = self._preprocess_ncfile(self.data_xr)
-            X_L93 = np.load(path_to_file_npy + "_X_L93.npy")
-            Y_L93 = np.load(path_to_file_npy + "_Y_L93.npy")
-            data_xr = self.data_xr
-            data_xr['X_L93'] = (('yy', 'xx'), X_L93)
-            data_xr['Y_L93'] = (('yy', 'xx'), Y_L93)
-            self.data_xr = data_xr
-            self.variables_of_interest = variables_of_interest + ['X_L93', 'Y_L93']
+
+        # Add L93 coordinates
+        if _pyproj:
+            self.gps_to_l93()
+        else:
+            self._add_X_Y_L93(path_to_file_npy)
+
+        # Modify variables of interest
+        self.variables_of_interest = variables_of_interest + ['X_L93', 'Y_L93']
 
         # Select variables of interest
         self._select_specific_variables()
@@ -75,16 +80,19 @@ class NWP(Data_2D):
 
         # Add z0 variables
         if (path_Z0_2018 is not None) and (path_Z0_2019 is not None):
-            if verbose: print('\nStart adding Z0')
-            self._add_Z0(path_Z0_2018, path_Z0_2019, save=save, load=load_z0)
-            if verbose: print('\nEnd adding Z0')
+            self._add_Z0(path_Z0_2018, path_Z0_2019, save=save, load=load_z0, verbose=True)
 
-        # Add L93 coordinates
-        if _pyproj:
-            self.gps_to_l93()
+        if verbose:
+            t1 = t()
+            print(f"\nNWP created in {np.round(t1-t0, 2)} seconds\n")
 
-        t1 = t()
-        print(f"\nNWP created in {np.round(t1-t0, 2)} seconds\n")
+    def _add_X_Y_L93(self, path_to_file_npy):
+        X_L93 = np.load(path_to_file_npy + "_X_L93.npy")
+        Y_L93 = np.load(path_to_file_npy + "_Y_L93.npy")
+        data_xr = self.data_xr
+        data_xr['X_L93'] = (('yy', 'xx'), X_L93)
+        data_xr['Y_L93'] = (('yy', 'xx'), Y_L93)
+        self.data_xr = data_xr
 
     def _interpolate_Z0(self, path_Z0_2018, path_Z0_2019, verbose=True, save=False):
         # Open netcdf files
@@ -154,6 +162,7 @@ class NWP(Data_2D):
         return(array_Z0)
 
     def _add_Z0(self, path_Z0_2018, path_Z0_2019, save=False, load=False, verbose=True):
+        if verbose: print('\nStart adding Z0')
         year, month, day = self.begin.split('-')
         if load:
             array_Z0 = xr.open_dataset(self.save_path + f'processed_Z0_{year}.nc', chunks={"time": 12})
@@ -186,6 +195,8 @@ class NWP(Data_2D):
         # Add Z0 to NWP
         self.data_xr['Z0'] = (('time', 'yy', 'xx'), array_Z0['Z0'].values)
         self.data_xr['Z0REL'] = (('time', 'yy', 'xx'), array_Z0['Z0REL'].values)
+
+        if verbose: print('\nEnd adding Z0')
 
     def _select_specific_variables(self):
         try:
