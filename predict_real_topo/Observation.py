@@ -30,7 +30,7 @@ class Observation:
 
     _shapely_geometry = _shapely_geometry
 
-    def __init__(self, path_to_list_stations, path_to_time_series, path_vallot, path_saint_sorlin, path_argentiere, begin=None, end=None, select_date_time_serie=True, vallot=True, saint_sorlin=True, argentiere=True):
+    def __init__(self, path_to_list_stations, path_to_time_series, path_vallot=None, path_saint_sorlin=None, path_argentiere=None, begin=None, end=None, select_date_time_serie=True):
         t0 = t()
 
         # Path and dates
@@ -49,9 +49,9 @@ class Observation:
             self.stations = pd.read_pickle(path_to_list_stations)
 
         # Add additional stations
-        if vallot: self._add_station(name='Vallot')
-        if saint_sorlin: self._add_station(name='Saint-Sorlin')
-        if argentiere: self._add_station(name='Argentiere')
+        if self.path_vallot is not None: self._add_station(name='Vallot')
+        if self.path_saint_sorlin is not None: self._add_station(name='Saint-Sorlin')
+        if self.path_argentiere is not None: self._add_station(name='Argentiere')
 
         # Time series
         self.time_series = pd.read_csv(path_to_time_series)
@@ -59,15 +59,18 @@ class Observation:
         if select_date_time_serie: self._select_date_time_serie()
 
         # Add additional time series
-        if vallot: self._add_time_serie_vallot(log_profile=True)
-        if saint_sorlin: self._add_time_serie_glacier(name='Saint-Sorlin', log_profile=False)
-        if argentiere: self._add_time_serie_glacier(name='Argentiere', log_profile=False)
+        if self.path_vallot is not None: self._add_time_serie_vallot(log_profile=True)
+        if self.path_saint_sorlin is not None: self._add_time_serie_glacier(name='Saint-Sorlin', log_profile=False)
+        if self.path_argentiere is not None: self._add_time_serie_glacier(name='Argentiere', log_profile=False)
 
         t1 = t()
         print(f"\nObservation created in {np.round(t1-t0, 2)} seconds\n")
 
-    def _select_date_time_serie(self):
-        mask = (self.time_series.index > self.begin) & (self.time_series.index < self.end)
+    def _select_date_time_serie(self, begin=None, end=None):
+        if (begin is None) and (end is None):
+            begin = self.begin
+            end = self.end
+        mask = (self.time_series.index > begin) & (self.time_series.index < end)
         self.time_series = self.time_series[mask]
 
     def _add_station(self, name=None):

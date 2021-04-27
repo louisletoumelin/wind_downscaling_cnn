@@ -1,32 +1,34 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
-import datetime
 from scipy.ndimage import rotate
 from scipy import interpolate
-import random  # Warning
-import time
-import os
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+import random  # Warning
+import datetime
+import time
+import os
 import concurrent.futures
-from numba import jit, prange, float64, float32, int32, int64
 
-# Profiling
+# try importing optional modules
+try:
+    from numba import jit, prange, float64, float32, int32, int64
+    _numba = True
+except:
+    _numba = False
 
 try:
     import numexpr as ne
-
     _numexpr = True
 except:
     _numexpr = False
 
 try:
     from shapely.geometry import Point
-
     _shapely_geometry = True
 except:
     _shapely_geometry = False
@@ -40,7 +42,6 @@ except:
 
 try:
     import dask
-
     _dask = True
 except:
     _dask = False
@@ -62,6 +63,7 @@ class Processing:
     n_rows, n_col = 79, 69
     _numexpr = _numexpr
     _geopandas = _geopandas
+    _numba = _numba
 
     def __init__(self, obs, mnt, nwp, model_path, GPU=False, data_path=None):
         self.observation = obs
@@ -75,10 +77,6 @@ class Processing:
             physical_devices = tf.config.list_physical_devices('GPU')
             tf.config.experimental.set_memory_growth(physical_devices[0], True)
             tf.debugging.set_log_device_placement(True)
-
-    def exposed_wind_speed(self):
-        self.nwp.data_xr = self.nwp.data_xr.assign(
-            exp_Wind=lambda x: x.Wind * (np.log(10 / x.Z0) / np.log(10 / x.Z0REL)) * (x.Z0 / x.Z0REL) ** (0.0708))
 
     @staticmethod
     def rotate_topography(topography, wind_dir, clockwise=False):
@@ -117,18 +115,16 @@ class Processing:
 
     @staticmethod
     def apply_log_profile(z_in=None, z_out=None, wind_in=None, z0=None):
+        """ Not used for the moment"""
         if _numexpr:
             return(ne.evaluate("(wind_in * log(z_out / z0)) / log(z_in / z0)"))
         else:
             return((wind_in * np.log(z_out / z0)) / np.log(z_in / z0))
 
-    @staticmethod
-    def load_rotated_topo(wind_dir, station_name):
-        angle_int = np.int64(np.round(wind_dir) % 360)
-        angle_str = [str(angle) for angle in angle_int]
-        topo_HD = [self.dict_rot_topo[station_name]["rotated_topo_HD"][angle][0][200 - 39:200 + 40, 200 - 34:200 + 35]
-                   for angle in angle_str]
-        return (topo_HD)
+    def exposed_wind_speed(self):
+        """ Not used for the moment"""
+        self.nwp.data_xr = self.nwp.data_xr.assign(
+            exp_Wind=lambda x: x.Wind * (np.log(10 / x.Z0) / np.log(10 / x.Z0REL)) * (x.Z0 / x.Z0REL) ** (0.0708))
 
     def normalize_topo(self, topo_HD, mean, std, dtype=np.float32, tensorflow=False):
         if tensorflow:
@@ -146,6 +142,7 @@ class Processing:
                 return ((topo_HD - mean) / std)
 
     def _select_nwp_time_serie_at_pixel(self, station_name, Z0=False):
+
         # Select station
         nwp_name = self.nwp.name
         stations = self.observation.stations
@@ -160,7 +157,6 @@ class Processing:
 
         # Select Z0 informaiton
         if Z0 == True:
-            print("Indexes", x_idx_nwp, y_idx_nwp)
             Z0 = nwp_instance.Z0.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
             Z0REL = nwp_instance.Z0REL.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
             ZS = nwp_instance.ZS.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
@@ -1106,6 +1102,9 @@ class Processing:
                     year_0=None, month_0=None, day_0=None, hour_0=None,
                     year_1=None, month_1=None, day_1=None, hour_1=None,
                     Z0_cond=False, verbose=True, peak_valley=True):
+
+        if not(_numba):
+            raise ModuleNotFoundError('predict_map_indexes needs numba to operate')
 
         # Select NWP data
         if verbose: print("Selecting NWP")

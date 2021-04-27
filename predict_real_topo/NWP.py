@@ -36,7 +36,7 @@ class NWP(Data_2D):
     _shapely_geometry = _shapely_geometry
     _geopandas = _geopandas
 
-    def __init__(self, path_to_file, name, begin, end, save_path=None, path_Z0_2018=None, path_Z0_2019=None,
+    def __init__(self, path_to_file, name=None, begin=None, end=None, save_path=None, path_Z0_2018=None, path_Z0_2019=None,
                  variables_of_interest=['Wind', 'Wind_DIR', 'LAT', 'LON', 'ZS'], verbose=True, path_to_file_npy=None,
                  save=False, load_z0=False):
         t0 = t()

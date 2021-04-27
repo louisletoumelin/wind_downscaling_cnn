@@ -9,10 +9,11 @@ from Visualization import Visualization
 
 class Evaluation:
 
-    def __init__(self, v, array_xr):
+    def __init__(self, v, array_xr=None):
         t0 = t()
         self.v = v
-        self.array_xr = array_xr.rename({"UV_DIR_deg": "Wind_DIR"})
+        if array_xr is not None:
+            self.array_xr = array_xr.rename({"UV_DIR_deg": "Wind_DIR"})
         self._rename_colums_obs_time_series()
         t1 = t()
         print(f"\nEvaluation created in {np.round(t1-t0, 2)} seconds\n")
@@ -79,7 +80,7 @@ class Evaluation:
 
         dataframe = dataframe[time_condition]
 
-        return (dataframe)
+        return(dataframe)
 
     def _select_dataframe(self, array_xr, station_name='Col du Lac Blanc', day=None, month=None, year=2019,
                           variable="UV", rolling_mean=None, rolling_window="24H"):

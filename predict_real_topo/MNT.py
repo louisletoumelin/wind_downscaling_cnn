@@ -16,7 +16,7 @@ except:
 class MNT(Data_2D):
     _dask = _dask
 
-    def __init__(self, path_to_file, name):
+    def __init__(self, path_to_file, name=None):
         t0 = t()
         super().__init__(path_to_file, name)
         if _dask:
