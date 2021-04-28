@@ -20,3 +20,16 @@ def select_range(month_begin, month_end, year_begin, year_end, date_begin, date_
         dates = pd.to_datetime(date_end)
         iterator = zip([dates.day], [dates.month], [dates.year])
     return(iterator)
+
+
+def check_save_and_load(load_z0, save_z0):
+    if load_z0 and save_z0:
+        load_z0 = True
+        save_z0 = False
+    return(load_z0, save_z0)
+
+
+def print_current_line(time_step, nb_sim, division):
+    nb_sim_divided = nb_sim // division
+    for k in range(1, division+1):
+        if time_step == k * nb_sim_divided: print(f" {k}/{division}")

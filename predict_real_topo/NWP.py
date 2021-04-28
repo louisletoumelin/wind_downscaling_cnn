@@ -38,7 +38,7 @@ class NWP(Data_2D):
 
     def __init__(self, path_to_file, name=None, begin=None, end=None, save_path=None, path_Z0_2018=None, path_Z0_2019=None,
                  variables_of_interest=['Wind', 'Wind_DIR', 'LAT', 'LON', 'ZS'], verbose=True, path_to_file_npy=None,
-                 save=False, load_z0=False, verbose=True):
+                 save=False, load_z0=False):
         if verbose:
             t0 = t()
         super().__init__(path_to_file, name)
@@ -54,14 +54,19 @@ class NWP(Data_2D):
 
         # Path to file can be a string or a list of strings
         if _dask:
-
             # Open netcdf file
             self.data_xr = xr.open_mfdataset(path_to_file, preprocess=self._preprocess_ncfile, concat_dim='time',
                                              parallel=False).astype(np.float32, copy=False)
         else:
-            print("\nCan only load a single netcdf file at a time\n")
+            print("\nNot using dask to open netcdf files\n")
             self.data_xr = xr.open_dataset(path_to_file)
             self.data_xr = self._preprocess_ncfile(self.data_xr)
+
+        # Select timeframe
+        self.select_timeframe()
+
+        # Select variables of interest
+        self._select_specific_variables()
 
         # Add L93 coordinates
         if _pyproj:
@@ -71,12 +76,7 @@ class NWP(Data_2D):
 
         # Modify variables of interest
         self.variables_of_interest = variables_of_interest + ['X_L93', 'Y_L93']
-
-        # Select variables of interest
         self._select_specific_variables()
-
-        # Select timeframe
-        self.select_timeframe()
 
         # Add z0 variables
         if (path_Z0_2018 is not None) and (path_Z0_2019 is not None):

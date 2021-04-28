@@ -120,7 +120,8 @@ class Evaluation:
                         color_nwp='C0', color_obs='black', color_cnn='C1',
                         figsize=(20, 20), new_figure=True,
                         markersize=2, marker_nwp='x', marker_cnn='x', marker_obs='x',
-                        linestyle_nwp='-', linestyle_cnn='-', linestyle_obs='-'):
+                        linestyle_nwp='-', linestyle_cnn='-', linestyle_obs='-',
+                        display_NWP=True, display_CNN=True, display_obs=True):
 
         # Create a new figure
         if new_figure:
@@ -140,24 +141,27 @@ class Evaluation:
         ax = plt.gca()
 
         # NWP
-        x_nwp = nwp_time_serie.index
-        y_nwp = nwp_time_serie.values
-        ax.plot(x_nwp, y_nwp, color=color_nwp, marker=marker_nwp, markersize=markersize, linestyle=linestyle_nwp, label='NWP')
+        if display_NWP:
+            x_nwp = nwp_time_serie.index
+            y_nwp = nwp_time_serie.values
+            ax.plot(x_nwp, y_nwp, color=color_nwp, marker=marker_nwp, markersize=markersize, linestyle=linestyle_nwp, label='NWP')
 
         # CNN
-        x_cnn = cnn_predictions.index
-        y_cnn = cnn_predictions.values
-        ax.plot(x_cnn, y_cnn, color=color_cnn, marker=marker_cnn, markersize=markersize, linestyle=linestyle_cnn, label='CNN')
+        if display_CNN:
+            x_cnn = cnn_predictions.index
+            y_cnn = cnn_predictions.values
+            ax.plot(x_cnn, y_cnn, color=color_cnn, marker=marker_cnn, markersize=markersize, linestyle=linestyle_cnn, label='CNN')
 
-        assert len(x_nwp) == len(x_cnn)
+            if display_NWP: assert len(x_nwp) == len(x_cnn)
 
         # Try to plot observations
-        try:
-            x_obs = obs_time_serie.index
-            y_obs = obs_time_serie.values
-            ax.plot(x_obs, y_obs, color=color_obs, marker=marker_obs, markersize=markersize, linestyle=linestyle_obs, label='Obs')
-        except:
-            pass
+        if display_obs:
+            try:
+                x_obs = obs_time_serie.index
+                y_obs = obs_time_serie.values
+                ax.plot(x_obs, y_obs, color=color_obs, marker=marker_obs, markersize=markersize, linestyle=linestyle_obs, label='Obs')
+            except:
+                pass
         plt.legend()
         plt.title(station_name)
 
