@@ -99,7 +99,8 @@ class Processing:
         return (rotated_topography)
 
     def _rotate_topo_for_all_station(self):
-        """Rotate the topography at all stations for each 1 degree angle of wind direction"""
+        """Not used
+        Rotate the topography at all stations for each 1 degree angle of wind direction"""
 
         def rotate_topo_for_all_degrees(self, station):
             dict_topo[station]["rotated_topo_HD"] = {}
@@ -122,13 +123,47 @@ class Processing:
 
     @staticmethod
     def apply_log_profile(z_in=None, z_out=None, wind_in=None, z0=None):
-        """ Not used for the moment"""
+        """
+        Apply log profile to a wind time serie.
+
+        Parameters
+        ----------
+        z_in : Input elevation
+        z_out : Output elevation
+        wind_in : Input wind
+        z0 : Roughness length for momentum
+
+        Returns
+        -------
+        wind_out: Output wind, after logarithmic profile
+        """
         if _numexpr:
             return (ne.evaluate("(wind_in * log(z_out / z0)) / log(z_in / z0)"))
         else:
             return ((wind_in * np.log(z_out / z0)) / np.log(z_in / z0))
 
     def exposed_wind_speed(self, wind_speed=None, z_out=None, z0=None, z0_rel=None, apply_directly_to_nwp=False):
+        """
+        Expose wind speed (deoperate subgrid parameterization from NWP)
+
+        Parameters
+        ----------
+        wind_speed : boolean, optional
+            Wind speed from NWP
+        z_out : boolean, optional
+            Elevation at which desinfluencing is performed
+        z0 : boolean, optional
+            Roughness length for momentum
+        z0_rel : boolean, optional
+            Roughness length for momentum associated with mean topography
+        apply_directly_to_nwp : boolean, optional
+            If True, updates the nwp directly by adding a new variable (Default: False)
+
+        Returns
+        -------
+        exp_Wind: Unexposed wind
+        acceleration_factor: Acceleration related to unexposition (usually >= 1)
+        """
 
         if apply_directly_to_nwp:
             self.nwp.data_xr = self.nwp.data_xr.assign(
@@ -151,6 +186,22 @@ class Processing:
             return (exp_Wind, acceleration_factor)
 
     def normalize_topo(self, topo_HD, mean, std, dtype=np.float32, tensorflow=False):
+        """
+        Normalize a topography with mean and std.
+
+        Parameters
+        ----------
+        topo_HD : array
+        mean : array
+        std : array
+        dtype: numpy dtype, optional
+        tensorflow: boolean, optional
+            Use tensorflow array (Default: False)
+
+        Returns
+        -------
+        Standardized topography : array
+        """
         if tensorflow:
             topo_HD = tf.constant(topo_HD, dtype=tf.float32)
             mean = tf.constant(mean, dtype=tf.float32)
@@ -166,6 +217,35 @@ class Processing:
                 return ((topo_HD - mean) / std)
 
     def _select_nwp_time_serie_at_pixel(self, station_name, Z0=False):
+        """
+        Extract a time serie from the nwp, for several variables, at a station location.
+
+        It selects the index of the nearest neighbor to the station in the nwp grid.
+
+        Outputs are arrays.
+
+        Parameters
+        ----------
+        station_name : string
+            The considered station
+        Z0 : boolean, optional
+            If True, extracts info related to Z0 (Default: False')
+
+        Returns
+        -------wind_dir, wind_speed, time, Z0, Z0REL, ZS
+        wind_dir : 1-D ndarray
+            Wind direction [°].
+        wind_speed : 1-D ndarray
+            Wind speed [m/s].
+        time : 1-D ndarray
+            Time index.
+        Z0 : 1-D ndarray
+            Z0 [m].
+        Z0REL : 1-D ndarray
+            Z0REL [m].
+        ZS : 1-D ndarray
+            Altitude [m].
+        """
 
         # Select station
         nwp_name = self.nwp.name
@@ -192,7 +272,9 @@ class Processing:
 
     def _select_time_serie_from_array_xr(self, array_xr, station_name='Col du Lac Blanc', variable='UV', center=True):
         """
-        Extract a time serie from array_xr and returns a numpy array
+        Extract a time serie from array_xr and returns a numpy array.
+
+        Used to extract values at the center of the CNN domain.
 
         Parameters
         ----------
@@ -218,6 +300,20 @@ class Processing:
         return (prediction, time)
 
     def load_model(self, dependencies=False):
+        """
+        Load a CNN, ans optionnaly its dependencies.
+
+        Parameters
+        ----------
+        dependencies : boolean, optional
+            CNN dependencies (Default: False')
+
+        Returns
+        -------
+        model : Tensorflow model
+            Return the CNN, stored in "self.model"
+        """
+
         # todo load dependencies
         if dependencies:
 
@@ -231,25 +327,67 @@ class Processing:
         self.model = model
 
     def _load_norm_prm(self):
+        """
+        Load normalization parameters: mean and std.
+
+        Returns
+        -------
+        mean : numpy array
+        std : numpy array
+        """
+
         # todo load dependencies
         dict_norm = pd.read_csv(self.model_path + "dict_norm.csv")
         mean = dict_norm["0"].iloc[0]
         std = dict_norm["0"].iloc[1]
         return (mean, std)
 
-    def _select_timeframe_nwp(self, ideal_case=False):
+    def _select_timeframe_nwp(self, begin=None, end=None, ideal_case=False):
+        """
+        Selects a timeframe for NWP.
+
+        Parameters
+        ----------
+        begin : date, optional
+            Date to begin slicing. Exemple: '2019-6-1' (Default: None)
+        end : date, optional
+            Date to end slicing. Exemple: '2019-6-30' (Default: None)
+        ideal_case : boolean, optional
+            If True, end == begin + 1 day.
+            Used for ideal cases where we force wind speed and direction independently from NWP.
+
+        Returns
+        -------
+        Updates nwp instance.
+        """
+
         # Select timeframe
         if ideal_case:
             begin = self.begin
             year, month, day = np.int16(begin.split('-'))
             end = str(year) + "-" + str(month) + "-" + str(day + 1)
-        else:
-            begin = None
-            end = None
+
         self.nwp.select_timeframe(begin=begin, end=end)
 
     @staticmethod
     def _scale_wind_for_ideal_case(wind_speed, wind_dir, input_speed, input_dir):
+        """
+        Specify specific wind speed and direction for ideal cases.
+
+        Parameters
+        ----------
+        wind_speed : array
+        wind_dir : array
+        input_speed : constant
+        input_dir : constant
+
+        Returns
+        -------
+        wind_speed : array
+            Constant wind speed.
+        wind_direction : array
+            Constant wind direction.
+        """
         wind_speed = wind_speed * 0 + input_speed
         wind_dir = wind_dir * 0 + input_dir
         return (wind_speed, wind_dir)
@@ -726,7 +864,8 @@ class Processing:
             shape_x_mnt, shape_y_mnt = mnt_data[0, :, :].shape
         return(mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt)
 
-    def interpolate_xarray_grid(self, xarray_data=None, interp=None, name_x='xx', name_y='yy', method='linear'):
+    @staticmethod
+    def interpolate_xarray_grid(xarray_data=None, interp=None, name_x='xx', name_y='yy', method='linear'):
         new_x = np.linspace(xarray_data[name_x].min().data, xarray_data[name_x].max().data, xarray_data.dims[name_x] * interp)
         new_y = np.linspace(xarray_data[name_y].min().data, xarray_data[name_y].max().data, xarray_data.dims[name_y] * interp)
         xarray_data = xarray_data.interp(xx=new_x, yy=new_y, method=method)
@@ -1217,7 +1356,7 @@ class Processing:
 
         # Interpolate AROME
         if verbose: print("AROME interpolation")
-        nwp_data = self.interpolate_xarray_grid(xarray_data=nwp_data, interp=interp, method='linear')
+        nwp_data = interpolate_xarray_grid(xarray_data=nwp_data, interp=interp, method='linear')
         nwp_data = self.compute_wind_speed(working_with_xarray=True, xarray_data=nwp_data)
 
         # Time scale and domain length
