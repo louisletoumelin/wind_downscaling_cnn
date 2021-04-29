@@ -54,7 +54,7 @@ Z0 = True
 load_z0 = True
 save_z0 = False
 peak_valley = True
-launch_predictions = True
+launch_predictions = False
 verbose = True
 stations_to_predict = ['Col du Lac Blanc', 'Col du Lautaret']
 

@@ -148,6 +148,12 @@ class Observation:
         # Resample to hourly values: keep only top of hour values
         vallot = vallot.resample('1H').first()
 
+        # Change data type
+        vallot["vw10m(m/s)"] = vallot["vw10m(m/s)"].astype("float32")
+        vallot["winddir(deg)"] = vallot["winddir(deg)"].astype("float32")
+        vallot["T2m(degC)"] = vallot["T2m(degC)"].astype("float32")
+
+
         # The measurement height is 3m and we apply a log profile to 10m
         if log_profile:
             z0_vallot = 0.00549
@@ -233,6 +239,11 @@ class Observation:
 
         # Resample to hourly values: keep only top of hour values
         glacier = glacier.resample('1H').first()
+
+        # Change data type
+        glacier["vw10m(m/s)"] = glacier["vw10m(m/s)"].astype("float32")
+        glacier["winddir(deg)"] = glacier["winddir(deg)"].astype("float32")
+        glacier["T2m(degC)"] = glacier["T2m(degC)"].astype("float32")
 
         if verbose:
             nb_missing_dates = len(glacier.asfreq('1H').index) - len(glacier.index)
@@ -362,6 +373,7 @@ class Observation:
     def _degToCompass(num):
         if np.isnan(num):
             return(np.nan)
+
         else:
             val=int((num/22.5)+.5)
             arr=["N","NNE","NE","ENE","E","ESE", "SE", "SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"]
@@ -422,7 +434,7 @@ class Observation:
             else:
                 pass
 
-        print(f"Found {nb_problem} duplicated dates")
+        print(f"..Found {nb_problem} duplicated dates")
 
     def qc_resample_index(self, frequency = '1H'):
         """
@@ -1128,7 +1140,6 @@ class Observation:
 
             # Select calm period for each resolution
             for resolution in range(5):
-                print(f"Resolution: {resolution}")
 
                 # Load constant sequences
                 data = dict_constant_sequence[station]['length_constant_speed'][str(resolution)]['<1m/s']
@@ -1150,8 +1161,11 @@ class Observation:
                             # Ten days time serie
                             begin_ten_days = begin - np.timedelta64(10, 'D')
                             end_ten_days = end + np.timedelta64(10, 'D')
-                            ten_days_1 = time_series_station[wind_speed][begin_ten_days: begin]
-                            ten_days_2 = time_series_station[wind_speed][end: end_ten_days]
+                            try:
+                                ten_days_1 = time_series_station[wind_speed][begin_ten_days: begin]
+                                ten_days_2 = time_series_station[wind_speed][end: end_ten_days]
+                            except IndexError:
+                                pass
                             ten_days_time_serie = pd.concat((ten_days_1, ten_days_2))
 
                             # One day time serie
@@ -1163,54 +1177,62 @@ class Observation:
                             selected_neighbors = []
                             ra = []
                             RA = None
-                            for neighbor in list_neighbors:
+                            if np.shape(list_neighbors) != 0:
+                                for neighbor in list_neighbors:
 
-                                neighbor_time_serie = time_series[time_series["name"] == neighbor]
-                                neighbor_ten_days_before = neighbor_time_serie[wind_speed][begin_ten_days: begin]
-                                neighbor_ten_days_after = neighbor_time_serie[wind_speed][end: end_ten_days]
-                                neighbor_ten_days_before_after = pd.concat((neighbor_ten_days_before, neighbor_ten_days_after))
+                                    neighbor_time_serie = time_series[time_series["name"] == neighbor]
+                                    try:
+                                        neighbor_ten_days_before = neighbor_time_serie[wind_speed][begin_ten_days: begin]
+                                        neighbor_ten_days_after = neighbor_time_serie[wind_speed][end: end_ten_days]
+                                        neighbor_ten_days_before_after = pd.concat((neighbor_ten_days_before, neighbor_ten_days_after))
 
-                                # Correlation between ten day time series
-                                data = np.array((ten_days_time_serie, neighbor_ten_days_before_after)).T
-                                corr_coeff = pd.DataFrame(data).corr().iloc[0, 1]
+                                        # Correlation between ten day time series
+                                        data = np.array((ten_days_time_serie, neighbor_ten_days_before_after)).T
+                                        corr_coeff = pd.DataFrame(data).corr().iloc[0, 1]
 
-                                # If stations are correlated
-                                if corr_coeff >= 0.4:
+                                    except IndexError:
+                                        print("Data", data)
+                                        pass
 
-                                    # Neighbor candidate accepted
-                                    nb_neighbor_selected += 1
-                                    selected_neighbors.append(neighbor)
 
-                                    # Normalize neighbors observations
-                                    neighbor_one_day = neighbor_time_serie[wind_speed][begin_one_day: end_one_day]
-                                    ra.append((neighbor_one_day - np.nanmean(neighbor_one_day)) / np.nanstd(neighbor_one_day))
+                                    # If stations are correlated
+                                    if corr_coeff >= 0.4:
 
-                            print(f"Number of neighbors selected: {nb_neighbor_selected}")
+                                        # Neighbor candidate accepted
+                                        nb_neighbor_selected += 1
+                                        selected_neighbors.append(neighbor)
 
-                            # If we found neighbors
-                            if nb_neighbor_selected > 0:
+                                        # Normalize neighbors observations
+                                        try:
+                                            neighbor_one_day = neighbor_time_serie[wind_speed][begin_one_day: end_one_day]
+                                        except IndexError:
+                                            pass
+                                        ra.append((neighbor_one_day - np.nanmean(neighbor_one_day)) / np.nanstd(neighbor_one_day))
 
-                                # We compute the mean of ra of the neighbors
-                                ra = pd.concat(ra).groupby(pd.concat(ra).index).mean() if len(ra) > 1 else ra[0]
+                                # If we found neighbors
+                                if nb_neighbor_selected > 0:
 
-                                # RA
-                                vmin = np.nanmin(ra[begin:end])
-                                vmax = np.nanmax([ra[begin_ten_days: begin], ra[end: end_ten_days]])
-                                RA = (ra - vmin) / (vmax - vmin)
-                                RA = RA[begin:end]
+                                    # We compute the mean of ra of the neighbors
+                                    ra = pd.concat(ra).groupby(pd.concat(ra).index).mean() if len(ra) > 1 else ra[0]
 
-                                # Store variables
-                                time_series_station["ra"][time_series_station.index.isin(ra)] = ra
-                                time_series_station["RA"][time_series_station.index.isin(RA)] = RA
-                                time_series_station["qc_neighbors_selected"][time_series_station.index.isin(RA)] = [selected_neighbors for k in range(len(RA))]
+                                    # RA
+                                    vmin = np.nanmin(ra[begin:end])
+                                    vmax = np.nanmax([ra[begin_ten_days: begin], ra[end: end_ten_days]])
+                                    RA = (ra - vmin) / (vmax - vmin)
+                                    RA = RA[begin:end]
 
-                            if RA is not None:
-                                time_series_station["qc_4"][
-                                    time_series_station.index.isin(RA[RA > 0.33].index)] = "qc_ra_suspicious"
-                                time_series_station["validity"][time_series_station.index.isin(RA[RA > 0.33].index)] = 0
-                                time_series_station["last_flagged"][time_series_station.index.isin(RA[RA > 0.33].index)] = "qc_ra_suspicious"
-                                time_series_station["qc_4"][time_series_station.index.isin(RA[RA <= 0.33].index)] = "qc_ra_ok"
-                                time_series_station["last_unflagged"][time_series_station.index.isin(RA[RA <= 0.33].index)] = "qc_ra_ok"
+                                    # Store variables
+                                    time_series_station["ra"][time_series_station.index.isin(ra)] = ra
+                                    time_series_station["RA"][time_series_station.index.isin(RA)] = RA
+                                    time_series_station["qc_neighbors_selected"][time_series_station.index.isin(RA)] = [selected_neighbors for k in range(len(RA))]
+
+                                if RA is not None:
+                                    time_series_station["qc_4"][
+                                        time_series_station.index.isin(RA[RA > 0.33].index)] = "qc_ra_suspicious"
+                                    time_series_station["validity"][time_series_station.index.isin(RA[RA > 0.33].index)] = 0
+                                    time_series_station["last_flagged"][time_series_station.index.isin(RA[RA > 0.33].index)] = "qc_ra_suspicious"
+                                    time_series_station["qc_4"][time_series_station.index.isin(RA[RA <= 0.33].index)] = "qc_ra_ok"
+                                    time_series_station["last_unflagged"][time_series_station.index.isin(RA[RA <= 0.33].index)] = "qc_ra_ok"
 
             # Add station to list of dataframe
             list_dataframe.append(time_series_station)
