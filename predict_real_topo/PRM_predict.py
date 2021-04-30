@@ -1,7 +1,7 @@
 import numpy as np
 import datetime
 
-def create_prm(GPU, end=None, month_prediction=True):
+def create_prm(GPU=None, Z0=None, end=None, month_prediction=True):
 
     prm = {}
 
@@ -42,12 +42,14 @@ def create_prm(GPU, end=None, month_prediction=True):
         prm = update_selected_path(year, month, day, prm)
 
     # Z0
-    prm["path_Z0_2018"] = prm["data_path"] + "AROME/Z0/Z0_alp_2018010100_2018120700.nc"
-    prm["path_Z0_2019"] = prm["data_path"] + "AROME/Z0/Z0_alp_20190103_20191227.nc"
-    prm["save_path"] = prm["data_path"] + "AROME/Z0/"
+    prm["path_Z0_2018"] = prm["data_path"] + "AROME/Z0/Z0_alp_2018010100_2018120700.nc" if Z0 else None
+    prm["path_Z0_2019"] = prm["data_path"] + "AROME/Z0/Z0_alp_20190103_20191227.nc" if Z0 else None
+    prm["save_path"] = prm["data_path"] + "AROME/Z0/" if Z0 else None
+
 
     # Observation
-    prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_BDClim_et_sta_alp_20171101_20190501.csv"
+    #prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_BDClim_et_sta_alp_20171101_20190501.csv"
+    prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_FF_T_RR1_alp_2015010100_2021013100.csv"
     prm["path_vallot"] = prm["data_path"] + "BDclim/Vallot/"
     prm["path_saint_sorlin"] = prm["data_path"] + "BDclim/Saint-Sorlin/"
     prm["path_argentiere"] = prm["data_path"] + "BDclim/Argentiere/"
@@ -68,8 +70,11 @@ def update_selected_path(year, month, day, prm):
 
     if d1 < current_date < d2:
         prm["selected_path"] = prm["AROME_path_1"]
-    if d2 < current_date < d3:
+    elif d2 < current_date < d3:
         prm["selected_path"] = prm["AROME_path_2"]
-    if d4 < current_date < d5:
+    elif d4 < current_date < d5:
         prm["selected_path"] = prm["AROME_path_3"]
+    else:
+        prm["selected_path"] = prm["AROME_path_3"]
+
     return(prm)

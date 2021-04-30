@@ -4,6 +4,7 @@ t_init = t()
 
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 from line_profiler import LineProfiler
 
 
@@ -50,22 +51,23 @@ To be modified
 """
 
 GPU = False
-Z0 = True
+Z0 = False
 load_z0 = True
 save_z0 = False
 peak_valley = True
 launch_predictions = False
+select_date_time_serie = True
 verbose = True
-stations_to_predict = ['Col du Lac Blanc', 'Col du Lautaret']
+stations_to_predict = ['Col du Lac Blanc']
 
 # Date to predict
 day_begin = 1
 month_begin = 6
-year_begin = 2019
+year_begin = 2017
 
 day_end = 30
 month_end = 6
-year_end = 2019
+year_end = 2017
 
 begin = str(year_begin) + "-" + str(month_begin) + "-" + str(day_begin)
 end = str(year_end) + "-" + str(month_end) + "-" + str(day_end)
@@ -82,7 +84,7 @@ load_z0, save_z0 = check_save_and_load(load_z0, save_z0)
 if GPU: connect_GPU_to_horovod()
 
 # Create prm
-prm = create_prm(GPU, end=end, month_prediction=True)
+prm = create_prm(GPU=GPU, Z0=Z0, end=end, month_prediction=True)
 
 """
 MNT, NWP and observations
@@ -108,7 +110,7 @@ BDclim = Observation(prm["BDclim_stations_path"],
                      prm["BDclim_data_path"],
                      begin=begin,
                      end=end,
-                     select_date_time_serie=False,
+                     select_date_time_serie=select_date_time_serie,
                      path_vallot=prm["path_vallot"],
                      path_saint_sorlin=prm["path_saint_sorlin"],
                      path_argentiere=prm["path_argentiere"])

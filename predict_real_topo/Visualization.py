@@ -5,9 +5,11 @@ from scipy.spatial import cKDTree
 from scipy.ndimage import rotate
 import random  # Warning
 from time import time as t
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from mpl_toolkits.mplot3d import axes3d  # Warning
+import seaborn as sns
 
 try:
     from shapely.geometry import Point
@@ -596,3 +598,145 @@ class Visualization:
         ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
         ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
         ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+
+    def qc_plot_validity(self, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
+
+        # Select time series
+        time_series = self.p.observation.time_series
+
+
+        for station in time_series["name"].unique():
+
+            # Select station
+            time_serie_station = time_series[time_series["name"] == station]
+
+            # Wind speed
+            plt.figure()
+            try:
+                plt.subplot(211)
+                time_serie_station[wind_speed].plot(marker='x')
+                time_serie_station[wind_speed][time_serie_station['validity'] == 0].plot(marker='x', linestyle='')
+            except:
+                pass
+
+            # Wind direction
+            try:
+                plt.subplot(212)
+                time_serie_station[wind_direction].plot(marker='x')
+                time_serie_station[wind_direction][time_serie_station['validity'] == 0].plot(marker='x', linestyle='')
+            except:
+                pass
+
+            plt.title(station)
+
+    def qc_plot_resolution(self, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
+
+        # Select time series
+        time_series = self.p.observation.time_series
+
+        for station in time_series["name"].unique():
+
+            # Select station
+            time_serie_station = time_series[time_series["name"] == station]
+
+            plt.figure()
+            try:
+                plt.subplot(211)
+
+                cmap = matplotlib.cm.viridis
+                bounds = [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5]
+                norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
+
+                x = time_serie_station[wind_speed].index
+                y = time_serie_station[wind_speed].values
+                c = time_serie_station['resolution_speed'].values
+                im = plt.scatter(x, y, c=c, marker='x', norm=norm, cmap=cmap)
+                plt.colorbar(im)
+            except:
+                pass
+
+            try:
+                plt.subplot(212)
+
+                cmap = matplotlib.cm.magma
+                bounds = [0, 0.2, 1.5, 7, 12]
+                norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
+                x = time_serie_station[wind_direction].index
+                y = time_serie_station[wind_direction].values
+                c = time_serie_station['resolution_direction'].values
+                im = plt.scatter(x, y, c=c, marker='x', norm=norm, cmap=cmap)
+                plt.colorbar(im)
+            except:
+                pass
+
+            plt.title(station)
+            plt.tight_layout()
+
+    def qc_plot_constant(self, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
+
+        # Select time series
+        time_series = self.p.observation.time_series
+
+        for station in time_series["name"].unique():
+
+            # Select station
+            time_serie_station = time_series[time_series["name"] == station]
+
+            plt.figure()
+            try:
+                plt.subplot(211)
+
+                cmap = matplotlib.cm.viridis
+                bounds = [-0.5, 0.5, 1.5]
+                norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
+
+                x = time_serie_station[wind_speed].index
+                y = time_serie_station[wind_speed].values
+                c = time_serie_station['constant_speed'].values
+                im = plt.scatter(x, y, c=c, marker='x', norm=norm, cmap=cmap)
+                plt.colorbar(im)
+            except:
+                pass
+
+            try:
+                plt.subplot(212)
+
+                cmap = matplotlib.cm.magma
+                bounds = [-0.5, 0.5, 1.5]
+                norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
+                x = time_serie_station[wind_direction].index
+                y = time_serie_station[wind_direction].values
+                c = time_serie_station['constant_direction'].values
+                im = plt.scatter(x, y, c=c, marker='x', norm=norm, cmap=cmap)
+                plt.colorbar(im)
+            except:
+                pass
+
+            plt.title(station)
+            plt.tight_layout()
+
+    def qc_plot_last_flagged(self, variable = "wind_speed", wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
+
+        # Select time series
+        time_series = self.p.observation.time_series
+
+        if variable == "wind_speed":
+            variable = wind_speed
+        elif variable == "wind_direction":
+            variable = wind_direction
+
+        for station in time_series["name"].unique():
+
+            # Select station
+            time_serie_station = time_series[time_series["name"] == station]
+
+            plt.figure()
+
+            plt.subplot(211)
+            sns.scatterplot(x=time_serie_station.index, y=variable, data=time_serie_station, hue='last_flagged')
+
+            plt.subplot(212)
+            sns.scatterplot(x=time_serie_station.index, y=variable, data=time_serie_station, hue='last_unflagged')
+
+            plt.title(station)
+            plt.tight_layout()

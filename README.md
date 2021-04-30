@@ -5,7 +5,9 @@ Ongoing study - PhD Louis Le Toumelin
 
 ## How it works
 *Learning*
+
 **Input** : Synthetic topographies
+
 **Output** : ARPS wind on synthetic topographies. Wind comes from the West at 3 m/s.
 
 *Prediction*
@@ -26,10 +28,7 @@ Training (performed on GPU)
 
 > train/
 
-
-Training (performed on GPU)
-
-> predict_real_topo
+> predict_real_topo/
 
 Predictions on real topographies
 
