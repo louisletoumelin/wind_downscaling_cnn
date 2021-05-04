@@ -141,13 +141,13 @@ class Processing:
 
         Parameters
         ----------
-        wind_speed : boolean, optional
+        wind_speed : ndarray
             Wind speed from NWP
-        z_out : boolean, optional
+        z_out : ndarray
             Elevation at which desinfluencing is performed
-        z0 : boolean, optional
+        z0 : ndarray
             Roughness length for momentum
-        z0_rel : boolean, optional
+        z0_rel : ndarray
             Roughness length for momentum associated with mean topography
         apply_directly_to_nwp : boolean, optional
             If True, updates the nwp directly by adding a new variable (Default: False)

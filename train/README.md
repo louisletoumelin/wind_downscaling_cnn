@@ -1,13 +1,27 @@
 ## How to start training
 
-Specify details of training (hyperparameters etc)
+All parameters, hyperparameters, path to data etc are specified in the following file
 
 ```
 prm/create_prm.py
 ```
 
-Launch pipeline
+To launch the training, use command
 
 ```
-train_models.py
+python train_models.py
 ```
+
+If you want to launch several trainings in parallel on different GPUs, each training can be launched individually. Please, specify parameters, hyperparameters etc in the following file. 
+
+```
+python prm/create_prm_2.py
+```
+
+To launch the second training, use command
+
+```
+python experience_2.py
+```
+
+For GPU selection, see Slurm folder.
