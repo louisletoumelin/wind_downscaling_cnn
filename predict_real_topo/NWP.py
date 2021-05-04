@@ -41,6 +41,8 @@ class NWP(Data_2D):
                  save=False, load_z0=False):
         if verbose:
             t0 = t()
+
+        # inherit from data
         super().__init__(path_to_file, name)
 
         # List of variables
@@ -53,14 +55,8 @@ class NWP(Data_2D):
         self.end = end
 
         # Path to file can be a string or a list of strings
-        if _dask:
-            # Open netcdf file
-            self.data_xr = xr.open_mfdataset(path_to_file, preprocess=self._preprocess_ncfile, concat_dim='time',
-                                             parallel=False).astype(np.float32, copy=False)
-        else:
-            print("\nNot using dask to open netcdf files\n")
-            self.data_xr = xr.open_dataset(path_to_file)
-            self.data_xr = self._preprocess_ncfile(self.data_xr)
+        self.load_nwp_files(path_to_file=path_to_file,
+                            preprocess_function=self._preprocess_ncfile)
 
         # Select timeframe
         self.select_timeframe()
@@ -69,10 +65,7 @@ class NWP(Data_2D):
         self._select_specific_variables()
 
         # Add L93 coordinates
-        if _pyproj:
-            self.gps_to_l93()
-        else:
-            self._add_X_Y_L93(path_to_file_npy)
+        self.add_l93_coordinates(path_to_file_npy=path_to_file_npy)
 
         # Modify variables of interest
         self.variables_of_interest = variables_of_interest + ['X_L93', 'Y_L93']
@@ -85,6 +78,29 @@ class NWP(Data_2D):
         if verbose:
             t1 = t()
             print(f"\nNWP created in {np.round(t1-t0, 2)} seconds\n")
+
+    def load_nwp_files(self, path_to_file=None, preprocess_function=None): #self._preprocess_ncfile
+        if _dask:
+            # Open netcdf file
+            self.data_xr = xr.open_mfdataset(path_to_file,
+                                             preprocess=preprocess_function,
+                                             concat_dim='time',
+                                             parallel=False).astype(np.float32, copy=False)
+        else:
+            print("\nNot using dask to open netcdf files\n")
+            self.data_xr = xr.open_dataset(path_to_file)
+            self.data_xr = preprocess_function(self.data_xr)
+
+    def add_l93_coordinates(self, path_to_file_npy=None):
+        if _pyproj:
+            self.data_xr = self.gps_to_l93(data_xr=self.data_xr,
+                                           shape=self.shape,
+                                           lon='LON',
+                                           lat='LAT',
+                                           height=self.height,
+                                           length=self.length)
+        else:
+            self._add_X_Y_L93(path_to_file_npy)
 
     def _add_X_Y_L93(self, path_to_file_npy):
         X_L93 = np.load(path_to_file_npy + "_X_L93.npy")
@@ -238,27 +254,29 @@ class NWP(Data_2D):
     def shape(self):
         return (self.data_xr['LON'].shape)
 
-    def gps_to_l93(self):
+    @staticmethod
+    def gps_to_l93(data_xr=None, shape=None, lon='LON', lat='LAT', height=None, length=None):
         """Converts LAT/LON information from a NWP to L93"""
 
         # Initialization
-        X_L93 = np.zeros(self.shape)
-        Y_L93 = np.zeros(self.shape)
+        X_L93 = np.zeros(shape)
+        Y_L93 = np.zeros(shape)
 
         # Load transformer
         gps_to_l93_func = pyproj.Transformer.from_crs(4326, 2154, always_xy=True)
 
         # Transform coordinates of each points
-        for i in range(self.height):
-            for j in range(self.length):
+        for i in range(height):
+            for j in range(length):
                 projected_points = [point for point in
                                     gps_to_l93_func.itransform(
-                                        [(self.data_xr['LON'][i, j], self.data_xr['LAT'][i, j])])]
+                                        [(data_xr[lon][i, j], data_xr[lat][i, j])])]
                 X_L93[i, j], Y_L93[i, j] = projected_points[0]
 
         # Create a new variable with new coordinates
-        self.data_xr["X_L93"] = (("yy", "xx"), X_L93)
-        self.data_xr["Y_L93"] = (("yy", "xx"), Y_L93)
+        data_xr["X_L93"] = (("yy", "xx"), X_L93)
+        data_xr["Y_L93"] = (("yy", "xx"), Y_L93)
+        return(data_xr)
 
     def select_timeframe(self, begin=None, end=None):
         if (begin is not None) and (end is not None):

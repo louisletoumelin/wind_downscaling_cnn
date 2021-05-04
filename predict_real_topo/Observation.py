@@ -44,10 +44,7 @@ class Observation:
         self._qc = False
 
         # Stations
-        if _shapely_geometry:
-            self.stations = pd.read_csv(path_to_list_stations)
-        else:
-            self.stations = pd.read_pickle(path_to_list_stations)
+        self.load_observation_files(type='station', path=path_to_list_stations)
 
         # Add additional stations
         if self.path_vallot is not None: self._add_station(name='Vallot')
@@ -55,8 +52,7 @@ class Observation:
         if self.path_argentiere is not None: self._add_station(name='Argentiere')
 
         # Time series
-        self.time_series = pd.read_csv(path_to_time_series)
-        self.time_series.index = self.time_series['date'].apply(lambda x: np.datetime64(x))
+        self.load_observation_files(type='time_series', path=path_to_time_series)
         if select_date_time_serie: self._select_date_time_serie()
 
         # Add additional time series
@@ -67,6 +63,18 @@ class Observation:
 
         t1 = t()
         print(f"\nObservation created in {np.round(t1-t0, 2)} seconds\n")
+
+    def load_observation_files(self, type=None, path=None, datetime_index=True, date_column='date'):
+
+        if type == 'station':
+            if _shapely_geometry:
+                self.stations = pd.read_csv(path)
+            else:
+                self.stations = pd.read_pickle(path)
+
+        if type == 'time_series':
+            self.time_series = pd.read_csv(path)
+            if datetime_index: self.time_series.index = self.time_series[date_column].apply(lambda x: np.datetime64(x))
 
     def _select_date_time_serie(self, begin=None, end=None):
         if (begin is None) and (end is None):
@@ -1479,7 +1487,6 @@ class Observation:
         print("End qc_removal_unphysical_values\n")
 
         print("Begin qc_get_wind_speed_resolution")
-        self.qc_get_wind_speed_resolution()
         self.qc_get_wind_speed_resolution()
         print("End qc_get_wind_speed_resolution\n")
 

@@ -18,15 +18,26 @@ class MNT(Data_2D):
 
     def __init__(self, path_to_file, name=None):
         t0 = t()
+
+        # Inherit from Data
         super().__init__(path_to_file, name)
+
+        # Load MNT with xr.open_rasterio or xr.open_dataset
+        self.load_mnt_files(path_to_file)
+
+        # Name
+        self.name = name
+
+        t1 = t()
+        print(f"\nMNT created in {np.round(t1-t0, 2)} seconds\n")
+
+    def load_mnt_files(self, path_to_file):
         if _dask:
             self.data_xr = xr.open_rasterio(path_to_file).astype(np.float32, copy=False)
             self.data = self.data_xr.values[0, :, :]
         else:
             self.data_xr = xr.open_dataset(path_to_file).astype(np.float32, copy=False)
             self.data = self.data_xr.__xarray_dataarray_variable__.data[0, :, :]
-        t1 = t()
-        print(f"\nMNT created in {np.round(t1-t0, 2)} seconds\n")
 
     def find_nearest_MNT_index(self, x, y,
                                look_for_corners=True, xmin_MNT=None, ymax_MNT=None,
