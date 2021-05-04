@@ -266,3 +266,10 @@ class NWP(Data_2D):
         else:
             self.data_xr = self.data_xr.sel(time=slice(self.begin, self.end))
 
+    def select_nwp_pixel(self, idx_x_nwp, idx_y_nwp, select_using_index=True):
+
+        if select_using_index:
+            x_nwp_L93 = nwp_x_l93.isel(xx=idx_x_nwp, yy=idx_y_nwp).data
+            y_nwp_L93 = nwp_y_l93.isel(xx=idx_x_nwp, yy=idx_y_nwp).data
+        return(x_nwp_L93, y_nwp_L93)
+

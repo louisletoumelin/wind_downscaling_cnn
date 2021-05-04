@@ -63,6 +63,7 @@ class Observation:
         if self.path_vallot is not None: self._add_time_serie_vallot(log_profile=True)
         if self.path_saint_sorlin is not None: self._add_time_serie_glacier(name='Saint-Sorlin', log_profile=False)
         if self.path_argentiere is not None: self._add_time_serie_glacier(name='Argentiere', log_profile=False)
+        if select_date_time_serie: self._select_date_time_serie()
 
         t1 = t()
         print(f"\nObservation created in {np.round(t1-t0, 2)} seconds\n")
@@ -395,11 +396,14 @@ class Observation:
             time_series_station["UV_DIR"] = time_series_station[wind_direction]
 
             # Create validity
-            time_series_station["validity"] = 1
+            time_series_station["validity_speed"] = 1
+            time_series_station["validity_direction"] = 1
 
             # Create validity
-            time_series_station["last_flagged"] = 0
-            time_series_station["last_unflagged"] = 0
+            time_series_station["last_flagged_speed"] = 0
+            time_series_station["last_flagged_direction"] = 0
+            time_series_station["last_unflagged_speed"] = 0
+            time_series_station["last_unflagged_direction"] = 0
 
             # Create resolution
             time_series_station['resolution_speed'] = np.nan
@@ -633,11 +637,12 @@ class Observation:
             filter_3 = (time_series_station[wind_direction] < 0)
             filter_4 = (time_series_station[wind_direction] > 360)
 
-            time_series_station['validity'][(filter_1 | filter_2 | filter_3 | filter_4)] = 0
+            time_series_station['validity_speed'][(filter_1 | filter_2)] = 0
+            time_series_station['validity_direction'][(filter_3 | filter_4)] = 0
             time_series_station["qc_1"][(filter_1 | filter_2)] = "unphysical_wind_speed"
-            time_series_station["last_flagged"][(filter_1 | filter_2)] = "unphysical_wind_speed"
+            time_series_station["last_flagged_speed"][(filter_1 | filter_2)] = "unphysical_wind_speed"
             time_series_station["qc_1"][(filter_3 | filter_4)] = "unphysical_wind_direction"
-            time_series_station["last_flagged"][(filter_3 | filter_4)] = "unphysical_wind_direction"
+            time_series_station["last_flagged_direction"][(filter_3 | filter_4)] = "unphysical_wind_direction"
             time_series_station["qc_1"][(filter_1 | filter_2) & (filter_3 | filter_4)] = "unphysical_wind_speed_and_direction"
 
             # Add station to list of dataframe
@@ -702,63 +707,126 @@ class Observation:
             previous_step_speed = False
             previous_step_direction = False
 
+            # Tolerance
+            tolerance = 0.15
+
             resolution_constant_sequence = []
             speed_sequence = []
             resolution_constant_sequence_direction = []
             direction_sequence = []
             for index in range(nb_values-1):
-
+                if station == 'Vallot': print(previous_step_speed)
                 # Constant speed sequences
                 if np.isnan(speed_values[index]):
                     constant_speed[index] = np.nan
-                    previous_step_speed = False
-                    resolution_constant_sequence = []
-                    speed_sequence = []
-                elif speed_values[index] != speed_values[index+1]:
-                    constant_speed[index+1] = 0
-                    # If the previous sequence was constant and is finished
+
                     if previous_step_speed:
                         if np.mean(speed_sequence) >= 1:
-                            dict_constant_sequence[station]["length_constant_speed"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(lenght_speed)
-                            dict_constant_sequence[station]["date_constant_speed_end"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(dates[index])
-                            dict_constant_sequence[station]["date_constant_speed_begin"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(date_begin)
+                            dict_constant_sequence[station]["length_constant_speed"][
+                                str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(lenght_speed)
+                            dict_constant_sequence[station]["date_constant_speed_end"][
+                                str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(dates[index])
+                            dict_constant_sequence[station]["date_constant_speed_begin"][
+                                str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(date_begin)
+                            if station == 'Vallot':
+                                print("End >1", dates[index])
+                                print("begin here", date_begin)
+                            if station == 'Vallot': print('\n')
                         else:
-                            dict_constant_sequence[station]["length_constant_speed"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(lenght_speed)
-                            dict_constant_sequence[station]["date_constant_speed_end"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(dates[index])
-                            dict_constant_sequence[station]["date_constant_speed_begin"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(date_begin)
+                            dict_constant_sequence[station]["length_constant_speed"][
+                                str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(lenght_speed)
+                            dict_constant_sequence[station]["date_constant_speed_end"][
+                                str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(dates[index])
+                            dict_constant_sequence[station]["date_constant_speed_begin"][
+                                str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(date_begin)
+                            if station == 'Vallot':
+                                print("End <1", dates[index])
+                                print("begin here", date_begin)
+                            if station == 'Vallot': print('\n')
+
                     previous_step_speed = False
                     resolution_constant_sequence = []
                     speed_sequence = []
                 else:
-                    constant_speed[index] = 1
-                    constant_speed[index+1] = 1
-                    resolution_constant_sequence.append(resolution_speed[index])
-                    speed_sequence.append(speed_values[index])
-                    # If the previous sequence was constant and continues
-                    if previous_step_speed:
-                        lenght_speed += 1
+                    if np.abs(speed_values[index] - speed_values[index+1]) > tolerance:
+                        constant_speed[index+1] = 0
+                        # If the previous sequence was constant and is finished
+                        if previous_step_speed:
+                            if np.mean(speed_sequence) >= 1:
+                                dict_constant_sequence[station]["length_constant_speed"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(lenght_speed)
+                                dict_constant_sequence[station]["date_constant_speed_end"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(dates[index])
+                                dict_constant_sequence[station]["date_constant_speed_begin"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(date_begin)
+                                if station == 'Vallot':
+                                    print("End >1", dates[index])
+                                    print("begin here", date_begin)
+                                if station == 'Vallot': print('\n')
+                            else:
+                                dict_constant_sequence[station]["length_constant_speed"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(lenght_speed)
+                                dict_constant_sequence[station]["date_constant_speed_end"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(dates[index])
+                                dict_constant_sequence[station]["date_constant_speed_begin"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(date_begin)
+                                if station == 'Vallot':
+                                    print("End <1", dates[index])
+                                    print("begin here", date_begin)
+                                if station == 'Vallot': print('\n')
+                        previous_step_speed = False
+                        resolution_constant_sequence = []
+                        speed_sequence = []
                     else:
-                        lenght_speed = 2
-                        date_begin = dates[index]
-                    # If the time_serie end with a constant sequence
-                    if index == nb_values - 2:
-                        if np.mean(speed_sequence) >= 1:
-                            dict_constant_sequence[station]["length_constant_speed"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(lenght_speed)
-                            dict_constant_sequence[station]["date_constant_speed_end"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(dates[index])
-                            dict_constant_sequence[station]["date_constant_speed_begin"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(date_begin)
+                        constant_speed[index] = 1
+                        constant_speed[index+1] = 1
+                        resolution_constant_sequence.append(resolution_speed[index])
+                        speed_sequence.append(speed_values[index])
+                        # If the previous sequence was constant and continues
+                        if previous_step_speed:
+                            lenght_speed += 1
                         else:
-                            dict_constant_sequence[station]["length_constant_speed"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(lenght_speed)
-                            dict_constant_sequence[station]["date_constant_speed_end"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(dates[index])
-                            dict_constant_sequence[station]["date_constant_speed_begin"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(date_begin)
-                    previous_step_speed = True
+                            lenght_speed = 2
+                            date_begin = dates[index]
+                            if station == 'Vallot': print("Date begin ", date_begin)
+                        previous_step_speed = True
+                        if station == 'Vallot': print(dates[index])
+
+                        # If the time_serie end with a constant sequence
+                        if index == (nb_values - 2):
+                            if np.mean(speed_sequence) >= 1:
+                                dict_constant_sequence[station]["length_constant_speed"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(lenght_speed)
+                                dict_constant_sequence[station]["date_constant_speed_end"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(dates[index])
+                                dict_constant_sequence[station]["date_constant_speed_begin"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(date_begin)
+                                if station == 'Vallot':
+                                    print("End >1", dates[index])
+                                    print("begin here", date_begin)
+                                if station == 'Vallot': print('\n')
+                            else:
+                                dict_constant_sequence[station]["length_constant_speed"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(lenght_speed)
+                                dict_constant_sequence[station]["date_constant_speed_end"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(dates[index])
+                                dict_constant_sequence[station]["date_constant_speed_begin"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(date_begin)
+                                if station == 'Vallot':
+                                    print("End <1", dates[index])
+                                    print("begin here", date_begin)
+                                if station == 'Vallot': print('\n')
 
                 # Constant direction sequences
                 if np.isnan(direction_values[index]):
                     constant_direction[index] = np.nan
+
+                    if previous_step_direction:
+                        if np.mean(direction_sequence) == 0:
+                            most_frequent_value = np.bincount([10 * value for value in resolution_constant_sequence_direction]).argmax() / 10
+                            most_frequent_value = int(most_frequent_value) if most_frequent_value >= 1 else most_frequent_value
+                            dict_constant_sequence[station]["length_constant_direction"][str(most_frequent_value)]["=0"].append(lenght_direction)
+                            dict_constant_sequence[station]["date_constant_direction_end"][str(most_frequent_value)]["=0"].append(dates[index])
+                            dict_constant_sequence[station]["date_constant_direction_begin"][str(most_frequent_value)]["=0"].append(date_begin_direction)
+                        else:
+                            most_frequent_value = np.bincount([10 * value for value in resolution_constant_sequence_direction]).argmax() / 10
+                            most_frequent_value = int(most_frequent_value) if most_frequent_value >= 1 else most_frequent_value
+                            dict_constant_sequence[station]["length_constant_direction"][str(most_frequent_value)]["!=0"].append(lenght_direction)
+                            dict_constant_sequence[station]["date_constant_direction_end"][str(most_frequent_value)]["!=0"].append(dates[index])
+                            dict_constant_sequence[station]["date_constant_direction_begin"][str(most_frequent_value)]["!=0"].append(date_begin_direction)
+
                     previous_step_direction = False
                     resolution_constant_sequence_direction = []
                     direction_sequence = []
-                if direction_values[index] != direction_values[index+1]:
+                if np.abs(direction_values[index] - direction_values[index+1]) > tolerance:
                     constant_direction[index + 1] = 0
                     # If the previous sequence was constant and is finished
                     if previous_step_direction:
@@ -767,13 +835,13 @@ class Observation:
                             most_frequent_value = int(most_frequent_value) if most_frequent_value >= 1 else most_frequent_value
                             dict_constant_sequence[station]["length_constant_direction"][str(most_frequent_value)]["=0"].append(lenght_direction)
                             dict_constant_sequence[station]["date_constant_direction_end"][str(most_frequent_value)]["=0"].append(dates[index])
-                            dict_constant_sequence[station]["date_constant_direction_begin"][str(most_frequent_value)]["=0"].append(date_begin)
+                            dict_constant_sequence[station]["date_constant_direction_begin"][str(most_frequent_value)]["=0"].append(date_begin_direction)
                         else:
                             most_frequent_value = np.bincount([10 * value for value in resolution_constant_sequence_direction]).argmax() / 10
                             most_frequent_value = int(most_frequent_value) if most_frequent_value >= 1 else most_frequent_value
                             dict_constant_sequence[station]["length_constant_direction"][str(most_frequent_value)]["!=0"].append(lenght_direction)
                             dict_constant_sequence[station]["date_constant_direction_end"][str(most_frequent_value)]["!=0"].append(dates[index])
-                            dict_constant_sequence[station]["date_constant_direction_begin"][str(most_frequent_value)]["!=0"].append(date_begin)
+                            dict_constant_sequence[station]["date_constant_direction_begin"][str(most_frequent_value)]["!=0"].append(date_begin_direction)
                     previous_step_direction = False
                     resolution_constant_sequence_direction = []
                     direction_sequence = []
@@ -787,7 +855,7 @@ class Observation:
                         lenght_direction += 1
                     else:
                         lenght_direction = 2
-                        date_begin = dates[index]
+                        date_begin_direction = dates[index]
                     # If the time_serie end with a constant sequence
                     if index == nb_values - 2:
                         if np.mean(direction_sequence) == 0:
@@ -795,13 +863,13 @@ class Observation:
                             most_frequent_value = int(most_frequent_value) if most_frequent_value >= 1 else most_frequent_value
                             dict_constant_sequence[station]["length_constant_direction"][str(most_frequent_value)]["=0"].append(lenght_direction)
                             dict_constant_sequence[station]["date_constant_direction_end"][str(most_frequent_value)]["=0"].append(dates[index])
-                            dict_constant_sequence[station]["date_constant_direction_begin"][str(most_frequent_value)]["=0"].append(date_begin)
+                            dict_constant_sequence[station]["date_constant_direction_begin"][str(most_frequent_value)]["=0"].append(date_begin_direction)
                         else:
                             most_frequent_value = np.bincount([10 * value for value in resolution_constant_sequence_direction]).argmax() / 10
                             most_frequent_value = int(most_frequent_value) if most_frequent_value >= 1 else most_frequent_value
                             dict_constant_sequence[station]["length_constant_direction"][str(most_frequent_value)]["!=0"].append(lenght_direction)
                             dict_constant_sequence[station]["date_constant_direction_end"][str(most_frequent_value)]["!=0"].append(dates[index])
-                            dict_constant_sequence[station]["date_constant_direction_begin"][str(most_frequent_value)]["!=0"].append(date_begin)
+                            dict_constant_sequence[station]["date_constant_direction_begin"][str(most_frequent_value)]["!=0"].append(date_begin_direction)
                     previous_step_direction = True
 
             # Specify result of the test
@@ -818,7 +886,9 @@ class Observation:
         """
         Quality control
 
-        This function detect suspicious constant sequences based on the number of missing values
+        This function detect suspicious constant sequences based on the number of missing values.
+
+        Wind speed and direction
         """
         time_series = self.time_series
         list_stations = time_series["name"].unique()
@@ -863,8 +933,8 @@ class Observation:
 
                         # If two sequences or more have many nans we flag it
                         if missing_period_speed >= 2:
-                            time_series_station['validity'][begin:end] = 0
-                            time_series_station['last_flagged'][begin:end] = 'excessive_miss_speed'
+                            time_series_station['validity_speed'][begin:end] = 0
+                            time_series_station['last_flagged_speed'][begin:end] = 'excessive_miss_speed'
                             time_series_station['qc_2'][begin:end] = 'excessive_miss_speed'
 
             # Wind direction
@@ -895,8 +965,8 @@ class Observation:
 
                     # If two sequences or more have many nans we flag it
                     if missing_period_speed >= 2:
-                        time_series_station['validity'][begin:end] = 0
-                        time_series_station['last_flagged'][begin:end] = 'excessive_miss_direction'
+                        time_series_station['validity_direction'][begin:end] = 0
+                        time_series_station['last_flagged_direction'][begin:end] = 'excessive_miss_direction'
                         time_series_station['qc_2'][begin:end] = 'excessive_miss_direction'
 
             # Add station to list of dataframe
@@ -984,7 +1054,7 @@ class Observation:
 
                 dict_all_stations["length_constant_speed"][str(resolution)]["<1m/s"]["stats"]["criteria"] = criteria
             else:
-                dict_all_stations["length_constant_speed"][str(resolution)]["<1m/s"]["stats"]["criteria"] = None
+                dict_all_stations["length_constant_speed"][str(resolution)]["<1m/s"]["stats"]["criteria"] = 12
 
             # High wind speeds
             if len(values_2) >= 10:
@@ -1000,7 +1070,7 @@ class Observation:
 
                 dict_all_stations["length_constant_speed"][str(resolution)][">=1m/s"]["stats"]["criteria"] = criteria
             else:
-                dict_all_stations["length_constant_speed"][str(resolution)][">=1m/s"]["stats"]["criteria"] = None
+                dict_all_stations["length_constant_speed"][str(resolution)][">=1m/s"]["stats"]["criteria"] = 12
 
         # Criterion direction
         for resolution in [10, 5, 1, 0.1]:
@@ -1020,7 +1090,7 @@ class Observation:
 
                 dict_all_stations["length_constant_direction"][str(resolution)]["!=0"]["stats"]["criteria"] = criteria
             else:
-                dict_all_stations["length_constant_direction"][str(resolution)]["!=0"]["stats"]["criteria"] = None
+                dict_all_stations["length_constant_direction"][str(resolution)]["!=0"]["stats"]["criteria"] = 12
         return(dict_all_stations)
 
     def qc_apply_stats_cst_seq(self, dict_constant_sequence, dict_all_stations, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
@@ -1041,8 +1111,18 @@ class Observation:
             # qc_cst_sequence
             time_series_station['qc_3'] = np.nan
 
+            # qc_cst_sequence
+            time_series_station['preferred_direction_during_sequence'] = np.nan
+
+            # qc_cst_sequence
+            time_series_station['qc_3'] = np.nan
+
             # Preferred direction
             pref_direction = time_series_station['cardinal'].value_counts().nlargest(n=1).index
+            if np.size(pref_direction) != 0:
+                time_series_station['preferred_direction'] = pref_direction[0]
+            else:
+                time_series_station['preferred_direction'] = np.nan
 
             # Speed
             for resolution in range(5):
@@ -1054,16 +1134,21 @@ class Observation:
                     for index, length in enumerate(dict_constant_sequence[station]['length_constant_speed'][str(resolution)][speed]):
 
                         # Apply criteria
-                        if criteria is not None and (length >= criteria):
+                        assert criteria is not None
 
-                            # Select constant sequence
-                            begin = dict_constant_sequence[station]['date_constant_speed_begin'][str(resolution)][speed][index]
-                            end = dict_constant_sequence[station]['date_constant_speed_end'][str(resolution)][speed][index]
+                        # Select constant sequence
+                        begin = dict_constant_sequence[station]['date_constant_speed_begin'][str(resolution)][speed][
+                            index]
+                        end = dict_constant_sequence[station]['date_constant_speed_end'][str(resolution)][speed][index]
 
+                        if length >= criteria:
                             # Flag series
-                            time_series_station['validity'][begin:end] = 0
-                            time_series_station['last_flagged'][begin:end] = 'cst_sequence_criteria_not_passed_speed'
+                            time_series_station['validity_speed'][begin:end] = 0
+                            time_series_station['last_flagged_speed'][begin:end] = 'cst_sequence_criteria_not_passed_speed'
                             time_series_station['qc_3'][begin:end] = 'cst_sequence_criteria_not_passed_speed'
+
+                        else:
+                            time_series_station['last_unflagged_speed'][begin:end] = 'cst_sequence_criteria_passed_speed'
 
             # Direction
             for resolution in [10, 5, 1, 0.1]:
@@ -1073,23 +1158,30 @@ class Observation:
                 for index, length in enumerate(dict_constant_sequence[station]['length_constant_direction'][str(resolution)]['!=0']):
 
                     # Apply criteria
-                    if criteria is not None and (length >= criteria):
+                    assert criteria is not None
 
-                        # Select constant sequence
-                        begin = dict_constant_sequence[station]['date_constant_direction_begin'][str(resolution)]['!=0'][index]
-                        end = dict_constant_sequence[station]['date_constant_direction_end'][str(resolution)]['!=0'][index]
+                    # Select constant sequence
+                    begin = dict_constant_sequence[station]['date_constant_direction_begin'][str(resolution)]['!=0'][
+                        index]
+                    end = dict_constant_sequence[station]['date_constant_direction_end'][str(resolution)]['!=0'][index]
+
+                    if length >= criteria:
 
                         # Flag series
-                        time_series_station['validity'][begin:end] = 0
-                        time_series_station['last_flagged'][begin:end] = 'cst_sequence_criteria_not_passed_direction'
+                        time_series_station['validity_direction'][begin:end] = 0
+                        time_series_station['last_flagged_direction'][begin:end] = 'cst_sequence_criteria_not_passed_direction'
                         time_series_station['qc_3'][begin:end] = 'cst_sequence_criteria_not_passed_direction'
 
                         # Unflag if constant direction is preferred direction
-                        direction_cst_seq = time_series_station[wind_direction][begin:end].value_counts().nlargest(n=1).index
+                        direction_cst_seq = time_series_station[wind_direction][begin:end].value_counts().nlargest(n=1).index[0]
+                        time_series_station['preferred_direction_during_sequence'][begin:end] = direction_cst_seq
+
                         if direction_cst_seq == pref_direction:
-                            time_series_station['validity'][begin:end] = 1
-                            time_series_station['last_unflagged'][begin:end] = 'pref_direction'
+                            time_series_station['validity_direction'][begin:end] = 1
+                            time_series_station['last_unflagged_direction'][begin:end] = 'pref_direction'
                             time_series_station['qc_3'][begin:end] = "cst_seq_too_long_but_pref_direction"
+                    else:
+                        time_series_station['last_unflagged_direction'][begin:end] = 'cst_sequence_criteria_passed_direction'
 
             # Add station to list of dataframe
             list_dataframe.append(time_series_station)
@@ -1134,6 +1226,8 @@ class Observation:
         Quality control
 
         This function performs a regional analysis to flag/unflag constant sequences with respect to neighbors.
+
+        Specific to wind speed.
         """
         time_series = self.time_series
         list_stations = time_series["name"].unique()
@@ -1156,7 +1250,7 @@ class Observation:
             print(station)
             print(list_neighbors)
 
-            if np.shape(list_neighbors) != 0:
+            if np.size(list_neighbors) != 0:
                 # Select calm period for each resolution
                 for resolution in range(5):
 
@@ -1196,7 +1290,7 @@ class Observation:
                                 selected_neighbors = []
                                 ra = []
                                 RA = None
-                                if np.shape(list_neighbors) != 0:
+                                if np.size(list_neighbors) != 0:
                                     for neighbor in list_neighbors[0]:
 
                                         neighbor_time_serie = time_series[time_series["name"] == neighbor]
@@ -1235,7 +1329,10 @@ class Observation:
 
                                         # RA
                                         vmin = np.nanmin(ra[begin:end])
-                                        vmax = np.nanmax([ra[begin_ten_days: begin], ra[end: end_ten_days]])
+                                        vmax_begin = np.nanmax(ra[begin_ten_days: begin])
+                                        vmax_end = np.nanmax(ra[end: end_ten_days])
+                                        vmax = np.nanmax((vmax_begin, vmax_end))
+
                                         RA = (ra - vmin) / (vmax - vmin)
                                         RA = RA[begin:end]
 
@@ -1247,10 +1344,10 @@ class Observation:
                                     if RA is not None:
                                         time_series_station["qc_4"][
                                             time_series_station.index.isin(RA[RA > 0.33].index)] = "qc_ra_suspicious"
-                                        time_series_station["validity"][time_series_station.index.isin(RA[RA > 0.33].index)] = 0
-                                        time_series_station["last_flagged"][time_series_station.index.isin(RA[RA > 0.33].index)] = "qc_ra_suspicious"
+                                        time_series_station["validity_speed"][time_series_station.index.isin(RA[RA > 0.33].index)] = 0
+                                        time_series_station["last_flagged_speed"][time_series_station.index.isin(RA[RA > 0.33].index)] = "qc_ra_suspicious"
                                         time_series_station["qc_4"][time_series_station.index.isin(RA[RA <= 0.33].index)] = "qc_ra_ok"
-                                        time_series_station["last_unflagged"][time_series_station.index.isin(RA[RA <= 0.33].index)] = "qc_ra_ok"
+                                        time_series_station["last_unflagged_speed"][time_series_station.index.isin(RA[RA <= 0.33].index)] = "qc_ra_ok"
 
                 # Add station to list of dataframe
                 list_dataframe.append(time_series_station)
@@ -1262,6 +1359,8 @@ class Observation:
         Quality control
 
         This function detects suspicious high variability in data.
+
+        Specific to wind speed.
         """
         time_series = self.time_series
         list_stations = time_series["name"].unique()
@@ -1333,10 +1432,10 @@ class Observation:
 
                 time_series_station["qc_5"][(increments >= 0) & (increments >= criteria_p) & filter] = "too high"
                 time_series_station["qc_5"][(increments < 0) & (np.abs(increments) >= criteria_n) & filter] = "too high"
-                time_series_station["validity"][(increments >= 0) & (increments >= criteria_p) & filter] = 0
-                time_series_station["last_flagged"][(increments >= 0) & (increments >= criteria_p) & filter] = "high variation"
-                time_series_station["validity"][(increments < 0) & (np.abs(increments) >= criteria_n) & filter] = 0
-                time_series_station["last_flagged"][(increments < 0) & (np.abs(increments) >= criteria_n) & filter] = "high variation"
+                time_series_station["validity_speed"][(increments >= 0) & (increments >= criteria_p) & filter] = 0
+                time_series_station["last_flagged_speed"][(increments >= 0) & (increments >= criteria_p) & filter] = "high variation"
+                time_series_station["validity_speed"][(increments < 0) & (np.abs(increments) >= criteria_n) & filter] = 0
+                time_series_station["last_flagged_speed"][(increments < 0) & (np.abs(increments) >= criteria_n) & filter] = "high variation"
                 time_series_station["qc_high_variability_criteria"][(increments >= 0) & (increments >= criteria_p) & filter] = criteria_p
                 time_series_station["qc_high_variability_criteria"][(increments < 0) & (np.abs(increments) >= criteria_n) & filter] = criteria_n
 
@@ -1347,7 +1446,8 @@ class Observation:
 
     def qc(self):
 
-        import pandas as pd
+        t0 = t()
+
         pd.options.mode.chained_assignment = None  # default='warn'
 
         print("Begin initialization")
@@ -1416,6 +1516,9 @@ class Observation:
         print("End qc_high_variability\n")
 
         self._qc = True
+
+        t1 = t()
+        print(f"Time: {(t1-t0)//60} minutes")
         return(dict_constant_sequence, dict_all_stations)
     
     

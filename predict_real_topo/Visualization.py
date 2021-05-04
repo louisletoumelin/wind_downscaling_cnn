@@ -615,7 +615,7 @@ class Visualization:
             try:
                 plt.subplot(211)
                 time_serie_station[wind_speed].plot(marker='x')
-                time_serie_station[wind_speed][time_serie_station['validity'] == 0].plot(marker='x', linestyle='')
+                time_serie_station[wind_speed][time_serie_station['validity_speed'] == 0].plot(marker='x', linestyle='')
             except:
                 pass
 
@@ -623,7 +623,7 @@ class Visualization:
             try:
                 plt.subplot(212)
                 time_serie_station[wind_direction].plot(marker='x')
-                time_serie_station[wind_direction][time_serie_station['validity'] == 0].plot(marker='x', linestyle='')
+                time_serie_station[wind_direction][time_serie_station['validity_direction'] == 0].plot(marker='x', linestyle='')
             except:
                 pass
 
@@ -715,28 +715,31 @@ class Visualization:
             plt.title(station)
             plt.tight_layout()
 
-    def qc_plot_last_flagged(self, variable = "wind_speed", wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
+    def qc_plot_last_flagged(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
 
         # Select time series
         time_series = self.p.observation.time_series
 
-        if variable == "wind_speed":
-            variable = wind_speed
-        elif variable == "wind_direction":
-            variable = wind_direction
+        if stations == 'all':
+            stations = time_series["name"].unique()
 
-        for station in time_series["name"].unique():
+
+        for station in stations:
 
             # Select station
             time_serie_station = time_series[time_series["name"] == station]
+            unflagged_data_speed = time_serie_station[time_serie_station['last_unflagged_speed'] != 0]
+            unflagged_data_direction = time_serie_station[time_serie_station['last_unflagged_direction'] != 0]
 
             plt.figure()
 
             plt.subplot(211)
-            sns.scatterplot(x=time_serie_station.index, y=variable, data=time_serie_station, hue='last_flagged')
+            sns.scatterplot(x=time_serie_station.index, y=wind_speed, data=time_serie_station, hue='last_flagged_speed')
+            sns.scatterplot(x=unflagged_data_speed.index, y=wind_speed, data=unflagged_data_speed, hue='last_unflagged_speed', s=20, palette="husl")
 
             plt.subplot(212)
-            sns.scatterplot(x=time_serie_station.index, y=variable, data=time_serie_station, hue='last_unflagged')
+            sns.scatterplot(x=time_serie_station.index, y=wind_direction, data=time_serie_station, hue='last_flagged_direction')
+            sns.scatterplot(x=unflagged_data_direction.index, y=wind_direction, data=unflagged_data_direction, hue='last_unflagged_direction', s=20, palette="husl")
 
             plt.title(station)
             plt.tight_layout()

@@ -1,3 +1,4 @@
+# Packages: numpy, pandas, xarray, scipy, tensorflow, matplotlib
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -13,40 +14,37 @@ import datetime
 import time
 import os
 import concurrent.futures
-from Utils import print_current_line
+
+# Local imports
+from Utils import print_current_line, environment_GPU
 
 # try importing optional modules
 try:
     from numba import jit, prange, float64, float32, int32, int64
-
     _numba = True
 except:
     _numba = False
 
 try:
     import numexpr as ne
-
     _numexpr = True
 except:
     _numexpr = False
 
 try:
     from shapely.geometry import Point
-
     _shapely_geometry = True
 except:
     _shapely_geometry = False
 
 try:
     import geopandas as gpd
-
     _geopandas = True
 except:
     _geopandas = False
 
 try:
     import dask
-
     _dask = True
 except:
     _dask = False
@@ -72,18 +70,13 @@ class Processing:
     _dask = _dask
     _shapely_geometry = _shapely_geometry
 
-    def __init__(self, obs, mnt, nwp, model_path, GPU=False, data_path=None):
+    def __init__(self, obs=None, mnt=None, nwp=None, model_path=None, GPU=False, data_path=None):
         self.observation = obs
         self.mnt = mnt
         self.nwp = nwp
         self.model_path = model_path
         self.data_path = data_path
-        if GPU:
-            # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-            os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-            physical_devices = tf.config.list_physical_devices('GPU')
-            tf.config.experimental.set_memory_growth(physical_devices[0], True)
-            tf.debugging.set_log_device_placement(True)
+        environment_GPU(GPU=GPU)
 
     @staticmethod
     def rotate_topography(topography, wind_dir, clockwise=False):
@@ -1410,10 +1403,12 @@ class Processing:
                 for idx_x_nwp in range(nb_px_nwp_x):
 
                     # Select index NWP
+                    #todo change here
                     x_nwp_L93 = nwp_x_l93.isel(xx=idx_x_nwp, yy=idx_y_nwp).data
                     y_nwp_L93 = nwp_y_l93.isel(xx=idx_x_nwp, yy=idx_y_nwp).data
 
                     # Select indexes MNT
+                    # todo change here
                     idx_x_mnt = int((x_nwp_L93 - xmin_mnt) // resolution_x)
                     idx_y_mnt = int((ymax_mnt - y_nwp_L93) // resolution_y)
 
@@ -1556,8 +1551,7 @@ class Processing:
         save_pixels = 10
         save_pixel_offset_left = 69 - save_pixels
         save_pixel_offset_right = 69 + save_pixels + 1
-        resolution_x = self.mnt.resolution_x
-        resolution_y = self.mnt.resolution_y
+
         print("Wind rotations")
         for time_step, time in enumerate(times):
             for idx_y_nwp in range(nb_px_nwp_y):
@@ -1570,12 +1564,16 @@ class Processing:
                     wind_large = rotate_wind(all_mat, wind_large, wind, angle, idx_y_nwp, idx_x_nwp)
 
                     # Select index NWP
-                    x_nwp_L93 = nwp_x_l93.isel(xx=idx_x_nwp, yy=idx_y_nwp).data
-                    y_nwp_L93 = nwp_y_l93.isel(xx=idx_x_nwp, yy=idx_y_nwp).data
+                    x_nwp_L93, y_nwp_L93 = self.nwp.select_nwp_pixel(self, idx_x_nwp, idx_y_nwp)
 
                     # Select indexes MNT
-                    idx_x_mnt = int((x_nwp_L93 - xmin_mnt) // resolution_x)
-                    idx_y_mnt = int((ymax_mnt - y_nwp_L93) // resolution_y)
+                    idx_x_mnt, idx_y_mnt = self.mnt.find_nearest_MNT_index(x_nwp_L93, y_nwp_L93,
+                                                                           look_for_corners=False,
+                                                                           xmin_MNT=xmin_mnt,
+                                                                           ymax_MNT=ymax_mnt,
+                                                                           look_for_resolution=False,
+                                                                           resolution_x=25,
+                                                                           resolution_y=25)
 
                     # Select center of the predictions
                     if i == 100:

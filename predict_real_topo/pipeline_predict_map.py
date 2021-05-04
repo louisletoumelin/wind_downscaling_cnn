@@ -117,8 +117,12 @@ Processing, visualization and evaluation
 """
 
 # Processing
-p = Processing(BDclim, IGN, AROME, prm['model_path'], GPU=GPU, data_path=prm['data_path'])
-
+p = Processing(obs=BDclim,
+               mnt=IGN,
+               nwp=AROME,
+               model_path=prm['model_path'],
+               GPU=GPU,
+               data_path=prm['data_path'])
 t1 = t()
 if launch_predictions:
     if function_map == 'indexes':

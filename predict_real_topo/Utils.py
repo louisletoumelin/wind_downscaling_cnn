@@ -10,6 +10,15 @@ def connect_GPU_to_horovod():
         tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
     print(gpus)
 
+def environment_GPU(GPU=True):
+    if GPU:
+        import os
+        import tensorflow as tf
+        # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+        os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+        physical_devices = tf.config.list_physical_devices('GPU')
+        tf.config.experimental.set_memory_growth(physical_devices[0], True)
+        tf.debugging.set_log_device_placement(True)
 
 def select_range(month_begin, month_end, year_begin, year_end, date_begin, date_end):
     import pandas as pd

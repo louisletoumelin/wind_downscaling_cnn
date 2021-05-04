@@ -104,7 +104,12 @@ for index, (day, month, year) in enumerate(iterator):
                 verbose=True, load_z0=load_z0, save=save_z0)
 
     # Processing
-    p = Processing(BDclim, IGN, AROME, prm['model_path'], GPU=GPU, data_path=prm['data_path'])
+    p = Processing(obs=BDclim,
+                   mnt=IGN,
+                   nwp=AROME,
+                   model_path=prm['model_path'],
+                   GPU=GPU,
+                   data_path=prm['data_path'])
 
     # Initialize results
     stations = BDclim.stations["name"]

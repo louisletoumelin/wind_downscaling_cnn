@@ -28,12 +28,20 @@ class MNT(Data_2D):
         t1 = t()
         print(f"\nMNT created in {np.round(t1-t0, 2)} seconds\n")
 
-    def find_nearest_MNT_index(self, x, y):
-        xmin_MNT = np.min(self.data_xr.x.data)
-        ymax_MNT = np.max(self.data_xr.y.data)
+    def find_nearest_MNT_index(self, x, y,
+                               look_for_corners=True, xmin_MNT=None, ymax_MNT=None,
+                               look_for_resolution=True, resolution_x=25, resolution_y=25):
 
-        index_x_MNT = (x - xmin_MNT) // self.resolution_x
-        index_y_MNT = (ymax_MNT - y) // self.resolution_y
+        if look_for_corners:
+            xmin_MNT = np.min(self.data_xr.x.data)
+            ymax_MNT = np.max(self.data_xr.y.data)
+
+        if look_for_resolution:
+            resolution_x = self.resolution_x
+            resolution_y = self.resolution_y
+
+        index_x_MNT = (x - xmin_MNT) // resolution_x
+        index_y_MNT = (ymax_MNT - y) // resolution_y
         return (index_x_MNT, index_y_MNT)
 
     @property
