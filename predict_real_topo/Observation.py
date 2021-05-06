@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+#import modin.pandas as pd
 import xarray as xr
 from scipy.spatial import cKDTree
 from time import time as t
@@ -42,6 +43,7 @@ class Observation:
         self.path_saint_sorlin = path_saint_sorlin
         self.path_argentiere = path_argentiere
         self._qc = False
+        self._qc_init = False
 
         # Stations
         self.load_observation_files(type='station', path=path_to_list_stations)
@@ -417,6 +419,9 @@ class Observation:
             time_series_station['resolution_speed'] = np.nan
             time_series_station['resolution_direction'] = np.nan
 
+            # Bias observation
+            time_series_station['qc_bias_observation_speed'] = 0
+
             # N, NNE, NE etc
             time_series_station['cardinal'] = [self._degToCompass(direction) for direction in time_series_station[wind_direction].values]
 
@@ -424,6 +429,7 @@ class Observation:
             list_dataframe.append(time_series_station)
 
         self.time_series = pd.concat(list_dataframe)
+        self._qc_init = True
 
     def qc_check_duplicates_in_index(self):
         """
@@ -723,7 +729,7 @@ class Observation:
             resolution_constant_sequence_direction = []
             direction_sequence = []
             for index in range(nb_values-1):
-                if station == 'Vallot': print(previous_step_speed)
+
                 # Constant speed sequences
                 if np.isnan(speed_values[index]):
                     constant_speed[index] = np.nan
@@ -736,10 +742,6 @@ class Observation:
                                 str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(dates[index])
                             dict_constant_sequence[station]["date_constant_speed_begin"][
                                 str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(date_begin)
-                            if station == 'Vallot':
-                                print("End >1", dates[index])
-                                print("begin here", date_begin)
-                            if station == 'Vallot': print('\n')
                         else:
                             dict_constant_sequence[station]["length_constant_speed"][
                                 str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(lenght_speed)
@@ -747,10 +749,6 @@ class Observation:
                                 str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(dates[index])
                             dict_constant_sequence[station]["date_constant_speed_begin"][
                                 str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(date_begin)
-                            if station == 'Vallot':
-                                print("End <1", dates[index])
-                                print("begin here", date_begin)
-                            if station == 'Vallot': print('\n')
 
                     previous_step_speed = False
                     resolution_constant_sequence = []
@@ -764,18 +762,10 @@ class Observation:
                                 dict_constant_sequence[station]["length_constant_speed"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(lenght_speed)
                                 dict_constant_sequence[station]["date_constant_speed_end"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(dates[index])
                                 dict_constant_sequence[station]["date_constant_speed_begin"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(date_begin)
-                                if station == 'Vallot':
-                                    print("End >1", dates[index])
-                                    print("begin here", date_begin)
-                                if station == 'Vallot': print('\n')
                             else:
                                 dict_constant_sequence[station]["length_constant_speed"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(lenght_speed)
                                 dict_constant_sequence[station]["date_constant_speed_end"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(dates[index])
                                 dict_constant_sequence[station]["date_constant_speed_begin"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(date_begin)
-                                if station == 'Vallot':
-                                    print("End <1", dates[index])
-                                    print("begin here", date_begin)
-                                if station == 'Vallot': print('\n')
                         previous_step_speed = False
                         resolution_constant_sequence = []
                         speed_sequence = []
@@ -790,9 +780,7 @@ class Observation:
                         else:
                             lenght_speed = 2
                             date_begin = dates[index]
-                            if station == 'Vallot': print("Date begin ", date_begin)
                         previous_step_speed = True
-                        if station == 'Vallot': print(dates[index])
 
                         # If the time_serie end with a constant sequence
                         if index == (nb_values - 2):
@@ -800,18 +788,10 @@ class Observation:
                                 dict_constant_sequence[station]["length_constant_speed"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(lenght_speed)
                                 dict_constant_sequence[station]["date_constant_speed_end"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(dates[index])
                                 dict_constant_sequence[station]["date_constant_speed_begin"][str(np.bincount(resolution_constant_sequence).argmax())][">=1m/s"].append(date_begin)
-                                if station == 'Vallot':
-                                    print("End >1", dates[index])
-                                    print("begin here", date_begin)
-                                if station == 'Vallot': print('\n')
                             else:
                                 dict_constant_sequence[station]["length_constant_speed"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(lenght_speed)
                                 dict_constant_sequence[station]["date_constant_speed_end"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(dates[index])
                                 dict_constant_sequence[station]["date_constant_speed_begin"][str(np.bincount(resolution_constant_sequence).argmax())]["<1m/s"].append(date_begin)
-                                if station == 'Vallot':
-                                    print("End <1", dates[index])
-                                    print("begin here", date_begin)
-                                if station == 'Vallot': print('\n')
 
                 # Constant direction sequences
                 if np.isnan(direction_values[index]):
@@ -982,7 +962,7 @@ class Observation:
 
         self.time_series = pd.concat(list_dataframe)
 
-    def qc_get_stats_cst_seq(self, dict_constant_sequence, amplification_factor=1):
+    def qc_get_stats_cst_seq(self, dict_constant_sequence, amplification_factor_speed=1, amplification_factor_direction=1):
         """
         Quality control
 
@@ -1052,7 +1032,7 @@ class Observation:
             if len(values_1) >= 10:
 
                 # Criteria
-                criteria = np.quantile(values_1, 0.95) + amplification_factor * 7.5 * (np.quantile(values_1, 0.75) - np.quantile(values_1, 0.25))
+                criteria = np.quantile(values_1, 0.95) + amplification_factor_speed * 7.5 * (np.quantile(values_1, 0.75) - np.quantile(values_1, 0.25))
 
                 # Criteria = max(3, criteria)
                 criteria = np.max((3, criteria))
@@ -1068,7 +1048,7 @@ class Observation:
             if len(values_2) >= 10:
 
                 # Criteria
-                criteria = np.quantile(values_2, 0.95) + amplification_factor * 8 * (np.quantile(values_2, 0.75) - np.quantile(values_2, 0.25))
+                criteria = np.quantile(values_2, 0.95) + amplification_factor_speed * 8 * (np.quantile(values_2, 0.75) - np.quantile(values_2, 0.25))
 
                 # Criteria = max(3, P95 + amplification_factor * 8 * IQR)
                 criteria = np.max((3, criteria))
@@ -1088,7 +1068,7 @@ class Observation:
             if len(values_1) >= 10:
 
                 # Criteria
-                criteria = np.quantile(values_1, 0.95) + amplification_factor * 15 * (np.quantile(values_1, 0.75) - np.quantile(values_1, 0.25))
+                criteria = np.quantile(values_1, 0.95) + amplification_factor_direction * 15 * (np.quantile(values_1, 0.75) - np.quantile(values_1, 0.25))
 
                 # Criteria = max(3, criteria)
                 criteria = np.max((3, criteria))
@@ -1452,7 +1432,124 @@ class Observation:
 
         self.time_series = pd.concat(list_dataframe)
 
-    def qc(self):
+    def qc_bias(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)',
+                correct_factor_mean=1.5, correct_factor_std=1, correct_factor_coeff_var=4, update_file=True):
+
+        time_series = self.time_series
+        if stations == 'all':
+            stations = time_series["name"].unique()
+
+        list_dataframe = []
+        for station in stations:
+            time_serie_station = time_series[time_series["name"] == station]
+
+            # Select wind speed
+            wind = time_serie_station[wind_speed]
+
+            # Daily wind
+            wind = wind.resample('1D').mean()
+            result = wind.copy(deep=True) * 0
+
+            # No outliers
+            # We use rolling means to detect outliers
+            rol_mean = wind.rolling('15D').mean()
+            rol_std = wind.rolling('15D').std()
+            no_outliers = wind.copy(deep=True)
+
+                # Very high values
+            filter_1 = (no_outliers > rol_mean + 2 * rol_std)
+
+                # Very low values
+            filter_2 = (no_outliers < rol_mean - 2 * rol_std)
+
+            no_outliers[filter_1 | filter_2] = np.nan
+
+            # Seasonal mean based on each day
+            seasonal = no_outliers.groupby([(no_outliers.index.month), (no_outliers.index.day)]).mean()
+
+            # Arbitrary index
+            seasonal.index = pd.date_range(start='1904-01-01', freq='D', periods=366)
+
+            # Rolling mean
+            seasonal_rolling = seasonal.rolling('15D').mean()
+
+            # Interpolate missing values
+            seasonal_rolling = seasonal_rolling.interpolate()
+
+            # Divide two datasets by seasonal
+            for month in range(1, 13):
+                for day in range(1, 32):
+
+                    # Filters
+                    filter_wind = (wind.index.month == month) & (wind.index.day == day)
+                    filter_no_outlier = (no_outliers.index.month == month) & (no_outliers.index.day == day)
+                    filter_seasonal = (seasonal_rolling.index.month == month) & (seasonal_rolling.index.day == day)
+
+                    # Normalize daily values by seasonal means
+                    try:
+                        wind[filter_wind] = wind[filter_wind] / seasonal_rolling[filter_seasonal].values[0]
+                    except IndexError:
+                        wind[filter_wind] = wind / 1
+                    try:
+                        no_outliers[filter_wind] = no_outliers[filter_no_outlier] / \
+                                                   seasonal_rolling[filter_seasonal].values[0]
+                    except IndexError:
+                        no_outliers[filter_wind] = no_outliers / 1
+
+            # Rolling
+            wind_rolling = wind.rolling('15D').mean()
+            no_outliers_rolling = no_outliers.rolling('15D').mean()
+
+            # Wind speed
+            P95 = no_outliers.rolling('15D').quantile(0.95)
+            P25 = no_outliers.rolling('15D').quantile(0.25)
+            P75 = no_outliers.rolling('15D').quantile(0.75)
+
+            criteria_mean = (wind_rolling > (P95 + 3.7 * (P75 - P25))) | (wind_rolling < 0.5)
+
+            criteria_high = (wind_rolling > (P95 + 3.7 * (P75 - P25)))
+            criteria_low = (wind_rolling < 0.5/correct_factor_mean)
+            criteria_mean = (criteria_high | criteria_low)
+
+            # Standard deviation
+            standard_deviation = np.abs(wind - wind.mean())
+            standard_deviation_rolling = standard_deviation.rolling('15D').mean()
+            standard_deviation_no_outliers = np.abs(no_outliers - no_outliers.mean())
+            P95 = standard_deviation_no_outliers.rolling('15D').quantile(0.95)
+            P25 = standard_deviation_no_outliers.rolling('15D').quantile(0.25)
+            P75 = standard_deviation_no_outliers.rolling('15D').quantile(0.75)
+            criteria_high = (standard_deviation_rolling > (P95 + 7.5 * (P75 - P25)))
+            criteria_low = (standard_deviation_rolling < (0.044/correct_factor_std))
+            criteria_std = (criteria_high | criteria_low)
+
+            # Coefficient of variation
+            coeff_variation = standard_deviation / wind_rolling.mean()
+            coeff_variation_rolling = coeff_variation.rolling('15D').mean()
+            coeff_variation_no_outliers = standard_deviation_no_outliers / no_outliers.mean()
+            P95 = coeff_variation_no_outliers.rolling('15D').quantile(0.95)
+            P25 = coeff_variation_no_outliers.rolling('15D').quantile(0.25)
+            P75 = coeff_variation_no_outliers.rolling('15D').quantile(0.75)
+            criteria_high = (coeff_variation_rolling > (P95 + 7.5 * (P75 - P25)))
+            criteria_low = (coeff_variation_rolling < 0.22/correct_factor_coeff_var)
+            criteria_coeff_var = (criteria_high | criteria_low)
+
+            # Result
+            result[criteria_mean | criteria_std | criteria_coeff_var] = 1
+            result = result.resample('1H').pad()
+            time_serie_station['qc_bias_observation_speed'] = result
+
+            if self._qc_init:
+                time_serie_station["validity_speed"] = result
+                time_serie_station["last_flagged_speed"][result == 1] = "high variation"
+
+            # Add station to list of dataframe
+            list_dataframe.append(time_serie_station)
+        if update_file:
+            self.time_series = pd.concat(list_dataframe)
+        else:
+            return(time_serie_station)
+
+    def qc(self, compare_calm_long_sequences_to_neighbors=False):
 
         t0 = t()
 
@@ -1503,24 +1600,31 @@ class Observation:
         print("End qc_excessive_MISS\n")
 
         print("Begin qc_get_stats_cst_seq")
-        dict_all_stations = self.qc_get_stats_cst_seq(dict_constant_sequence, amplification_factor=1.5)
+        dict_all_stations = self.qc_get_stats_cst_seq(dict_constant_sequence,
+                                                      amplification_factor_speed=1.5,
+                                                      amplification_factor_direction=1.5)
         print("End qc_get_stats_cst_seq\n")
 
         print("Begin qc_apply_stats_cst_seq")
         self.qc_apply_stats_cst_seq(dict_constant_sequence, dict_all_stations)
         print("End qc_apply_stats_cst_seq\n")
 
-        print("Begin qc_get_nearest_neigbhors")
-        self.qc_get_nearest_neigbhors()
-        print("End qc_get_nearest_neigbhors\n")
+        if compare_calm_long_sequences_to_neighbors:
+            print("Begin qc_get_nearest_neigbhors")
+            self.qc_get_nearest_neigbhors()
+            print("End qc_get_nearest_neigbhors\n")
 
-        print("Begin qc_ra")
-        self.qc_ra(dict_constant_sequence, dict_all_stations)
-        print("End qc_ra\n")
+            print("Begin qc_ra")
+            self.qc_ra(dict_constant_sequence, dict_all_stations)
+            print("End qc_ra\n")
 
         print("Begin qc_high_variability")
         self.qc_high_variability()
         print("End qc_high_variability\n")
+
+        print("Begin observation bias")
+        self.qc_bias()
+        print("End obseration bias\n")
 
         self._qc = True
 

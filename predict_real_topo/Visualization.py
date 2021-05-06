@@ -723,7 +723,6 @@ class Visualization:
         if stations == 'all':
             stations = time_series["name"].unique()
 
-
         for station in stations:
 
             # Select station
@@ -743,3 +742,45 @@ class Visualization:
 
             plt.title(station)
             plt.tight_layout()
+
+    def qc_plot_bias_speed(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)',
+                     figsize=(10,10), fontsize=12, update_file=True, df=None):
+
+        # Select time series
+        time_series = self.p.observation.time_series
+
+        if stations == 'all':
+            stations = time_series["name"].unique()
+
+        for station in stations:
+
+            # Select station
+            time_serie_station = time_series[time_series["name"] == station]
+
+            if not(update_file):
+                time_serie_station = df
+
+            plt.figure(figsize=figsize)
+            time_serie_station[wind_speed].plot(marker='x', linestyle='')
+            filter = time_serie_station['qc_bias_observation_speed'] == 1
+            time_serie_station[wind_speed][filter].plot(marker='d', linestyle='')
+            time_serie_station[wind_speed].rolling('30D').mean().plot()
+            plt.legend(('Hourly observation', 'Suspicious obseration: bias', '30 days rolling mean'), fontsize=fontsize)
+
+            plt.ylabel("Wind speed [m/s]", fontsize=fontsize)
+
+    def qc_plot_bias_correction_factors(self, station='Col du Lac Blanc', metric='mean', list_correct_factor=[1, 2, 4]):
+
+        for correct_factor in list_correct_factor:
+            if metric == 'mean':
+                time_serie_station = self.p.observation.qc_bias(stations=[station], correct_factor_mean=correct_factor, update_file=False)
+                self.qc_plot_bias_speed(stations=[station], update_file=False, df=time_serie_station)
+                plt.title(f'{metric} threshold divided by {correct_factor}')
+            elif metric == 'std':
+                time_serie_station = self.p.observation.qc_bias(stations=[station], correct_factor_std=correct_factor, update_file=False)
+                self.qc_plot_bias_speed(stations=[station], update_file=False, df=time_serie_station)
+                plt.title(f'{metric} threshold divided by {correct_factor}')
+            else:
+                time_serie_station = self.p.observation.qc_bias(stations=[station], correct_factor_coeff_var=correct_factor, update_file=False)
+                self.qc_plot_bias_speed(stations=[station], update_file=False, df=time_serie_station)
+                plt.title(f'{metric} threshold divided by {correct_factor}')
