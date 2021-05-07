@@ -1,13 +1,26 @@
 ## How to start training
 
-Specify details of training (hyperparameters etc)
+First specify the paths to data using 
 
 ```
-prm/create_prm.py
+PRM_predict.py
 ```
 
-Launch pipeline
+To launch predictions at the observation stations for a single month
 
 ```
-train_models.py
+pipeline_predict_stations.py
 ```
+
+To launch predictions at the observation stations for several months (less data stored)
+
+```
+pipeline_predict_long_periods.py
+```
+
+To launch predictions on maps
+
+```
+pipeline_predict_map.py
+```
+

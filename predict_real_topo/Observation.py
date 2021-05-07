@@ -20,7 +20,7 @@ try:
 except:
     _geopandas = False
 try:
-    concurrent.futures
+    import concurrent.futures
 except:
     pass
 
@@ -31,7 +31,9 @@ class Observation:
 
     _shapely_geometry = _shapely_geometry
 
-    def __init__(self, path_to_list_stations, path_to_time_series, path_vallot=None, path_saint_sorlin=None, path_argentiere=None, begin=None, end=None, select_date_time_serie=True):
+    def __init__(self, path_to_list_stations, path_to_time_series, path_vallot=None, path_saint_sorlin=None,
+                 path_argentiere=None, begin=None, end=None, select_date_time_serie=True,
+                 path_Dome_Lac_Blanc=None, path_Col_du_Lac_Blanc=None, path_Muzelle_Lac_Blanc=None):
         t0 = t()
 
         # Path and dates
@@ -42,6 +44,9 @@ class Observation:
         self.path_vallot = path_vallot
         self.path_saint_sorlin = path_saint_sorlin
         self.path_argentiere = path_argentiere
+        self.path_Dome_Lac_Blanc = path_Dome_Lac_Blanc
+        self.path_Col_du_Lac_Blanc = path_Col_du_Lac_Blanc
+        self.path_Muzelle_Lac_Blanc = path_Muzelle_Lac_Blanc
         self._qc = False
         self._qc_init = False
 
@@ -52,6 +57,9 @@ class Observation:
         if self.path_vallot is not None: self._add_station(name='Vallot')
         if self.path_saint_sorlin is not None: self._add_station(name='Saint-Sorlin')
         if self.path_argentiere is not None: self._add_station(name='Argentiere')
+        if self.path_Dome_Lac_Blanc is not None: self._add_station(name='Dome Lac Blanc')
+        if self.path_Col_du_Lac_Blanc is not None: self._add_station(name='Col du Lac Blanc')
+        if self.path_Muzelle_Lac_Blanc is not None: self._add_station(name='La Muzelle Lac Blanc')
 
         # Time series
         self.load_observation_files(type='time_series', path=path_to_time_series)
@@ -61,6 +69,10 @@ class Observation:
         if self.path_vallot is not None: self._add_time_serie_vallot(log_profile=True)
         if self.path_saint_sorlin is not None: self._add_time_serie_glacier(name='Saint-Sorlin', log_profile=False)
         if self.path_argentiere is not None: self._add_time_serie_glacier(name='Argentiere', log_profile=False)
+        if self.path_Dome_Lac_Blanc is not None: self._add_time_serie_Col_du_Lac_Blanc(name='Dome Lac Blanc', log_profile=False)
+        if self.path_Col_du_Lac_Blanc is not None: self._add_time_serie_Col_du_Lac_Blanc(name='Col du Lac Blanc', log_profile=False)
+        if self.path_Muzelle_Lac_Blanc is not None: self._add_time_serie_Col_du_Lac_Blanc(name='La Muzelle Lac Blanc', log_profile=False)
+
         if select_date_time_serie: self._select_date_time_serie()
 
         t1 = t()
@@ -92,8 +104,8 @@ class Observation:
             Y = 6533967.012767595
             numposte = np.nan
             alti = 4360
-            lon = 45.83972222
-            lat = 6.85222222
+            lat = 45.83972222
+            lon = 6.85222222
             pb_localisation = np.nan
 
         if name == 'Saint-Sorlin':
@@ -101,8 +113,8 @@ class Observation:
             Y = 6457790.489842982
             numposte = np.nan
             alti = 2720
-            lon = 45.17444
-            lat = 6.17
+            lat = 45.17444
+            lon = 6.17
             pb_localisation = np.nan
 
         if name == 'Argentiere':
@@ -110,8 +122,35 @@ class Observation:
             Y = 6548636.997793528
             numposte = np.nan
             alti = 2434
-            lon = 45.967699
-            lat = 6.976024
+            lat = 45.967699
+            lon = 6.976024
+            pb_localisation = np.nan
+
+        if name == 'Dome Lac Blanc':
+            X = 944102.0673463248
+            Y = 6452397.4474741975
+            numposte = np.nan
+            alti = 2808
+            lat = 45.1276528
+            lon = 6.10564167
+            pb_localisation = np.nan
+
+        if name == 'La Muzelle Lac Blanc':
+            X = 944534.4482722675
+            Y = 6452373.408159107
+            numposte = np.nan
+            alti = 2722
+            lat = 45.1272833
+            lon = 6.1111249999999995
+            pb_localisation = np.nan
+
+        if name == 'Col du Lac Blanc':
+            X = 944566.7122078383
+            Y = 6452414.204145856
+            numposte = np.nan
+            alti = 2720
+            lat = 45.1276389
+            lon = 6.1115555
             pb_localisation = np.nan
 
         new_station = pd.DataFrame(self.stations.iloc[0]).transpose()
@@ -125,6 +164,64 @@ class Observation:
         new_station["PB-localisation"] = pb_localisation
         new_station["Unnamed: 8"] = np.nan
         self.stations = pd.concat([self.stations, new_station], ignore_index=True)
+
+    def _add_time_serie_Col_du_Lac_Blanc(self, name='Dome Lac Blanc', log_profile=False):
+
+        # Select station
+        if name == 'Dome Lac Blanc':
+            path = self.path_Dome_Lac_Blanc
+        if name == 'Col du Lac Blanc':
+            path = self.path_Col_du_Lac_Blanc
+        if name == 'La Muzelle Lac Blanc':
+            path = self.path_Muzelle_Lac_Blanc
+
+        # Read file
+        station_df = pd.read_csv(path)
+
+        # Index
+        station_df.index = pd.to_datetime(station_df['date'])
+
+        # Columns to fit BDclim
+        station_df["name"] = name
+        station_df["numposte"] = np.nan
+        station_df["vwmax_dir(deg)"] = np.nan
+        station_df["P(mm)"] = np.nan
+        for variable in ['quality_speed', 'quality_obs', 'BP_mbar']:
+            if variable in self.time_series.columns:
+                station_df[variable] = np.nan
+        if name == 'Dome Lac Blanc':
+            station_df["HTN(cm)"] = np.nan
+
+        station_df = station_df.drop('time', axis=1)
+
+        if name == 'Dome Lac Blanc':
+            alti = 2808
+            lat = 45.1276528
+            lon = 6.10564167
+
+        if name == 'La Muzelle Lac Blanc':
+            alti = 2722
+            lat = 45.1272833
+            lon = 6.1111249999999995
+
+        if name == 'Col du Lac Blanc':
+            alti = 2720
+            lat = 45.1276389
+            lon = 6.1115555
+
+        station_df["lon"] = lon
+        station_df["lat"] = lat
+        station_df["alti"] = alti
+
+        for variable in ['vwmax(m/s)', 'vw10m(m/s)', 'winddir(deg)', 'T2m(degC)', 'HTN(cm)']:
+            station_df[variable] = station_df[variable].apply(pd.to_numeric, errors='coerce', downcast='float')
+
+        station_df["date"] = station_df.index
+
+        if log_profile:
+            print(f"Log profile not implemented at {name}")
+
+        self.time_series = pd.concat([self.time_series, station_df])
 
     def _add_time_serie_vallot(self, log_profile=True):
 
@@ -148,6 +245,9 @@ class Observation:
         vallot["vwmax_dir(deg)"] = np.nan
         vallot["P(mm)"] = np.nan
         vallot["HTN(cm)"] = np.nan
+        for variable in ['quality_speed', 'quality_obs']:
+            if variable in self.time_series.columns:
+                vallot[variable] = np.nan
 
         # 45°50’22.93N / 6°51’7.60E, altitude 4360 m
         vallot["lon"] = 45.83972222
@@ -220,6 +320,9 @@ class Observation:
         glacier["vwmax_dir(deg)"] = np.nan
         glacier["P(mm)"] = np.nan
         glacier["HTN(cm)"] = np.nan
+        for variable in ['quality_speed', 'quality_obs']:
+            if variable in self.time_series.columns:
+                glacier[variable] = np.nan
 
         # 45°10’28.3’’N / 6°10’12.1’’E, altitude 2720 m
         glacier["lon"] = self.stations["lon"][self.stations["name"] == name].values[0]
@@ -1452,19 +1555,23 @@ class Observation:
             wind = wind.resample('1D').mean()
             result = wind.copy(deep=True) * 0
 
-            # No outliers
-            # We use rolling means to detect outliers
-            rol_mean = wind.rolling('15D').mean()
-            rol_std = wind.rolling('15D').std()
-            no_outliers = wind.copy(deep=True)
+            try:
+                # No outliers
+                # We use rolling means to detect outliers
+                rol_mean = wind.rolling('15D').mean()
+                rol_std = wind.rolling('15D').std()
+                no_outliers = wind.copy(deep=True)
 
                 # Very high values
-            filter_1 = (no_outliers > rol_mean + 2 * rol_std)
+                filter_1 = (no_outliers > rol_mean + 2 * rol_std)
 
                 # Very low values
-            filter_2 = (no_outliers < rol_mean - 2 * rol_std)
+                filter_2 = (no_outliers < rol_mean - 2 * rol_std)
 
-            no_outliers[filter_1 | filter_2] = np.nan
+                no_outliers[filter_1 | filter_2] = np.nan
+            except:
+                print(f"Problem in beginning of bias detection at {station}")
+                continue
 
             # Seasonal mean based on each day
             seasonal = no_outliers.groupby([(no_outliers.index.month), (no_outliers.index.day)]).mean()
@@ -1476,77 +1583,81 @@ class Observation:
                 print(f"__qc_bias: Not enough data at {station} to perform bias analysis")
                 continue
 
-            # Rolling mean
-            seasonal_rolling = seasonal.rolling('15D').mean()
+            try:
+                # Rolling mean
+                seasonal_rolling = seasonal.rolling('15D').mean()
 
-            # Interpolate missing values
-            seasonal_rolling = seasonal_rolling.interpolate()
+                # Interpolate missing values
+                seasonal_rolling = seasonal_rolling.interpolate()
 
-            # Divide two datasets by seasonal
-            for month in range(1, 13):
-                for day in range(1, 32):
+                # Divide two datasets by seasonal
+                for month in range(1, 13):
+                    for day in range(1, 32):
 
-                    # Filters
-                    filter_wind = (wind.index.month == month) & (wind.index.day == day)
-                    filter_no_outlier = (no_outliers.index.month == month) & (no_outliers.index.day == day)
-                    filter_seasonal = (seasonal_rolling.index.month == month) & (seasonal_rolling.index.day == day)
+                        # Filters
+                        filter_wind = (wind.index.month == month) & (wind.index.day == day)
+                        filter_no_outlier = (no_outliers.index.month == month) & (no_outliers.index.day == day)
+                        filter_seasonal = (seasonal_rolling.index.month == month) & (seasonal_rolling.index.day == day)
 
-                    # Normalize daily values by seasonal means
-                    try:
-                        wind[filter_wind] = wind[filter_wind] / seasonal_rolling[filter_seasonal].values[0]
-                    except IndexError:
-                        wind[filter_wind] = wind / 1
-                    try:
-                        no_outliers[filter_wind] = no_outliers[filter_no_outlier] / \
-                                                   seasonal_rolling[filter_seasonal].values[0]
-                    except IndexError:
-                        no_outliers[filter_wind] = no_outliers / 1
+                        # Normalize daily values by seasonal means
+                        try:
+                            wind[filter_wind] = wind[filter_wind] / seasonal_rolling[filter_seasonal].values[0]
+                        except IndexError:
+                            wind[filter_wind] = wind / 1
+                        try:
+                            no_outliers[filter_wind] = no_outliers[filter_no_outlier] / \
+                                                       seasonal_rolling[filter_seasonal].values[0]
+                        except IndexError:
+                            no_outliers[filter_wind] = no_outliers / 1
 
-            # Rolling
-            wind_rolling = wind.rolling('15D').mean()
-            no_outliers_rolling = no_outliers.rolling('15D').mean()
+                # Rolling
+                wind_rolling = wind.rolling('15D').mean()
+                no_outliers_rolling = no_outliers.rolling('15D').mean()
 
-            # Wind speed
-            P95 = no_outliers.rolling('15D').quantile(0.95)
-            P25 = no_outliers.rolling('15D').quantile(0.25)
-            P75 = no_outliers.rolling('15D').quantile(0.75)
+                # Wind speed
+                P95 = no_outliers.rolling('15D').quantile(0.95)
+                P25 = no_outliers.rolling('15D').quantile(0.25)
+                P75 = no_outliers.rolling('15D').quantile(0.75)
 
-            criteria_mean = (wind_rolling > (P95 + 3.7 * (P75 - P25))) | (wind_rolling < 0.5)
+                criteria_mean = (wind_rolling > (P95 + 3.7 * (P75 - P25))) | (wind_rolling < 0.5)
 
-            criteria_high = (wind_rolling > (P95 + 3.7 * (P75 - P25)))
-            criteria_low = (wind_rolling < 0.5/correct_factor_mean)
-            criteria_mean = (criteria_high | criteria_low)
+                criteria_high = (wind_rolling > (P95 + 3.7 * (P75 - P25)))
+                criteria_low = (wind_rolling < 0.5/correct_factor_mean)
+                criteria_mean = (criteria_high | criteria_low)
 
-            # Standard deviation
-            standard_deviation = np.abs(wind - wind.mean())
-            standard_deviation_rolling = standard_deviation.rolling('15D').mean()
-            standard_deviation_no_outliers = np.abs(no_outliers - no_outliers.mean())
-            P95 = standard_deviation_no_outliers.rolling('15D').quantile(0.95)
-            P25 = standard_deviation_no_outliers.rolling('15D').quantile(0.25)
-            P75 = standard_deviation_no_outliers.rolling('15D').quantile(0.75)
-            criteria_high = (standard_deviation_rolling > (P95 + 7.5 * (P75 - P25)))
-            criteria_low = (standard_deviation_rolling < (0.044/correct_factor_std))
-            criteria_std = (criteria_high | criteria_low)
+                # Standard deviation
+                standard_deviation = np.abs(wind - wind.mean())
+                standard_deviation_rolling = standard_deviation.rolling('15D').mean()
+                standard_deviation_no_outliers = np.abs(no_outliers - no_outliers.mean())
+                P95 = standard_deviation_no_outliers.rolling('15D').quantile(0.95)
+                P25 = standard_deviation_no_outliers.rolling('15D').quantile(0.25)
+                P75 = standard_deviation_no_outliers.rolling('15D').quantile(0.75)
+                criteria_high = (standard_deviation_rolling > (P95 + 7.5 * (P75 - P25)))
+                criteria_low = (standard_deviation_rolling < (0.044/correct_factor_std))
+                criteria_std = (criteria_high | criteria_low)
 
-            # Coefficient of variation
-            coeff_variation = standard_deviation / wind_rolling.mean()
-            coeff_variation_rolling = coeff_variation.rolling('15D').mean()
-            coeff_variation_no_outliers = standard_deviation_no_outliers / no_outliers.mean()
-            P95 = coeff_variation_no_outliers.rolling('15D').quantile(0.95)
-            P25 = coeff_variation_no_outliers.rolling('15D').quantile(0.25)
-            P75 = coeff_variation_no_outliers.rolling('15D').quantile(0.75)
-            criteria_high = (coeff_variation_rolling > (P95 + 7.5 * (P75 - P25)))
-            criteria_low = (coeff_variation_rolling < 0.22/correct_factor_coeff_var)
-            criteria_coeff_var = (criteria_high | criteria_low)
+                # Coefficient of variation
+                coeff_variation = standard_deviation / wind_rolling.mean()
+                coeff_variation_rolling = coeff_variation.rolling('15D').mean()
+                coeff_variation_no_outliers = standard_deviation_no_outliers / no_outliers.mean()
+                P95 = coeff_variation_no_outliers.rolling('15D').quantile(0.95)
+                P25 = coeff_variation_no_outliers.rolling('15D').quantile(0.25)
+                P75 = coeff_variation_no_outliers.rolling('15D').quantile(0.75)
+                criteria_high = (coeff_variation_rolling > (P95 + 7.5 * (P75 - P25)))
+                criteria_low = (coeff_variation_rolling < 0.22/correct_factor_coeff_var)
+                criteria_coeff_var = (criteria_high | criteria_low)
 
-            # Result
-            result[criteria_mean | criteria_std | criteria_coeff_var] = 1
-            result = result.resample('1H').pad()
-            time_serie_station['qc_bias_observation_speed'] = result
+                # Result
+                result[criteria_mean | criteria_std | criteria_coeff_var] = 1
+                result = result.resample('1H').pad()
+                time_serie_station['qc_bias_observation_speed'] = result
 
-            if self._qc_init:
-                time_serie_station["validity_speed"] = result
-                time_serie_station["last_flagged_speed"][result == 1] = "high variation"
+                if self._qc_init:
+                    time_serie_station["validity_speed"] = result
+                    time_serie_station["last_flagged_speed"][result == 1] = "high variation"
+            except:
+                print(f"Problem in second part of bias detection at {station}")
+                continue
 
             # Add station to list of dataframe
             list_dataframe.append(time_serie_station)

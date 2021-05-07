@@ -24,4 +24,4 @@ To launch the second training, use command
 python experience_2.py
 ```
 
-For GPU selection, see Slurm folder.
+For GPU selection, see Slurm folder. I trained my model on a GPU cluster and had to execute .slurm files locates in Slurm/ to submit job, batches and get a GPU allocation. If you are working on your personal PC it is useless.

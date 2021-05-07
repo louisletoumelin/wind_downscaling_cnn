@@ -113,7 +113,10 @@ BDclim = Observation(prm["BDclim_stations_path"],
                      select_date_time_serie=select_date_time_serie,
                      path_vallot=prm["path_vallot"],
                      path_saint_sorlin=prm["path_saint_sorlin"],
-                     path_argentiere=prm["path_argentiere"])
+                     path_argentiere=prm["path_argentiere"],
+                     path_Dome_Lac_Blanc=prm["path_Dome_Lac_Blanc"],
+                     path_Col_du_Lac_Blanc=prm["path_Col_du_Lac_Blanc"],
+                     path_Muzelle_Lac_Blanc=prm["path_Muzelle_Lac_Blanc"])
 #BDclim.qc()
 # Compute nearest neighbor sif CPU, load them if GPU
 if not (GPU):

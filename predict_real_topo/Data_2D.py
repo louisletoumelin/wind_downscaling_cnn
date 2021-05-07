@@ -24,3 +24,10 @@ class Data_2D:
     @property
     def height(self):
         return (self.shape[0])
+
+    @staticmethod
+    def project_coordinates(lon=None, lat=None, crs_in=4326, crs_out=2154):
+        import pyproj
+        gps_to_l93_func = pyproj.Transformer.from_crs(crs_in, crs_out, always_xy=True)
+        projected_points = [point for point in gps_to_l93_func.itransform([(lon, lat)])][0]
+        return(projected_points)
