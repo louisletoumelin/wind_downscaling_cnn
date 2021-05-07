@@ -50,17 +50,19 @@ def create_prm(GPU=None, Z0=None, end=None, month_prediction=True):
 
     # Observation
     # 2017-2019
-    #prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_BDClim_et_sta_alp_20171101_20190501.csv"
+    prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_BDClim_et_sta_alp_20171101_20190501.csv"
     # 2015-2021
     #prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_FF_T_RR1_alp_2015010100_2021013100.csv"
     # 2009-2021
-    prm["BDclim_data_path"] = prm["data_path"] + "BDclim/04_Mai_2021/extract_FF_T_RR1_alp_2009010100_2021013100.csv"
+    #prm["BDclim_data_path"] = prm["data_path"] + "BDclim/04_Mai_2021/extract_FF_T_RR1_alp_2009010100_2021013100.csv"
     prm["path_vallot"] = prm["data_path"] + "BDclim/Vallot/"
     prm["path_saint_sorlin"] = prm["data_path"] + "BDclim/Saint-Sorlin/"
     prm["path_argentiere"] = prm["data_path"] + "BDclim/Argentiere/"
     prm["path_Dome_Lac_Blanc"] = prm["data_path"] + "BDclim/Col du Lac Blanc/Dome/treated/dome.csv"
     prm["path_Col_du_Lac_Blanc"] = prm["data_path"] + "BDclim/Col du Lac Blanc/Col/treated/col.csv"
     prm["path_Muzelle_Lac_Blanc"] = prm["data_path"] + "BDclim/Col du Lac Blanc/Muzelle/treated/muzelle.csv"
+    prm["path_Col_de_Porte"] = prm["data_path"] + "BDclim/Col de Porte/treated/cdp.csv"
+    prm["path_Col_du_Lautaret"] = prm["data_path"] + "BDclim/Col du Lautaret/lautaret.csv"
 
     # CNN model
     prm['model_experience'] = "date_16_02_name_simu_FINAL_1_0_model_UNet/"

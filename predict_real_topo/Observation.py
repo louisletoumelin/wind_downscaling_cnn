@@ -33,7 +33,8 @@ class Observation:
 
     def __init__(self, path_to_list_stations, path_to_time_series, path_vallot=None, path_saint_sorlin=None,
                  path_argentiere=None, begin=None, end=None, select_date_time_serie=True,
-                 path_Dome_Lac_Blanc=None, path_Col_du_Lac_Blanc=None, path_Muzelle_Lac_Blanc=None):
+                 path_Dome_Lac_Blanc=None, path_Col_du_Lac_Blanc=None, path_Muzelle_Lac_Blanc=None,
+                 path_Col_de_Porte=None, path_Col_du_Lautaret=None):
         t0 = t()
 
         # Path and dates
@@ -47,6 +48,8 @@ class Observation:
         self.path_Dome_Lac_Blanc = path_Dome_Lac_Blanc
         self.path_Col_du_Lac_Blanc = path_Col_du_Lac_Blanc
         self.path_Muzelle_Lac_Blanc = path_Muzelle_Lac_Blanc
+        self.path_Col_de_Porte = path_Col_de_Porte
+        self.path_Col_du_Lautaret = path_Col_du_Lautaret
         self._qc = False
         self._qc_init = False
 
@@ -60,6 +63,8 @@ class Observation:
         if self.path_Dome_Lac_Blanc is not None: self._add_station(name='Dome Lac Blanc')
         if self.path_Col_du_Lac_Blanc is not None: self._add_station(name='Col du Lac Blanc')
         if self.path_Muzelle_Lac_Blanc is not None: self._add_station(name='La Muzelle Lac Blanc')
+        if self.path_Col_de_Porte is not None: self._add_station(name='Col de Porte')
+        if self.path_Col_du_Lautaret is not None: self._add_station(name='Col du Lautaret')
 
         # Time series
         self.load_observation_files(type='time_series', path=path_to_time_series)
@@ -69,9 +74,11 @@ class Observation:
         if self.path_vallot is not None: self._add_time_serie_vallot(log_profile=True)
         if self.path_saint_sorlin is not None: self._add_time_serie_glacier(name='Saint-Sorlin', log_profile=False)
         if self.path_argentiere is not None: self._add_time_serie_glacier(name='Argentiere', log_profile=False)
-        if self.path_Dome_Lac_Blanc is not None: self._add_time_serie_Col_du_Lac_Blanc(name='Dome Lac Blanc', log_profile=False)
-        if self.path_Col_du_Lac_Blanc is not None: self._add_time_serie_Col_du_Lac_Blanc(name='Col du Lac Blanc', log_profile=False)
-        if self.path_Muzelle_Lac_Blanc is not None: self._add_time_serie_Col_du_Lac_Blanc(name='La Muzelle Lac Blanc', log_profile=False)
+        if self.path_Dome_Lac_Blanc is not None: self._add_time_serie_Col(name='Dome Lac Blanc', log_profile=False)
+        if self.path_Col_du_Lac_Blanc is not None: self._add_time_serie_Col(name='Col du Lac Blanc', log_profile=False)
+        if self.path_Muzelle_Lac_Blanc is not None: self._add_time_serie_Col(name='La Muzelle Lac Blanc', log_profile=False)
+        if self.path_Col_de_Porte is not None: self._add_time_serie_Col(name='Col de Porte', log_profile=False)
+        if self.path_Col_du_Lautaret is not None: self._add_time_serie_Col(name='Col du Lautaret', log_profile=False)
 
         if select_date_time_serie: self._select_date_time_serie()
 
@@ -153,6 +160,24 @@ class Observation:
             lon = 6.1115555
             pb_localisation = np.nan
 
+        if name == 'Col de Porte':
+            X = 916714.8206076204
+            Y = 6469977.074058817
+            numposte = np.nan
+            alti = 1325
+            lat = 45.295
+            lon = 5.765333
+            pb_localisation = np.nan
+
+        if name == 'Col du Lautaret':
+            X = 968490.046994405
+            Y = 6444105.79408795
+            numposte = 7.0
+            alti = 2050
+            lat = 45.044
+            lon = 0.5
+            pb_localisation = np.nan
+
         new_station = pd.DataFrame(self.stations.iloc[0]).transpose()
         new_station['X'] = X
         new_station['Y'] = Y
@@ -165,7 +190,7 @@ class Observation:
         new_station["Unnamed: 8"] = np.nan
         self.stations = pd.concat([self.stations, new_station], ignore_index=True)
 
-    def _add_time_serie_Col_du_Lac_Blanc(self, name='Dome Lac Blanc', log_profile=False):
+    def _add_time_serie_Col(self, name='Dome Lac Blanc', log_profile=False):
 
         # Select station
         if name == 'Dome Lac Blanc':
@@ -174,6 +199,10 @@ class Observation:
             path = self.path_Col_du_Lac_Blanc
         if name == 'La Muzelle Lac Blanc':
             path = self.path_Muzelle_Lac_Blanc
+        if name == 'Col de Porte':
+            path = self.path_Muzelle_Lac_Blanc
+        if name == 'Col du Lautaret':
+            path = self.path_Col_du_Lautaret
 
         # Read file
         station_df = pd.read_csv(path)
@@ -182,36 +211,47 @@ class Observation:
         station_df.index = pd.to_datetime(station_df['date'])
 
         # Columns to fit BDclim
-        station_df["name"] = name
-        station_df["numposte"] = np.nan
-        station_df["vwmax_dir(deg)"] = np.nan
-        station_df["P(mm)"] = np.nan
-        for variable in ['quality_speed', 'quality_obs', 'BP_mbar']:
-            if variable in self.time_series.columns:
-                station_df[variable] = np.nan
-        if name == 'Dome Lac Blanc':
-            station_df["HTN(cm)"] = np.nan
+        if name != 'Col du Lautaret':
+            station_df["name"] = name
+            station_df["numposte"] = np.nan
+            station_df["vwmax_dir(deg)"] = np.nan
 
-        station_df = station_df.drop('time', axis=1)
+            if name != 'Col de Porte':
+                station_df["P(mm)"] = np.nan
 
-        if name == 'Dome Lac Blanc':
-            alti = 2808
-            lat = 45.1276528
-            lon = 6.10564167
+            for variable in ['quality_speed', 'quality_obs', 'BP_mbar']:
+                if variable in self.time_series.columns:
+                    station_df[variable] = np.nan
 
-        if name == 'La Muzelle Lac Blanc':
-            alti = 2722
-            lat = 45.1272833
-            lon = 6.1111249999999995
+            if name == 'Dome Lac Blanc':
+                station_df["HTN(cm)"] = np.nan
 
-        if name == 'Col du Lac Blanc':
-            alti = 2720
-            lat = 45.1276389
-            lon = 6.1115555
+            if 'time' in station_df.columns:
+                station_df = station_df.drop('time', axis=1)
 
-        station_df["lon"] = lon
-        station_df["lat"] = lat
-        station_df["alti"] = alti
+            if name == 'Dome Lac Blanc':
+                alti = 2808
+                lat = 45.1276528
+                lon = 6.10564167
+
+            if name == 'La Muzelle Lac Blanc':
+                alti = 2722
+                lat = 45.1272833
+                lon = 6.1111249999999995
+
+            if name == 'Col du Lac Blanc':
+                alti = 2720
+                lat = 45.1276389
+                lon = 6.1115555
+
+            if name == 'Col de Porte':
+                alti = 1325
+                lat = 45.295
+                lon = 5.765333
+
+            station_df["lon"] = lon
+            station_df["lat"] = lat
+            station_df["alti"] = alti
 
         for variable in ['vwmax(m/s)', 'vw10m(m/s)', 'winddir(deg)', 'T2m(degC)', 'HTN(cm)']:
             station_df[variable] = station_df[variable].apply(pd.to_numeric, errors='coerce', downcast='float')
@@ -1570,7 +1610,7 @@ class Observation:
 
                 no_outliers[filter_1 | filter_2] = np.nan
             except:
-                print(f"Problem in beginning of bias detection at {station}")
+                print(f"__qc_bias: Problem in beginning of bias detection at {station}")
                 continue
 
             # Seasonal mean based on each day
@@ -1656,7 +1696,7 @@ class Observation:
                     time_serie_station["validity_speed"] = result
                     time_serie_station["last_flagged_speed"][result == 1] = "high variation"
             except:
-                print(f"Problem in second part of bias detection at {station}")
+                print(f"__qc_bias: Problem in second part of bias detection at {station}")
                 continue
 
             # Add station to list of dataframe
