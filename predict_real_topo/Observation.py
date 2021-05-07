@@ -1435,6 +1435,8 @@ class Observation:
     def qc_bias(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)',
                 correct_factor_mean=1.5, correct_factor_std=1, correct_factor_coeff_var=4, update_file=True):
 
+        pd.options.mode.chained_assignment = None  # default='warn'
+
         time_series = self.time_series
         if stations == 'all':
             stations = time_series["name"].unique()
@@ -1468,7 +1470,11 @@ class Observation:
             seasonal = no_outliers.groupby([(no_outliers.index.month), (no_outliers.index.day)]).mean()
 
             # Arbitrary index
-            seasonal.index = pd.date_range(start='1904-01-01', freq='D', periods=366)
+            try:
+                seasonal.index = pd.date_range(start='1904-01-01', freq='D', periods=366)
+            except ValueError:
+                print(f"__qc_bias: Not enough data at {station} to perform bias analysis")
+                continue
 
             # Rolling mean
             seasonal_rolling = seasonal.rolling('15D').mean()
@@ -1631,10 +1637,146 @@ class Observation:
         t1 = t()
         print(f"Time: {(t1-t0)//60} minutes")
         return(dict_constant_sequence, dict_all_stations)
-    
-    
-    
-    
+
+    # Multiprocessing
+    def qc_bias_station(self, time_series=None, station=None, wind_speed=None,
+                        correct_factor_mean=None, correct_factor_std=None, correct_factor_coeff_var=None):
+        pd.options.mode.chained_assignment = None
+        time_serie_station = time_series[time_series["name"] == station]
+
+        # Select wind speed
+        wind = time_serie_station[wind_speed]
+
+        # Daily wind
+        wind = wind.resample('1D').mean()
+        result = wind.copy(deep=True) * 0
+
+        # No outliers
+        # We use rolling means to detect outliers
+        rol_mean = wind.rolling('15D').mean()
+        rol_std = wind.rolling('15D').std()
+        no_outliers = wind.copy(deep=True)
+
+        # Very high values
+        filter_1 = (no_outliers > rol_mean + 2 * rol_std)
+
+        # Very low values
+        filter_2 = (no_outliers < rol_mean - 2 * rol_std)
+
+        no_outliers[filter_1 | filter_2] = np.nan
+
+        # Seasonal mean based on each day
+        seasonal = no_outliers.groupby([(no_outliers.index.month), (no_outliers.index.day)]).mean()
+
+        # Arbitrary index
+        try:
+            seasonal.index = pd.date_range(start='1904-01-01', freq='D', periods=366)
+        except ValueError:
+            print(f"__qc_bias: Not enough data at {station} to perform bias analysis")
+            return (None)
+
+        # Rolling mean
+        seasonal_rolling = seasonal.rolling('15D').mean()
+
+        # Interpolate missing values
+        seasonal_rolling = seasonal_rolling.interpolate()
+
+        # Divide two datasets by seasonal
+        for month in range(1, 13):
+            for day in range(1, 32):
+
+                # Filters
+                filter_wind = (wind.index.month == month) & (wind.index.day == day)
+                filter_no_outlier = (no_outliers.index.month == month) & (no_outliers.index.day == day)
+                filter_seasonal = (seasonal_rolling.index.month == month) & (seasonal_rolling.index.day == day)
+
+                # Normalize daily values by seasonal means
+                try:
+                    wind[filter_wind] = wind[filter_wind] / seasonal_rolling[filter_seasonal].values[0]
+                except IndexError:
+                    wind[filter_wind] = wind / 1
+                try:
+                    no_outliers[filter_wind] = no_outliers[filter_no_outlier] / \
+                                               seasonal_rolling[filter_seasonal].values[0]
+                except IndexError:
+                    no_outliers[filter_wind] = no_outliers / 1
+
+        # Rolling
+        wind_rolling = wind.rolling('15D').mean()
+        no_outliers_rolling = no_outliers.rolling('15D').mean()
+
+        # Wind speed
+        P95 = no_outliers.rolling('15D').quantile(0.95)
+        P25 = no_outliers.rolling('15D').quantile(0.25)
+        P75 = no_outliers.rolling('15D').quantile(0.75)
+
+        criteria_mean = (wind_rolling > (P95 + 3.7 * (P75 - P25))) | (wind_rolling < 0.5)
+
+        criteria_high = (wind_rolling > (P95 + 3.7 * (P75 - P25)))
+        criteria_low = (wind_rolling < 0.5 / correct_factor_mean)
+        criteria_mean = (criteria_high | criteria_low)
+
+        # Standard deviation
+        standard_deviation = np.abs(wind - wind.mean())
+        standard_deviation_rolling = standard_deviation.rolling('15D').mean()
+        standard_deviation_no_outliers = np.abs(no_outliers - no_outliers.mean())
+        P95 = standard_deviation_no_outliers.rolling('15D').quantile(0.95)
+        P25 = standard_deviation_no_outliers.rolling('15D').quantile(0.25)
+        P75 = standard_deviation_no_outliers.rolling('15D').quantile(0.75)
+        criteria_high = (standard_deviation_rolling > (P95 + 7.5 * (P75 - P25)))
+        criteria_low = (standard_deviation_rolling < (0.044 / correct_factor_std))
+        criteria_std = (criteria_high | criteria_low)
+
+        # Coefficient of variation
+        coeff_variation = standard_deviation / wind_rolling.mean()
+        coeff_variation_rolling = coeff_variation.rolling('15D').mean()
+        coeff_variation_no_outliers = standard_deviation_no_outliers / no_outliers.mean()
+        P95 = coeff_variation_no_outliers.rolling('15D').quantile(0.95)
+        P25 = coeff_variation_no_outliers.rolling('15D').quantile(0.25)
+        P75 = coeff_variation_no_outliers.rolling('15D').quantile(0.75)
+        criteria_high = (coeff_variation_rolling > (P95 + 7.5 * (P75 - P25)))
+        criteria_low = (coeff_variation_rolling < 0.22 / correct_factor_coeff_var)
+        criteria_coeff_var = (criteria_high | criteria_low)
+
+        # Result
+        result[criteria_mean | criteria_std | criteria_coeff_var] = 1
+        result = result.resample('1H').pad()
+        time_serie_station['qc_bias_observation_speed'] = result
+
+        if self._qc_init:
+            time_serie_station["validity_speed"] = result
+            time_serie_station["last_flagged_speed"][result == 1] = "high variation"
+
+        # Add station to list of dataframe
+        return (time_serie_station)
+
+    def _qc_bias_station(self, args):
+        return self.qc_bias_station(**args)
+
+    def qc_bias_multiprocessing(self, nb_cpu=2, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)',
+                correct_factor_mean=1.5, correct_factor_std=1, correct_factor_coeff_var=4, update_file=True):
+
+        import multiprocessing
+        pd.options.mode.chained_assignment = None  # default='warn'
+
+        time_series = self.time_series
+        if stations == 'all':
+            stations = time_series["name"].unique()
+
+        #list_dataframe = []
+
+        todo=[]
+        for station in stations:
+            todo.append({'time_series': time_series, 'station': station, 'wind_speed': wind_speed, 'correct_factor_mean':correct_factor_mean,
+                          'correct_factor_std':correct_factor_std, 'correct_factor_coeff_var':correct_factor_coeff_var})
+
+        with multiprocessing.Pool(nb_cpu) as p:
+            list_dataframe = p.map(self._qc_bias_station, todo)
+
+        if update_file:
+            self.time_series = pd.concat(list_dataframe)
+
+
     
     
     
