@@ -392,27 +392,59 @@ class Processing:
             a1 = np.where(den > 0, num / den, 1)
         return (a1)
 
-    def compute_wind_speed(self, U=None, V=None, W=None, working_with_xarray=False, xarray_data=None, u_name="U", v_name="V"):
+    def _3D_wind_speed(self, U=None, V=None, W=None, out=None):
 
-        if not(working_with_xarray):
-            # Horizontal and vertical wind speed
-            if W is not None:
-                if self._numexpr:
-                    wind_speed = ne.evaluate("sqrt(U**2 + V**2 + W**2)")
-                else:
-                    wind_speed = np.sqrt(U ** 2 + V ** 2 + W ** 2)
-
-            # Horizontal wind speed
+        if out is None:
+            if self._numexpr:
+                wind_speed = ne.evaluate("sqrt(U**2 + V**2 + W**2)")
             else:
-                if self._numexpr:
-                    wind_speed = ne.evaluate("sqrt(U**2 + V**2)")
-                else:
-                    wind_speed = np.sqrt(U ** 2 + V ** 2)
-            return (wind_speed)
+                wind_speed = np.sqrt(U ** 2 + V ** 2 + W ** 2)
+            return(wind_speed)
 
         else:
+            if self._numexpr:
+                ne.evaluate("sqrt(U**2 + V**2 + W**2)", out=out)
+            else:
+                np.sqrt(U ** 2 + V ** 2 + W ** 2, out=out)
+
+    def _2D_wind_speed(self, U=None, V=None, out=None):
+
+        if out is None:
+            if self._numexpr:
+                wind_speed = ne.evaluate("sqrt(U**2 + V**2)")
+            else:
+                wind_speed = np.sqrt(U ** 2 + V ** 2)
+            return(wind_speed)
+
+        else:
+            if self._numexpr:
+                ne.evaluate("sqrt(U**2 + V**2)", out=out)
+            else:
+                np.sqrt(U ** 2 + V ** 2, out=out)
+
+    def compute_wind_speed(self, U=None, V=None, W=None,
+                           computing='num', out=None,
+                           xarray_data=None, u_name="U", v_name="V"):
+
+        # Numexpr or numpy
+        if computing == 'num':
+            if out is None:
+                if W is None:
+                    wind_speed = self._2D_wind_speed(U=U, V=V)
+                else:
+                    wind_speed = self._3D_wind_speed(U=U, V=V, W=W)
+                return (wind_speed)
+            else:
+                if W is None:
+                    self._2D_wind_speed(U=U, V=V, out=out)
+                else:
+                    self._3D_wind_speed(U=U, V=V, W=W, out=out)
+
+        if computing == 'xarray':
+
             xarray_data = xarray_data.assign(Wind=lambda x: np.sqrt(x[u_name] ** 2 + x[v_name] ** 2))
             xarray_data = xarray_data.assign(Wind_DIR=lambda x: np.mod(180 + np.rad2deg(np.arctan2(x[u_name], x[v_name])), 360))
+
             return(xarray_data)
 
     def wind_speed_scaling(self, scaling_wind, prediction, linear=True):
@@ -535,8 +567,8 @@ class Processing:
                                                                                                 Z0=Z0_cond)
 
             # For ideal case, we define the input speed and direction
-            if ideal_case: wind_speed, wind_dir = _scale_wind_for_ideal_case(wind_speed, wind_dir, input_speed,
-                                                                             input_dir)
+            if ideal_case: wind_speed, wind_dir = self._scale_wind_for_ideal_case(wind_speed, wind_dir, input_speed,
+                                                                                  input_dir)
             if verbose: print(f"Selected time series for pixel at station: {single_station}")
 
             # Extract topography
@@ -639,7 +671,11 @@ class Processing:
         if verbose: print('Prediction done')
 
         # Acceleration NWP to CNN
+        print('Input dtype')
+        print(prediction[:, :, :, 0].dtype)
         UVW_int = self.compute_wind_speed(U=prediction[:, :, :, 0], V=prediction[:, :, :, 1], W=prediction[:, :, :, 2])
+        print('Output dtype')
+        print(UVW_int.dtype)
         acceleration_CNN = self.wind_speed_ratio(num=UVW_int, den=3 * np.ones(UVW_int.shape))
 
         # Reshape predictions for analysis
@@ -729,7 +765,7 @@ class Processing:
         UVW = self.compute_wind_speed(U=U, V=V, W=W)
 
         # Acceleration NWP to CNN
-        acceleration_all = self.wind_speed_ratio(num=UVW, den=wind1.reshape((nb_station, nb_sim, 1, 1)))
+        acceleration_all = self.wind_speed_ratio(num=UVW, den=wind1.reshape((nb_station, nb_sim, 1, 1))) if Z0_cond else UVW*np.nan
 
         # Convert float64 to float32
         UV_DIR = UV_DIR.astype(np.float32, copy=False)
@@ -801,7 +837,6 @@ class Processing:
                                              Z0_all if Z0_cond else np.zeros((nb_station, nb_sim)),),
                                          "Z0REL": (["station", "time"],
                                                    Z0REL_all if Z0_cond else np.zeros((nb_station, nb_sim)),),
-
                                          },
 
                               coords={"station": np.array(stations_name),
@@ -1350,7 +1385,7 @@ class Processing:
         # Interpolate AROME
         if verbose: print("AROME interpolation")
         nwp_data = interpolate_xarray_grid(xarray_data=nwp_data, interp=interp, method='linear')
-        nwp_data = self.compute_wind_speed(working_with_xarray=True, xarray_data=nwp_data)
+        nwp_data = self.compute_wind_speed(computing='xarray', xarray_data=nwp_data)
 
         # Time scale and domain length
         times = nwp_data.time.data

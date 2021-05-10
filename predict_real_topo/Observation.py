@@ -206,6 +206,8 @@ class Observation:
 
         # Read file
         station_df = pd.read_csv(path)
+        if name == 'Col du Lautaret':
+            print(station_df.head())
 
         # Index
         station_df.index = pd.to_datetime(station_df['date'])
@@ -261,6 +263,8 @@ class Observation:
         if log_profile:
             print(f"Log profile not implemented at {name}")
 
+        if name == 'Col du Lautaret':
+            print(station_df.head())
         self.time_series = pd.concat([self.time_series, station_df])
 
     def _add_time_serie_vallot(self, log_profile=True):
