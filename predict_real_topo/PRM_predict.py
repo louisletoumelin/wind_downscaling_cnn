@@ -33,9 +33,9 @@ def create_prm(GPU=None, Z0=None, end=None, month_prediction=True):
         prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/pickle_stations.pkl"
 
     # NWP
-    prm["AROME_path_1"] = prm["data_path"] + "AROME/FORCING_alp_2017080106_2018080106.nc"
-    prm["AROME_path_2"] = prm["data_path"] + "AROME/FORCING_alp_2018080106_2019060106.nc"
-    prm["AROME_path_3"] = prm["data_path"] + "AROME/FORCING_alp_2019060107_2019070106.nc"
+    prm["AROME_path_1"] = prm["data_path"] + "AROME/FORCING_alp_2017080106_2018080106_32bits.nc"
+    prm["AROME_path_2"] = prm["data_path"] + "AROME/FORCING_alp_2018080106_2019060106_32bits.nc"
+    prm["AROME_path_3"] = prm["data_path"] + "AROME/FORCING_alp_2019060107_2019070106_32bits.nc"
     prm["AROME_path"] = [prm["AROME_path_1"], prm["AROME_path_2"], prm["AROME_path_3"]]
 
     if month_prediction:
@@ -50,11 +50,11 @@ def create_prm(GPU=None, Z0=None, end=None, month_prediction=True):
 
     # Observation
     # 2017-2019
-    #prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_BDClim_et_sta_alp_20171101_20190501.csv"
+    prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_BDClim_et_sta_alp_20171101_20190501.csv"
     # 2015-2021
     #prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_FF_T_RR1_alp_2015010100_2021013100.csv"
     # 2009-2021
-    prm["BDclim_data_path"] = prm["data_path"] + "BDclim/04_Mai_2021/extract_FF_T_RR1_alp_2009010100_2021013100.csv"
+    #prm["BDclim_data_path"] = prm["data_path"] + "BDclim/04_Mai_2021/extract_FF_T_RR1_alp_2009010100_2021013100.csv"
     prm["path_vallot"] = prm["data_path"] + "BDclim/Vallot/"
     prm["path_saint_sorlin"] = prm["data_path"] + "BDclim/Saint-Sorlin/"
     prm["path_argentiere"] = prm["data_path"] + "BDclim/Argentiere/"
@@ -85,6 +85,6 @@ def update_selected_path(year, month, day, prm):
     elif d4 < current_date < d5:
         prm["selected_path"] = prm["AROME_path_3"]
     else:
-        prm["selected_path"] = prm["AROME_path_3"]
+        prm["selected_path"] = prm["AROME_path"]
 
     return(prm)

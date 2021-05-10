@@ -82,6 +82,9 @@ class Observation:
 
         if select_date_time_serie: self._select_date_time_serie()
 
+        # float32
+        self.time_series.loc[:, self.time_series.dtypes == 'float64'] = self.time_series.loc[:, self.time_series.dtypes == 'float64'].astype('float32')
+        
         t1 = t()
         print(f"\nObservation created in {np.round(t1-t0, 2)} seconds\n")
 
@@ -206,8 +209,6 @@ class Observation:
 
         # Read file
         station_df = pd.read_csv(path)
-        if name == 'Col du Lautaret':
-            print(station_df.head())
 
         # Index
         station_df.index = pd.to_datetime(station_df['date'])
@@ -263,8 +264,6 @@ class Observation:
         if log_profile:
             print(f"Log profile not implemented at {name}")
 
-        if name == 'Col du Lautaret':
-            print(station_df.head())
         self.time_series = pd.concat([self.time_series, station_df])
 
     def _add_time_serie_vallot(self, log_profile=True):

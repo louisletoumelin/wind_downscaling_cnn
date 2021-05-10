@@ -21,30 +21,35 @@ from Utils import print_current_line, environment_GPU
 # try importing optional modules
 try:
     from numba import jit, prange, float64, float32, int32, int64
+
     _numba = True
 except:
     _numba = False
 
 try:
     import numexpr as ne
+
     _numexpr = True
 except:
     _numexpr = False
 
 try:
     from shapely.geometry import Point
+
     _shapely_geometry = True
 except:
     _shapely_geometry = False
 
 try:
     import geopandas as gpd
+
     _geopandas = True
 except:
     _geopandas = False
 
 try:
     import dask
+
     _dask = True
 except:
     _dask = False
@@ -79,16 +84,26 @@ class Processing:
         environment_GPU(GPU=GPU)
 
     @staticmethod
-    def rotate_topography(topography, wind_dir, clockwise=False):
+    def rotate_scipy(topography, wind_dir):
+        return (rotate(topography, wind_dir, reshape=False, mode='constant', cval=np.nan))
+
+    def rotate_vectorize(self, topography, wind_dir):
+        return (np.vectorize(self.rotate_scipy, signature='(m,n),()->(m,n)')(topography, wind_dir))
+
+    def rotate_topography(self, topography, wind_dir, clockwise=False, verbose=True):
         """Rotate a topography to a specified angle
 
         If wind_dir = 270° then angle = 270+90 % 360 = 360 % 360 = 0
         For wind coming from the West, there is no rotation
         """
+        if verbose: print('Begin rotate topographies')
+
         if not (clockwise):
-            rotated_topography = rotate(topography, 90 + wind_dir, reshape=False, mode='constant', cval=np.nan)
+            rotated_topography = self.rotate_vectorize(topography, 90 + wind_dir)
         if clockwise:
-            rotated_topography = rotate(topography, -90 - wind_dir, reshape=False, mode='constant', cval=np.nan)
+            rotated_topography = self.rotate_vectorize(topography, -90 - wind_dir)
+
+        if verbose: print('End rotate topographies')
         return (rotated_topography)
 
     def _rotate_topo_for_all_station(self):
@@ -115,7 +130,9 @@ class Processing:
         self.dict_rot_topo = dict_topo
 
     @staticmethod
-    def apply_log_profile(z_in=None, z_out=None, wind_in=None, z0=None):
+    def apply_log_profile(z_in=None, z_out=None, wind_in=None, z0=None,
+                          verbose=True, z_in_verbose=None, z_out_verbose=None):
+
         """
         Apply log profile to a wind time serie.
 
@@ -130,6 +147,9 @@ class Processing:
         -------
         wind_out: Output wind, after logarithmic profile
         """
+
+        if verbose: print(f"Applied log profile: {z_in_verbose} => {z_out_verbose}")
+
         if _numexpr:
             return (ne.evaluate("(wind_in * log(z_out / z0)) / log(z_in / z0)"))
         else:
@@ -162,7 +182,7 @@ class Processing:
             self.nwp.data_xr = self.nwp.data_xr.assign(
                 exp_Wind=lambda x: x.Wind * (np.log(10 / x.Z0) / np.log(10 / x.Z0REL)) * (x.Z0 / x.Z0REL) ** (0.0708))
 
-        if not(apply_directly_to_nwp):
+        if not (apply_directly_to_nwp):
 
             if self._numexpr:
                 acceleration_factor = ne.evaluate(
@@ -356,7 +376,7 @@ class Processing:
 
         # Select timeframe
         if ideal_case:
-            begin = self.begin
+            begin = self.nwp.begin
             year, month, day = np.int16(begin.split('-'))
             end = str(year) + "-" + str(month) + "-" + str(day + 1)
 
@@ -399,7 +419,7 @@ class Processing:
                 wind_speed = ne.evaluate("sqrt(U**2 + V**2 + W**2)")
             else:
                 wind_speed = np.sqrt(U ** 2 + V ** 2 + W ** 2)
-            return(wind_speed)
+            return (wind_speed)
 
         else:
             if self._numexpr:
@@ -414,7 +434,7 @@ class Processing:
                 wind_speed = ne.evaluate("sqrt(U**2 + V**2)")
             else:
                 wind_speed = np.sqrt(U ** 2 + V ** 2)
-            return(wind_speed)
+            return (wind_speed)
 
         else:
             if self._numexpr:
@@ -441,11 +461,11 @@ class Processing:
                     self._3D_wind_speed(U=U, V=V, W=W, out=out)
 
         if computing == 'xarray':
-
             xarray_data = xarray_data.assign(Wind=lambda x: np.sqrt(x[u_name] ** 2 + x[v_name] ** 2))
-            xarray_data = xarray_data.assign(Wind_DIR=lambda x: np.mod(180 + np.rad2deg(np.arctan2(x[u_name], x[v_name])), 360))
+            xarray_data = xarray_data.assign(
+                Wind_DIR=lambda x: np.mod(180 + np.rad2deg(np.arctan2(x[u_name], x[v_name])), 360))
 
-            return(xarray_data)
+            return (xarray_data)
 
     def wind_speed_scaling(self, scaling_wind, prediction, linear=True):
         if linear:
@@ -474,22 +494,23 @@ class Processing:
         return (UV_DIR)
 
     def horizontal_wind_component(self, UV=None, UV_DIR=None,
-                                  working_with_xarray=False, xarray_data=None, wind_name="Wind", wind_dir_name="Wind_DIR"):
+                                  working_with_xarray=False, xarray_data=None, wind_name="Wind",
+                                  wind_dir_name="Wind_DIR"):
 
-        if not(working_with_xarray):
+        if not (working_with_xarray):
             if self._numexpr:
                 U = ne.evaluate("-sin(UV_DIR) * UV")
                 V = ne.evaluate("-cos(UV_DIR) * UV")
             else:
                 U = -np.sin(UV_DIR) * UV
                 V = -np.cos(UV_DIR) * UV
-            return(U, V)
+            return (U, V)
 
         if working_with_xarray:
             xarray_data = xarray_data.assign(theta=lambda x: (np.pi / 180) * (x[wind_dir_name] % 360))
             xarray_data = xarray_data.assign(U=lambda x: -x[wind_name] * np.sin(x["theta"]))
             xarray_data = xarray_data.assign(V=lambda x: -x[wind_name] * np.cos(x["theta"]))
-            return(xarray_data)
+            return (xarray_data)
 
     def direction_from_u_and_v(self, U, V, output_in_degree=True):
         if output_in_degree:
@@ -498,6 +519,13 @@ class Processing:
             else:
                 UV_DIR = np.mod(180 + np.rad2deg(np.arctan2(U, V)), 360)
             return (UV_DIR)
+
+    @staticmethod
+    def reshape_list_array(list_array=None, shape=None):
+        result = []
+        for array in list_array:
+            result.append(np.reshape(array, shape))
+        return (result)
 
     def predict_UV_with_CNN(self, stations_name, fast=False, verbose=True, plot=False, Z0_cond=True, peak_valley=True,
                             log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
@@ -565,7 +593,6 @@ class Processing:
             # Select nwp pixel
             wind_dir, wind_speed, time_xr, Z0, Z0REL, ZS = self._select_nwp_time_serie_at_pixel(single_station,
                                                                                                 Z0=Z0_cond)
-
             # For ideal case, we define the input speed and direction
             if ideal_case: wind_speed, wind_dir = self._scale_wind_for_ideal_case(wind_speed, wind_dir, input_speed,
                                                                                   input_dir)
@@ -578,7 +605,12 @@ class Processing:
                                                                                           nb_pixel)
 
             # Rotate topographies
-            if verbose: print('Begin rotate topographies')
+
+            rotated_topo_large = self.rotate_topography(topo_HD, wind_dir, clockwise=False, verbose=verbose)
+            topo[idx_station, :, :, :, 0] = rotated_topo_large[:, y_offset_left:y_offset_right,
+                                            x_offset_left:x_offset_right]
+
+            """
             for time_step, angle in enumerate(wind_dir):
 
                 # Rotate large topography
@@ -589,6 +621,7 @@ class Processing:
                 topo[idx_station, time_step, :, :, 0] = rotated_topo
 
                 if verbose: print_current_line(time_step, nb_sim, 5)
+            """
 
             # Store results
             wind_speed_all[idx_station, :] = wind_speed
@@ -620,8 +653,8 @@ class Processing:
             if log_profile_to_h_2:
                 # Apply log profile: 10m => height/2
                 wind_speed_all = self.apply_log_profile(z_in=ten_m_array, z_out=height / 2, wind_in=wind_speed_all,
-                                                        z0=Z0_all)
-                if verbose: print("Applied log profile: 10m => height/2")
+                                                        z0=Z0_all,
+                                                        verbose=verbose, z_in_verbose="10m", z_out_verbose="height/2")
 
             # Acceleration a1
             a1 = self.wind_speed_ratio(num=wind_speed_all, den=wind1)
@@ -644,8 +677,8 @@ class Processing:
 
             # Apply log profile: height/2 => 3m
             if log_profile_from_h_2:
-                exp_Wind = self.apply_log_profile(z_in=height / 2, z_out=three_m_array, wind_in=exp_Wind, z0=Z0_all)
-                if verbose: print("Applied log profile: height => 3m")
+                exp_Wind = self.apply_log_profile(z_in=height / 2, z_out=three_m_array, wind_in=exp_Wind, z0=Z0_all,
+                                                  verbose=verbose, z_in_verbose="height/2", z_out_verbose="3m")
 
             # Acceleration a3 and acceleration factor
             a3 = self.wind_speed_ratio(num=exp_Wind, den=wind3)
@@ -654,7 +687,7 @@ class Processing:
         # Normalize
         mean, std = self._load_norm_prm()
         topo = self.normalize_topo(topo, mean_height.reshape((nb_station, 1, 1, 1, 1)), std)
-        if verbose: print('Normalize done \n Mean: ' + str(np.round(std)))
+        if verbose: print(f"Normalize done with mean {np.round(mean)} and std {np.round(std)}")
 
         # Reshape for tensorflow
         topo = topo.reshape((nb_station * nb_sim, self.n_rows, self.n_col, 1))
@@ -671,11 +704,7 @@ class Processing:
         if verbose: print('Prediction done')
 
         # Acceleration NWP to CNN
-        print('Input dtype')
-        print(prediction[:, :, :, 0].dtype)
         UVW_int = self.compute_wind_speed(U=prediction[:, :, :, 0], V=prediction[:, :, :, 1], W=prediction[:, :, :, 2])
-        print('Output dtype')
-        print(UVW_int.dtype)
         acceleration_CNN = self.wind_speed_ratio(num=UVW_int, den=3 * np.ones(UVW_int.shape))
 
         # Reshape predictions for analysis
@@ -685,12 +714,10 @@ class Processing:
         # Reshape for broadcasting
         wind_speed = wind_speed_all.reshape((nb_station, nb_sim, 1, 1, 1))
         if Z0_cond:
-            exp_Wind = exp_Wind.reshape((nb_station, nb_sim, 1, 1, 1))
-            acceleration_factor = acceleration_factor.reshape((nb_station, nb_sim, 1, 1, 1))
+            exp_Wind, acceleration_factor, ten_m_array, three_m_array, Z0_all = self.reshape_list_array(
+                list_array=[exp_Wind, acceleration_factor, ten_m_array, three_m_array, Z0_all],
+                shape=(nb_station, nb_sim, 1, 1, 1))
             peak_valley_height = peak_valley_height.reshape((nb_station, 1, 1, 1, 1))
-            ten_m_array = ten_m_array.reshape((nb_station, nb_sim, 1, 1, 1))
-            three_m_array = three_m_array.reshape((nb_station, nb_sim, 1, 1, 1))
-            Z0_all = Z0_all.reshape((nb_station, nb_sim, 1, 1, 1))
         wind_dir = wind_dir_all.reshape((nb_station, nb_sim, 1, 1))
 
         # Wind speed scaling
@@ -703,8 +730,8 @@ class Processing:
 
         if log_profile_10m_to_3m:
             # Apply log profile: 3m => 10m
-            prediction = self.apply_log_profile(z_in=three_m_array, z_out=ten_m_array, wind_in=prediction, z0=Z0_all)
-            if verbose: print("Applied log profile: 3m => 10m")
+            prediction = self.apply_log_profile(z_in=three_m_array, z_out=ten_m_array, wind_in=prediction, z0=Z0_all,
+                                                verbose=verbose, z_in_verbose="3m", z_out_verbose="10m")
 
         # Acceleration a4
         a4 = self.wind_speed_ratio(num=prediction, den=wind4)
@@ -725,19 +752,28 @@ class Processing:
         UV_DIR = UV_DIR.astype(np.float32, copy=False)
 
         # Verification of shapes
-        assert U_old.shape == V_old.shape == W_old.shape == UV.shape == alpha.shape == UV_DIR.shape == (nb_station, nb_sim, self.n_rows, self.n_col)
+        assert U_old.shape == V_old.shape == W_old.shape == UV.shape == alpha.shape == UV_DIR.shape == (
+        nb_station, nb_sim, self.n_rows, self.n_col)
 
         # Calculate U and V along initial axis
-        U_old, V_old = self.horizontal_wind_component(UV=UV, UV_DIR=UV_DIR)  # Good coord. but not on the right pixel [m/s]
+        U_old, V_old = self.horizontal_wind_component(UV=UV,
+                                                      UV_DIR=UV_DIR)  # Good coord. but not on the right pixel [m/s]
         if verbose: print('Wind computation done')
 
         # Rotate clockwise to put the wind value on the right topography pixel
         if verbose: print('Start rotating to initial position')
 
+        """
         U = np.empty((nb_station, nb_sim, self.n_rows, self.n_col), dtype=np.float32)
         V = np.empty((nb_station, nb_sim, self.n_rows, self.n_col), dtype=np.float32)
         W = np.empty((nb_station, nb_sim, self.n_rows, self.n_col), dtype=np.float32)
+        """
 
+        U = self.rotate_topography(U_old[:, :, :, :], wind_dir_all[:, :], clockwise=True, verbose=False)
+        V = self.rotate_topography(V_old[:, :, :, :], wind_dir_all[:, :], clockwise=True, verbose=False)
+        W = self.rotate_topography(W_old[:, :, :, :], wind_dir_all[:, :], clockwise=True, verbose=False)
+
+        """
         for idx_station in range(nb_station):
             if verbose: print(f"Station {idx_station}/{nb_station}")
             for time_step in range(nb_sim):
@@ -754,7 +790,7 @@ class Processing:
                                                                          clockwise=True)
 
                 if verbose: print_current_line(time_step, nb_sim, 10)
-
+        """
         if verbose: print('Wind prediction rotated for initial topography')
 
         # Compute wind direction
@@ -765,23 +801,21 @@ class Processing:
         UVW = self.compute_wind_speed(U=U, V=V, W=W)
 
         # Acceleration NWP to CNN
-        acceleration_all = self.wind_speed_ratio(num=UVW, den=wind1.reshape((nb_station, nb_sim, 1, 1))) if Z0_cond else UVW*np.nan
+        acceleration_all = self.wind_speed_ratio(num=UVW, den=wind1.reshape(
+            (nb_station, nb_sim, 1, 1))) if Z0_cond else UVW * np.nan
 
         # Convert float64 to float32
         UV_DIR = UV_DIR.astype(np.float32, copy=False)
 
         # Reshape after broadcasting
-        wind_speed = wind_speed.reshape((nb_station, nb_sim))
-        wind_dir = wind_dir.reshape((nb_station, nb_sim))
-        Z0_all = Z0_all.reshape((nb_station, nb_sim))
+        wind_speed, wind_dir, Z0_all = self.reshape_list_array(list_array=[wind_speed, wind_dir, Z0_all],
+                                                               shape=(nb_station, nb_sim))
         if Z0_cond:
-            exp_Wind = exp_Wind.reshape((nb_station, nb_sim))
-            acceleration_factor = acceleration_factor.reshape((nb_station, nb_sim))
-            a1 = a1.reshape((nb_station, nb_sim))
-            a2 = a2.reshape((nb_station, nb_sim))
-            a3 = a3.reshape((nb_station, nb_sim))
-            a4 = np.max(a4, axis=4).reshape((nb_station, nb_sim, self.n_rows, self.n_col))
-            acceleration_CNN = acceleration_CNN.reshape((nb_station, nb_sim, self.n_rows, self.n_col))
+            exp_Wind, acceleration_factor, a1, a2, a3 = self.reshape_list_array(
+                list_array=[exp_Wind, acceleration_factor, a1, a2, a3],
+                shape=(nb_station, nb_sim))
+            a4, acceleration_CNN = self.reshape_list_array(list_array=[np.max(a4, axis=4), acceleration_CNN],
+                                                           shape=(nb_station, nb_sim, self.n_rows, self.n_col))
             peak_valley_height = peak_valley_height.reshape((nb_station))
 
         # Verification of shapes
@@ -890,14 +924,16 @@ class Processing:
             mnt_data_y = mnt_data.y.data
             mnt_data = mnt_data.__xarray_dataarray_variable__.data
             shape_x_mnt, shape_y_mnt = mnt_data[0, :, :].shape
-        return(mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt)
+        return (mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt)
 
     @staticmethod
     def interpolate_xarray_grid(xarray_data=None, interp=None, name_x='xx', name_y='yy', method='linear'):
-        new_x = np.linspace(xarray_data[name_x].min().data, xarray_data[name_x].max().data, xarray_data.dims[name_x] * interp)
-        new_y = np.linspace(xarray_data[name_y].min().data, xarray_data[name_y].max().data, xarray_data.dims[name_y] * interp)
+        new_x = np.linspace(xarray_data[name_x].min().data, xarray_data[name_x].max().data,
+                            xarray_data.dims[name_x] * interp)
+        new_y = np.linspace(xarray_data[name_y].min().data, xarray_data[name_y].max().data,
+                            xarray_data.dims[name_y] * interp)
         xarray_data = xarray_data.interp(xx=new_x, yy=new_y, method=method)
-        return(xarray_data)
+        return (xarray_data)
 
     def predict_map(self, station_name='Col du Lac Blanc', x_0=None, y_0=None, dx=10_000, dy=10_000, interp=3,
                     year_0=None, month_0=None, day_0=None, hour_0=None,
@@ -1438,7 +1474,7 @@ class Processing:
                 for idx_x_nwp in range(nb_px_nwp_x):
 
                     # Select index NWP
-                    #todo change here
+                    # todo change here
                     x_nwp_L93 = nwp_x_l93.isel(xx=idx_x_nwp, yy=idx_y_nwp).data
                     y_nwp_L93 = nwp_y_l93.isel(xx=idx_x_nwp, yy=idx_y_nwp).data
 
@@ -1448,7 +1484,8 @@ class Processing:
                     idx_y_mnt = int((ymax_mnt - y_nwp_L93) // resolution_y)
 
                     # Large topo
-                    topo_i = mnt_data[0, idx_y_mnt - nb_pixel:idx_y_mnt + nb_pixel, idx_x_mnt - nb_pixel:idx_x_mnt + nb_pixel]
+                    topo_i = mnt_data[0, idx_y_mnt - nb_pixel:idx_y_mnt + nb_pixel,
+                             idx_x_mnt - nb_pixel:idx_x_mnt + nb_pixel]
 
                     # Mean peak_valley altitude
                     if time_step == 0:
@@ -1522,16 +1559,19 @@ class Processing:
             # Apply log profile: 10m => h/2 or 10m => Zs
             if log_profile_to_h_2:
                 wind_speed_nwp = self.apply_log_profile(z_in=ten_m_array, z_out=peak_valley_height / 2,
-                                                        wind_in=wind_speed_nwp, z0=Z0_nwp)
+                                                        wind_in=wind_speed_nwp, z0=Z0_nwp,
+                                                        verbose=verbose, z_in_verbose="10m", z_out_verbose="height/2")
             # Unexpose wind speed
             exp_Wind, acceleration_factor = self.exposed_wind_speed(wind_speed=wind_speed_nwp,
-                                    z_out=(height/2),
-                                    z0=Z0_nwp,
-                                    z0_rel=Z0REL_nwp)
+                                                                    z_out=(height / 2),
+                                                                    z0=Z0_nwp,
+                                                                    z0_rel=Z0REL_nwp)
 
             if log_profile_from_h_2:
                 # Apply log profile: h/2 => 10m or Zs => 10m
-                exp_Wind = self.apply_log_profile(z_in=peak_valley_height / 2, z_out=ten_m_array, wind_in=exp_Wind, z0=Z0_nwp)
+                exp_Wind = self.apply_log_profile(z_in=peak_valley_height / 2, z_out=ten_m_array,
+                                                  wind_in=exp_Wind, z0=Z0_nwp,
+                                                  verbose=verbose, z_in_verbose="height/2", z_out_verbose="10m")
 
         # Wind speed scaling
         if verbose: print("Wind speed scaling")
@@ -1562,7 +1602,8 @@ class Processing:
         wind_DIR_nwp = wind_DIR_nwp.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x))
 
         # Calculate U and V along initial axis
-        U_old, V_old = self.horizontal_wind_component(UV=UV, UV_DIR=UV_DIR)  # Good coord. but not on the right pixel [m/s]
+        U_old, V_old = self.horizontal_wind_component(UV=UV,
+                                                      UV_DIR=UV_DIR)  # Good coord. but not on the right pixel [m/s]
 
         # Final results
         print("Creating wind map")
@@ -1617,7 +1658,8 @@ class Processing:
                         plt.title("Wind large")
                     i = i + 1
                     wind_map[time_step, idx_y_mnt - save_pixels:idx_y_mnt + save_pixels + 1,
-                    idx_x_mnt - save_pixels:idx_x_mnt + save_pixels + 1, :] = wind_large[save_pixel_offset_left:save_pixel_offset_right,
+                    idx_x_mnt - save_pixels:idx_x_mnt + save_pixels + 1, :] = wind_large[
+                                                                              save_pixel_offset_left:save_pixel_offset_right,
                                                                               save_pixel_offset_left:save_pixel_offset_right]
 
         @jit([float32[:, :, :, :](int64, float32[:, :, :, :])], nopython=True)

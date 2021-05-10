@@ -29,7 +29,7 @@ class Evaluation:
         Datafrae containing NWP values at the station
 
         """
-        wind_dir, wind_speed, time = self.v.p._select_nwp_time_serie_at_pixel(station_name)
+        wind_dir, wind_speed, time, _, _, _ = self.v.p._select_nwp_time_serie_at_pixel(station_name)
         nwp_time_serie = pd.DataFrame(np.transpose([wind_dir, wind_speed]), columns=['Wind_DIR', 'UV'], index=time)
         return (nwp_time_serie)
 
@@ -130,6 +130,7 @@ class Evaluation:
             plt.gcf()
 
         # Select Dataframes
+
         nwp_time_serie, cnn_predictions, obs_time_serie = self._select_dataframe(array_xr,
                                                                                  station_name=station_name,
                                                                                  day=day, month=month, year=year,

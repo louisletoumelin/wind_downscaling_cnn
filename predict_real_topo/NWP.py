@@ -75,6 +75,9 @@ class NWP(Data_2D):
         if (path_Z0_2018 is not None) and (path_Z0_2019 is not None):
             self._add_Z0(path_Z0_2018, path_Z0_2019, save=save, load=load_z0, verbose=True)
 
+        # float32
+        self.data_xr = self.data_xr.astype("float32")
+
         if verbose:
             t1 = t()
             print(f"\nNWP created in {np.round(t1-t0, 2)} seconds\n")
