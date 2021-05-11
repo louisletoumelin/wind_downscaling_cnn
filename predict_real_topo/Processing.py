@@ -421,7 +421,26 @@ class Processing:
         return (a1)
 
     def _3D_wind_speed(self, U=None, V=None, W=None, out=None, verbose=True):
+        """
+        UVW = np.sqrt(U**2 + V**2 + W**2)
 
+        Parameters
+        ----------
+        U : dnarray
+            Horizontal wind speed component U
+        V : string, optional
+            Horizontal wind speed component V
+        W : string, optional
+            Vertical wind speed component W
+        out : ndarray, optional
+            If specified, the output of the caluclation is directly written in out,
+            which is best for memory consumption (Default: None)
+
+        Returns
+        -------
+        UVW : ndarray
+            Wind speed
+        """
         if out is None:
             if self._numexpr:
                 wind_speed = ne.evaluate("sqrt(U**2 + V**2 + W**2)")
@@ -438,7 +457,24 @@ class Processing:
             if verbose: print("__UVW calculated")
 
     def _2D_wind_speed(self, U=None, V=None, out=None, verbose=True):
+        """
+        UV = np.sqrt(U**2 + V**2)
 
+        Parameters
+        ----------
+        U : dnarray
+            Horizontal wind speed component U
+        V : string, optional
+            Horizontal wind speed component V
+        out : ndarray, optional
+            If specified, the output of the caluclation is directly written in out,
+            which is best for memory consumption (Default: None)
+
+        Returns
+        -------
+        UV : ndarray
+            Wind speed
+        """
         if out is None:
             if self._numexpr:
                 wind_speed = ne.evaluate("sqrt(U**2 + V**2)")
@@ -457,7 +493,33 @@ class Processing:
     def compute_wind_speed(self, U=None, V=None, W=None,
                            computing='num', out=None,
                            xarray_data=None, u_name="U", v_name="V", verbose=True):
+        """
+        Calculates wind speed from wind sped components.
 
+        First detects the number of wind component then calculates wind speed.
+        The calculation can be performed on nmexpr, numpy or xarray dataset
+
+        Parameters
+        ----------
+        U : dnarray
+            Horizontal wind speed component U
+        V : string, optional
+            Horizontal wind speed component V
+        W : string, optional
+            Vertical wind speed component V
+        out : ndarray, optional
+            If specified, the output of the calculation is directly written in out,
+            which is best for memory consumption (Default: None)
+        computing : str, optional
+            Select the librairie to use for calculation. If 'num' first test numexpr, if not available select numpy.
+            If 'xarray', a xarray dataframe needs to be specified with the corresponding names for wind components.
+            (Default: 'num')
+
+        Returns
+        -------
+        UV : ndarray
+            Wind speed
+        """
         # Numexpr or numpy
         if computing == 'num':
             if out is None:
@@ -473,7 +535,6 @@ class Processing:
                 else:
                     self._3D_wind_speed(U=U, V=V, W=W, out=out, verbose=verbose)
 
-
         if computing == 'xarray':
             xarray_data = xarray_data.assign(Wind=lambda x: np.sqrt(x[u_name] ** 2 + x[v_name] ** 2))
             xarray_data = xarray_data.assign(
@@ -482,6 +543,23 @@ class Processing:
             return (xarray_data)
 
     def wind_speed_scaling(self, scaling_wind, prediction, linear=True, verbose=True):
+        """
+        scaling_wind * prediction / 3
+
+        Parameters
+        ----------
+        scaling_wind : dnarray
+            Scaling wind (ex: NWP wind)
+        prediction : ndarray
+            CNN ouptut
+        linear : boolean, optionnal
+            Linear scaling (Default: True)
+
+        Returns
+        -------
+        prediction : ndarray
+            Scaled wind
+        """
         if linear:
             if self._numexpr:
                 prediction = ne.evaluate("scaling_wind * prediction / 3")
@@ -492,6 +570,24 @@ class Processing:
         return (prediction)
 
     def angular_deviation(self, U, V, verbose=True):
+        """
+        Angular deviation from incoming flow.
+
+        THe incoming flow is supposed from the West so that V=0. If deviated, V != 0.
+        The angular deviation is then np.arctan(V / U)
+
+        Parameters
+        ----------
+        U : dnarray
+            Horizontal wind speed component U
+        V : string, optional
+            Horizontal wind speed component V
+
+        Returns
+        -------
+        alpha : ndarray
+            Angular deviation [rad]
+        """
         if self._numexpr:
             alpha = ne.evaluate("where(U == 0, where(V == 0, 0, V/abs(V) * 3.14159 / 2), arctan(V / U))")
         else:
@@ -503,7 +599,28 @@ class Processing:
         return (alpha)
 
     def direction_from_alpha(self, wind_dir, alpha, input_dir_in_degree=True, verbose=True):
+        """
+        wind_dir - alpha
 
+        Wind direction modified by angular deviation due to wind/topography interaction.
+        Warning: this function might return a new wind direction in a rotated coordinates.
+
+        Parameters
+        ----------
+        wind_dir : dnarray
+            Initial NWP wind direction
+        alpha : dnarray
+            Angular deviation
+        input_dir_in_degree : boolean, optionnal
+            If True, converts the input wind direction from radans to degrees (Default: True)
+
+
+
+        Returns
+        -------
+        alpha : ndarray
+            Modified wind direction
+        """
         if input_dir_in_degree:
             if self._numexpr:
                 UV_DIR = ne.evaluate("(3.14159/180) * wind_dir - alpha")
@@ -580,7 +697,27 @@ class Processing:
             list_return = list_arrays_1 + list_arrays_2
         return(list_return)
 
-    def predict_UV_with_CNN(self, stations_name, fast=False, verbose=True, plot=False, Z0_cond=True, peak_valley=True,
+    def predict_at_stations(self, stations_name, fast=False, verbose=True, plot=False, Z0_cond=True, peak_valley=True,
+                            log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
+                            ideal_case=False, input_speed=3, input_dir=270, line_profile=False):
+        if line_profile:
+            from line_profiler import LineProfiler
+            lp = LineProfiler()
+            lp_wrapper = lp(self._predict_at_stations)
+            lp_wrapper(stations_name, fast=fast, verbose=verbose, plot=plot, Z0_cond=Z0_cond, peak_valley=peak_valley,
+                       log_profile_to_h_2=log_profile_to_h_2, log_profile_from_h_2=log_profile_from_h_2,
+                       log_profile_10m_to_3m=log_profile_10m_to_3m, ideal_case=ideal_case,
+                       input_speed=input_speed, input_dir=input_dir)
+            lp.print_stats()
+        else:
+            array_xr = self._predict_at_stations(stations_name, fast=fast, verbose=verbose, plot=plot, Z0_cond=Z0_cond,
+                                      peak_valley=peak_valley,log_profile_to_h_2=log_profile_to_h_2,
+                                      log_profile_from_h_2=log_profile_from_h_2,
+                                      log_profile_10m_to_3m=log_profile_10m_to_3m, ideal_case=ideal_case,
+                                      input_speed=input_speed, input_dir=input_dir)
+            return(array_xr)
+
+    def _predict_at_stations(self, stations_name, fast=False, verbose=True, plot=False, Z0_cond=True, peak_valley=True,
                             log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
                             ideal_case=False, input_speed=3, input_dir=270):
         """

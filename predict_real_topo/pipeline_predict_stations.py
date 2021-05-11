@@ -58,14 +58,15 @@ peak_valley = True
 launch_predictions = True
 select_date_time_serie = True
 verbose = True
-stations_to_predict = ['Col du Lac Blanc']
+stations_to_predict = 'all'
+line_profile = True
 
 # Date to predict
 day_begin = 1
 month_begin = 6
 year_begin = 2019
 
-day_end = 2
+day_end = 30
 month_end = 6
 year_end = 2019
 
@@ -147,21 +148,15 @@ if launch_predictions:
     if stations_to_predict == 'all':
         stations_to_predict = BDclim.stations["name"].values
 
-    array_xr = p.predict_UV_with_CNN(stations_to_predict,
+    array_xr = p.predict_at_stations(stations_to_predict,
                                      verbose=True,
                                      Z0_cond=Z0,
                                      peak_valley=peak_valley,
-                                     ideal_case=False)
+                                     ideal_case=False,
+                                     line_profile=line_profile)
 
 t2 = t()
 print(f'\nPredictions in {round(t1, t2)} seconds')
-
-"""
-lp = LineProfiler()
-lp_wrapper = lp(p.predict_UV_with_CNN)
-lp_wrapper(stations_to_predict,verbose=True,Z0_cond=Z0,peak_valley=peak_valley,ideal_case=False)
-lp.print_stats()
-"""
 
 # Visualization
 v = Visualization(p)
