@@ -42,3 +42,13 @@ def print_current_line(time_step, nb_sim, division):
     nb_sim_divided = nb_sim // division
     for k in range(1, division+1):
         if time_step == k * nb_sim_divided: print(f" {k}/{division}")
+
+def change_dtype_if_required(variable, dtype):
+    if variable.dtype != dtype:
+        variable = variable.astype(dtype, copy=False)
+    return(variable)
+
+def assert_equal_shapes(arrays, shape):
+    assert arrays[0].shape == shape
+    for k in range(len(arrays)-1):
+        assert arrays[k].shape == arrays[k+1].shape

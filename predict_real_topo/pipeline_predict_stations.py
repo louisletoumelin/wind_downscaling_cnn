@@ -65,7 +65,7 @@ day_begin = 1
 month_begin = 6
 year_begin = 2019
 
-day_end = 30
+day_end = 2
 month_end = 6
 year_end = 2019
 
@@ -158,8 +158,8 @@ print(f'\nPredictions in {round(t1, t2)} seconds')
 
 """
 lp = LineProfiler()
-lp_wrapper = lp(p.predict_map_indexes)
-lp_wrapper(year_0=2019, month_0=6, day_0=20, hour_0=15, year_1=2019, month_1=6, day_1=20, hour_1=15, dx=20_000, dy=25_000)
+lp_wrapper = lp(p.predict_UV_with_CNN)
+lp_wrapper(stations_to_predict,verbose=True,Z0_cond=Z0,peak_valley=peak_valley,ideal_case=False)
 lp.print_stats()
 """
 
