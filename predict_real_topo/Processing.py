@@ -614,8 +614,6 @@ class Processing:
         input_dir_in_degree : boolean, optionnal
             If True, converts the input wind direction from radans to degrees (Default: True)
 
-
-
         Returns
         -------
         alpha : ndarray

@@ -120,7 +120,7 @@ for index, (day, month, year) in enumerate(iterator):
             results["obs"][station] = []
 
     # Predictions
-    array_xr = p.predict_UV_with_CNN(stations,
+    array_xr = p.predict_at_stations(stations,
                                      verbose=True,
                                      Z0_cond=Z0,
                                      peak_valley=peak_valley)

@@ -28,7 +28,7 @@ Training (performed on GPU)
 
 > train/
 
-> predict_real_topo/
-
 Predictions on real topographies
+
+> predict_real_topo/
 
