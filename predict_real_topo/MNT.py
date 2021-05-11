@@ -22,14 +22,14 @@ class MNT(Data_2D):
         # Inherit from Data
         super().__init__(path_to_file, name)
 
+        # Load MNT with xr.open_rasterio or xr.open_dataset
+        self.load_mnt_files(path_to_file)
+
         # Corners of MNT
         self.x_min = np.min(self.data_xr.x.data)
         self.y_max = np.max(self.data_xr.y.data)
         self.resolution_x = resolution_x
         self.resolution_y = resolution_y
-
-        # Load MNT with xr.open_rasterio or xr.open_dataset
-        self.load_mnt_files(path_to_file)
 
         # Name
         self.name = name

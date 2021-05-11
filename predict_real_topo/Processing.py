@@ -198,7 +198,7 @@ class Processing:
 
             return (exp_Wind, acceleration_factor)
 
-    def normalize_topo(self, topo_HD, mean, std, dtype=np.float32, tensorflow=False):
+    def normalize_topo(self, topo_HD, mean, std, dtype=np.float32, librairie='num', verbose=True):
         """
         Normalize a topography with mean and std.
 
@@ -215,14 +215,17 @@ class Processing:
         -------
         Standardized topography : array
         """
-        if tensorflow:
+        if verbose: print(f"__Normalize done with mean {np.round(mean)} and std {np.round(std)}")
+
+        if librairie == 'tensorflow':
             topo_HD = tf.constant(topo_HD, dtype=tf.float32)
             mean = tf.constant(mean, dtype=tf.float32)
             std = tf.constant(std, dtype=tf.float32)
             result = tf.subtract(topo_HD, mean)
             result = tf.divide(result, result)
             return (result)
-        else:
+
+        if librairie == 'num':
             topo_HD = np.array(topo_HD, dtype=dtype)
             if self._numexpr:
                 return (ne.evaluate("(topo_HD - mean) / std"))
@@ -631,17 +634,43 @@ class Processing:
     def horizontal_wind_component(self, UV=None, UV_DIR=None,
                                   working_with_xarray=False, xarray_data=None, wind_name="Wind",
                                   wind_dir_name="Wind_DIR", verbose=True):
+        """
+        U = -np.sin(UV_DIR) * UV
+        V = -np.cos(UV_DIR) * UV
 
+        Computes U and V component from wind direction and wind speed
+
+        Parameters
+        ----------
+        UV : dnarray
+            Wind speed
+        UV_DIR : dnarray
+            Wind_direction
+        working_with_xarray : boolean, optionnal
+            If True, computes U and V on an xarray dataframe (provided with names of variables)
+            and returns the dataframe
+
+        Returns
+        -------
+        U : dnarray
+            Horizontal wind speed component U
+        V : string, optional
+            Horizontal wind speed component V
+        """
         if not (working_with_xarray):
+
             if self._numexpr:
                 U = ne.evaluate("-sin(UV_DIR) * UV")
                 V = ne.evaluate("-cos(UV_DIR) * UV")
+
             else:
                 U = -np.sin(UV_DIR) * UV
                 V = -np.cos(UV_DIR) * UV
+
             if verbose: print('__Horizontal wind component calculated')
             U = change_dtype_if_required(U, np.float32)
             V = change_dtype_if_required(V, np.float32)
+
             return (U, V)
 
         if working_with_xarray:
@@ -652,6 +681,25 @@ class Processing:
             return (xarray_data)
 
     def direction_from_u_and_v(self, U, V, output_in_degree=True, verbose=True):
+        """
+        UV_DIR = 180 + (180/3.14159)*arctan2(U,V)) % 360
+
+        Compute wind direction from U and V components
+
+        Parameters
+        ----------
+        U : dnarray
+            Horizontal wind speed component U
+        V : string, optional
+            Horizontal wind speed component V
+        output_in_degree : boolean, optionnal
+            If True, the wind direction is converted to degrees
+
+        Returns
+        -------
+        UV_DIR : dnarray
+            Wind direction
+        """
         if output_in_degree:
             if self._numexpr:
                 UV_DIR = ne.evaluate("(180 + (180/3.14159)*arctan2(U,V)) % 360")
@@ -663,6 +711,21 @@ class Processing:
 
     @staticmethod
     def reshape_list_array(list_array=None, shape=None):
+        """
+        Utility function that takes as input a list of arrays to reshape to the same shape
+
+        Parameters
+        ----------
+        list_array : list
+            List of arrays
+        shape : tuple
+            typle of shape
+
+        Returns
+        -------
+        result : list
+            List of reshaped arrays
+        """
         result = []
         for array in list_array:
             result.append(np.reshape(array, shape))
@@ -676,6 +739,9 @@ class Processing:
         return (result)
 
     def _initialize_arrays(self, predict='stations_month', nb_station=None, nb_sim=None):
+        """
+        Utility function used to initialize arrays in _predict_at_stations
+        """
         if predict == 'stations_month':
             topo = np.empty((nb_station, nb_sim, self.n_rows, self.n_col, 1), dtype=np.float32)
             wind_speed_all = np.empty((nb_station, nb_sim), dtype=np.float32)
@@ -698,6 +764,9 @@ class Processing:
     def predict_at_stations(self, stations_name, fast=False, verbose=True, plot=False, Z0_cond=True, peak_valley=True,
                             log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
                             ideal_case=False, input_speed=3, input_dir=270, line_profile=False):
+        """
+        This function is used to select predictions at stations or the lin profiled version
+        """
         if line_profile:
             from line_profiler import LineProfiler
             lp = LineProfiler()
@@ -714,6 +783,13 @@ class Processing:
                                       log_profile_10m_to_3m=log_profile_10m_to_3m, ideal_case=ideal_case,
                                       input_speed=input_speed, input_dir=input_dir)
             return(array_xr)
+
+    def select_height_for_exposed_wind_speed(self, height=None, zs=None, peak_valley=None):
+        if peak_valley:
+            return(height.reshape((nb_station, 1)))
+        else:
+            return(zs)
+        height = peak_valley_height.reshape((nb_station, 1)) if peak_valley else ZS_all
 
     def _predict_at_stations(self, stations_name, fast=False, verbose=True, plot=False, Z0_cond=True, peak_valley=True,
                             log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
@@ -753,7 +829,7 @@ class Processing:
         nb_sim = len(wind_speed)
         nb_station = len(stations_name)
 
-        # Load and rotate all topo
+        # initialize arrays
         topo, wind_speed_all, wind_dir_all, Z0_all, Z0REL_all, ZS_all, \
         peak_valley_height, mean_height, all_topo_HD, all_topo_x_small_l93, all_topo_y_small_l93, ten_m_array, \
         three_m_array = self._initialize_arrays(predict='stations_month', nb_station=nb_station, nb_sim=nb_sim)
@@ -783,9 +859,7 @@ class Processing:
                                                                                           nb_pixel)
 
             # Rotate topographies
-            rotated_topo_large = self.rotate_topography(topo_HD, wind_dir, clockwise=False, verbose=verbose)
-            topo[idx_station, :, :, :, 0] = rotated_topo_large[:, y_offset_left:y_offset_right,
-                                            x_offset_left:x_offset_right]
+            topo[idx_station, :, :, :, 0] = self.rotate_topography(topo_HD, wind_dir, clockwise=False)[:, y_offset_left:y_offset_right, x_offset_left:x_offset_right]
 
             # Store results
             wind_speed_all[idx_station, :] = wind_speed
@@ -804,26 +878,19 @@ class Processing:
 
         # Exposed wind
         if Z0_cond:
-
-            # Check for null values in Z0
+            peak_valley_height = peak_valley_height.reshape((nb_station, 1))
             Z0_all = np.where(Z0_all == 0, 1 * 10 ^ (-8), Z0_all)
-
-            # Choose height in the formula
-            height = peak_valley_height.reshape((nb_station, 1)) if peak_valley else ZS_all
-
-            # Copy wind variable
+            height = self.select_height_for_exposed_wind_speed(height=peak_valley_height,
+                                                               zs=ZS_all,
+                                                               peak_valley=peak_valley)
             wind1 = np.copy(wind_speed_all)
 
+            # Log profile
             if log_profile_to_h_2:
-                # Apply log profile: 10m => height/2
                 wind_speed_all = self.apply_log_profile(z_in=ten_m_array, z_out=height / 2, wind_in=wind_speed_all,
                                                         z0=Z0_all,
                                                         verbose=verbose, z_in_verbose="10m", z_out_verbose="height/2")
-
-            # Acceleration a1
             a1 = self.wind_speed_ratio(num=wind_speed_all, den=wind1)
-
-            # Copy wind variable
             wind2 = np.copy(wind_speed_all)
 
             # Expose wind
@@ -831,27 +898,20 @@ class Processing:
                                                                     z_out=height / 2,
                                                                     z0=Z0_all,
                                                                     z0_rel=Z0REL_all)
-
-            # Acceleration a2
             a2 = self.wind_speed_ratio(num=exp_Wind, den=wind2)
             del wind2
-
-            # Copy wind variable
             wind3 = np.copy(exp_Wind)
 
-            # Apply log profile: height/2 => 3m
+            # Log profile
             if log_profile_from_h_2:
                 exp_Wind = self.apply_log_profile(z_in=height / 2, z_out=three_m_array, wind_in=exp_Wind, z0=Z0_all,
                                                   verbose=verbose, z_in_verbose="height/2", z_out_verbose="3m")
-
-            # Acceleration a3 and acceleration factor
             a3 = self.wind_speed_ratio(num=exp_Wind, den=wind3)
             del wind3
 
         # Normalize
         mean, std = self._load_norm_prm()
         topo = self.normalize_topo(topo, mean_height.reshape((nb_station, 1, 1, 1, 1)), std)
-        if verbose: print(f"__Normalize done with mean {np.round(mean)} and std {np.round(std)}")
 
         # Reshape for tensorflow
         topo = topo.reshape((nb_station * nb_sim, self.n_rows, self.n_col, 1))
@@ -1010,6 +1070,33 @@ class Processing:
         return (array_xr)
 
     def _select_large_domain_around_station(self, station_name, dx, dy, type="NWP", additionnal_dx_mnt=None):
+        """
+
+        This function operate on NWP or MNT and select and area around a station specified by its name
+
+        Parameters
+        ----------
+        station_name : str
+            Station name
+        dx : float
+            The domain length is 2*dx
+        dy : float
+            The domain length is 2*dx
+        type: str
+            "NWP" or "MNT"
+        additionnal_dx_mnt: float
+            Additional length to the side of the domain (Default: True)
+
+            Usually used when extracting MNT data. As CNN predictions are performed on maps but the information is only
+            stored on specific pixels near the center, we require more MNT data than the original domain size.
+
+
+        Returns
+        -------
+        result : list
+            Xarray DataFrame on the specified domain
+        """
+
         stations = self.observation.stations
         if type == "NWP":
             nwp_name = self.nwp.name
@@ -1023,6 +1110,7 @@ class Processing:
             mask = (x_min <= data_xr.X_L93) & (data_xr.X_L93 <= x_max) & (y_min <= data_xr.Y_L93) & (
                     data_xr.Y_L93 <= y_max)
             data_xr = data_xr.where(mask, drop=True)
+
         elif type == "MNT":
             # MNT domain must be larger than NWP domain as we extract MNT data around NWP data
             if additionnal_dx_mnt is not None:
@@ -1039,9 +1127,14 @@ class Processing:
             data_xr = self.mnt.data_xr
             mask = (x_min <= data_xr.x) & (data_xr.x <= x_max) & (y_min <= data_xr.y) & (data_xr.y <= y_max)
             data_xr = data_xr.where(mask, drop=True)
+
         return (data_xr)
 
     def _get_mnt_data_and_shape(self, mnt_data):
+        """
+        This function takes as input a mnt and returns data, coordinates and shape
+        """
+
         if self._dask:
             shape_x_mnt, shape_y_mnt = mnt_data.data.shape[1:]
             mnt_data_x = mnt_data.x.data
@@ -1056,6 +1149,22 @@ class Processing:
 
     @staticmethod
     def interpolate_xarray_grid(xarray_data=None, interp=None, name_x='xx', name_y='yy', method='linear'):
+        """
+        Interpolate a regular grid on an xarray dataframe using multilinear interpolation.
+        The interp parameters control the upsampling.
+
+
+        Parameters
+        ----------
+        xarray_data : xarray dataframe
+        interp : int
+            Interpolation parameters. New dimensions = old dimension * interp
+
+        Returns
+        -------
+        xarray_data : xarray dataframe
+            Xarray DataFrame interpolated
+        """
         new_x = np.linspace(xarray_data[name_x].min().data, xarray_data[name_x].max().data,
                             xarray_data.dims[name_x] * interp)
         new_y = np.linspace(xarray_data[name_y].min().data, xarray_data[name_y].max().data,
@@ -1416,7 +1525,7 @@ class Processing:
             # Normalize
             if verbose: print("Topographies normalization")
             mean, std = self._load_norm_prm()
-            topo_concat = self.normalize_topo(topo_concat, mean, std, tensorflow=True)
+            topo_concat = self.normalize_topo(topo_concat, mean, std, librairie='tensorflow')
 
             # Load model
             self.load_model(dependencies=True)

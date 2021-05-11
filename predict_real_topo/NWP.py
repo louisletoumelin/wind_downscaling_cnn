@@ -51,7 +51,6 @@ class NWP(Data_2D):
         # save_path
         self.save_path = save_path
         self.begin = begin
-        self.begin = begin
         self.end = end
 
         # Path to file can be a string or a list of strings

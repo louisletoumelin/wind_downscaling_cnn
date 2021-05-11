@@ -51,24 +51,24 @@ To be modified
 """
 
 GPU = False
-Z0 = True
+Z0 = False
 load_z0 = True
 save_z0 = False
 peak_valley = True
-launch_predictions = True
-select_date_time_serie = True
+launch_predictions = False
+select_date_time_serie = False
 verbose = True
-stations_to_predict = 'all'
-line_profile = True
+stations_to_predict = ['Col du Lac Blanc']
+line_profile = False
 
 # Date to predict
 day_begin = 1
-month_begin = 6
-year_begin = 2019
+month_begin = 1
+year_begin = 2008
 
-day_end = 30
-month_end = 6
-year_end = 2019
+day_end = 1
+month_end = 5
+year_end = 2021
 
 begin = str(year_begin) + "-" + str(month_begin) + "-" + str(day_begin)
 end = str(year_end) + "-" + str(month_end) + "-" + str(day_end)
@@ -122,7 +122,7 @@ BDclim = Observation(prm["BDclim_stations_path"],
                      path_Muzelle_Lac_Blanc=prm["path_Muzelle_Lac_Blanc"],
                      path_Col_de_Porte=prm["path_Col_de_Porte"],
                      path_Col_du_Lautaret=prm["path_Col_du_Lautaret"])
-#BDclim.qc()
+
 # Compute nearest neighbor sif CPU, load them if GPU
 if not (GPU):
     number_of_neighbors = 4
