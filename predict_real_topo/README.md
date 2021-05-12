@@ -1,26 +1,26 @@
 ## How to start training
 
-First specify the paths to data using 
+First specify the paths to data and specificities of the prediction (timescale, domain etc)
 
 ```
-PRM_predict.py
+PRM_predict.py and pipeline_predict_{stations/long_periods/map}.py
 ```
 
 To launch predictions at the observation stations for a single month
 
 ```
-pipeline_predict_stations.py
+python pipeline_predict_stations.py
 ```
 
 To launch predictions at the observation stations for several months (less data stored)
 
 ```
-pipeline_predict_long_periods.py
+python pipeline_predict_long_periods.py
 ```
 
 To launch predictions on maps
 
 ```
-pipeline_predict_map.py
+python pipeline_predict_map.py
 ```
 

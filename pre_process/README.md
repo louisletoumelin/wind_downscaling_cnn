@@ -2,4 +2,4 @@
 
 Preprocess data, create folders, create topographies classes etc
 
-> data_pipeline.py
+> python data_pipeline.py
