@@ -51,23 +51,23 @@ To be modified
 """
 
 GPU = False
-Z0 = True
+Z0 = False
 load_z0 = True
 save_z0 = False
 peak_valley = True
-launch_predictions = True
-select_date_time_serie = True
+launch_predictions = False
+select_date_time_serie = False
 verbose = True
 stations_to_predict = ['Col du Lac Blanc']
 line_profile = False
 
 # Date to predict
 day_begin = 1
-month_begin = 6
+month_begin = 1
 year_begin = 2019
 
-day_end = 30
-month_end = 6
+day_end = 1
+month_end = 5
 year_end = 2019
 
 begin = str(year_begin) + "-" + str(month_begin) + "-" + str(day_begin)
@@ -154,6 +154,7 @@ if launch_predictions:
                                      peak_valley=peak_valley,
                                      ideal_case=False,
                                      line_profile=line_profile)
+    print(BDclim.time_series.columns)
 
 t2 = t()
 print(f'\nPredictions in {round(t1, t2)} seconds')
@@ -167,6 +168,7 @@ v = Visualization(p)
 
 # Evaluation
 if launch_predictions: e = Evaluation(v, array_xr)
+
 # e.plot_time_serie(array_xr, 'Col du Lac Blanc', year=year_begin)
 
 t_end = t()

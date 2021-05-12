@@ -53,8 +53,11 @@ class Evaluation:
         "winddir(deg)" => "Wind_DIR"
         "vw10m(m/s)" => "UV"
         """
-        self.v.p.observation.time_series = self.v.p.observation.time_series.rename(
-            columns={"vw10m(m/s)": "UV", "winddir(deg)": "Wind_DIR"})
+        list_variables = self.v.p.observation.time_series.columns
+        if 'UV' not in list_variables:
+            self.v.p.observation.time_series['UV'] = self.v.p.observation.time_series["vw10m(m/s)"]
+        if 'Wind_DIR' not in list_variables:
+            self.v.p.observation.time_series['Wind_DIR'] = self.v.p.observation.time_series["winddir(deg)"]
 
     @staticmethod
     def _select_dataframe_time_window(dataframe, day=None, month=None, year=2019):

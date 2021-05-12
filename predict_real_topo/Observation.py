@@ -80,12 +80,10 @@ class Observation:
         if self.path_Muzelle_Lac_Blanc is not None: self._add_time_serie_Col(name='La Muzelle Lac Blanc', log_profile=False)
         if self.path_Col_de_Porte is not None: self._add_time_serie_Col(name='Col de Porte', log_profile=False)
         if self.path_Col_du_Lautaret is not None: self._add_time_serie_Col(name='Col du Lautaret', log_profile=False)
-
         if select_date_time_serie: self._select_date_time_serie()
 
         # float32
         self.time_series.loc[:, self.time_series.dtypes == 'float64'] = self.time_series.loc[:, self.time_series.dtypes == 'float64'].astype('float32')
-        
         t1 = t()
         print(f"Observation created in {np.round(t1-t0, 2)} seconds\n")
 
@@ -810,7 +808,7 @@ class Observation:
 
         self.time_series = pd.concat(list_dataframe)
 
-    def qc_constant_sequences(self, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
+    def qc_constant_sequences(self, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)', tolerance_speed=0.08, tolerance_direction=1):
         """
         Quality control
 
@@ -868,7 +866,8 @@ class Observation:
             previous_step_direction = False
 
             # Tolerance
-            tolerance = 0.15
+            tolerance_speed = tolerance_speed
+            tolerance_direction = tolerance_direction
 
             resolution_constant_sequence = []
             speed_sequence = []
@@ -900,7 +899,7 @@ class Observation:
                     resolution_constant_sequence = []
                     speed_sequence = []
                 else:
-                    if np.abs(speed_values[index] - speed_values[index+1]) > tolerance:
+                    if np.abs(speed_values[index] - speed_values[index+1]) > tolerance_speed:
                         constant_speed[index+1] = 0
                         # If the previous sequence was constant and is finished
                         if previous_step_speed:
@@ -960,7 +959,7 @@ class Observation:
                     previous_step_direction = False
                     resolution_constant_sequence_direction = []
                     direction_sequence = []
-                if np.abs(direction_values[index] - direction_values[index+1]) > tolerance:
+                if np.abs(direction_values[index] - direction_values[index+1]) > tolerance_direction:
                     constant_direction[index + 1] = 0
                     # If the previous sequence was constant and is finished
                     if previous_step_direction:
@@ -1685,11 +1684,11 @@ class Observation:
             # Result
             result[criteria_mean | criteria_std | criteria_coeff_var] = 0
             result = result.resample('1H').pad()
-            time_serie_station['qc_bias_observation_speed'] = 1-result
+            time_serie_station["qc_bias_observation_speed"] = 1-result
 
             if self._qc_init:
                 time_serie_station["validity_speed"] = result
-                time_serie_station["last_flagged_speed"][time_serie_station["validity_speed"] == 0] = "bias speed"
+                time_serie_station["last_flagged_speed"][time_serie_station["qc_bias_observation_speed"] == 1] = "bias speed"
 
             # Add station to list of dataframe
             list_dataframe.append(time_serie_station)

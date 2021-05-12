@@ -599,7 +599,7 @@ class Visualization:
         ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
         ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
-    def qc_plot_validity(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
+    def qc_plot_validity(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)', markersize_valid=10, markersize_not_valid=20):
 
         # Select time series
         time_series = self.p.observation.time_series
@@ -616,16 +616,20 @@ class Visualization:
             plt.figure()
             try:
                 plt.subplot(211)
-                time_serie_station[wind_speed].plot(marker='x')
-                time_serie_station[wind_speed][time_serie_station['validity_speed'] == 0].plot(marker='x', linestyle='')
+                time_serie_station[wind_speed].plot(marker='x', markersize=markersize_valid)
+                time_serie_station[wind_speed][time_serie_station['validity_speed'] == 0].plot(marker='x',
+                                                                                               linestyle='',
+                                                                                               markersize=markersize_not_valid)
             except:
                 pass
 
             # Wind direction
             try:
                 plt.subplot(212)
-                time_serie_station[wind_direction].plot(marker='x')
-                time_serie_station[wind_direction][time_serie_station['validity_direction'] == 0].plot(marker='x', linestyle='')
+                time_serie_station[wind_direction].plot(marker='x', markersize=markersize_valid)
+                time_serie_station[wind_direction][time_serie_station['validity_direction'] == 0].plot(marker='x',
+                                                                                                       linestyle='',
+                                                                                                       markersize=markersize_not_valid)
             except:
                 pass
 
@@ -723,7 +727,7 @@ class Visualization:
             plt.title(station)
             plt.tight_layout()
 
-    def qc_plot_last_flagged(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
+    def qc_plot_last_flagged(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)', markersize_valid=10, markersize_not_valid=20):
 
         # Select time series
         time_series = self.p.observation.time_series
@@ -741,12 +745,12 @@ class Visualization:
             plt.figure()
 
             plt.subplot(211)
-            sns.scatterplot(x=time_serie_station.index, y=wind_speed, data=time_serie_station, hue='last_flagged_speed')
-            sns.scatterplot(x=unflagged_data_speed.index, y=wind_speed, data=unflagged_data_speed, hue='last_unflagged_speed', s=20, palette="husl")
+            sns.scatterplot(x=time_serie_station.index, y=wind_speed, data=time_serie_station, hue='last_flagged_speed', s=markersize_valid)
+            sns.scatterplot(x=unflagged_data_speed.index, y=wind_speed, data=unflagged_data_speed, hue='last_unflagged_speed', s=markersize_not_valid, palette="husl")
 
             plt.subplot(212)
-            sns.scatterplot(x=time_serie_station.index, y=wind_direction, data=time_serie_station, hue='last_flagged_direction')
-            sns.scatterplot(x=unflagged_data_direction.index, y=wind_direction, data=unflagged_data_direction, hue='last_unflagged_direction', s=20, palette="husl")
+            sns.scatterplot(x=time_serie_station.index, y=wind_direction, data=time_serie_station, hue='last_flagged_direction', s=markersize_valid)
+            sns.scatterplot(x=unflagged_data_direction.index, y=wind_direction, data=unflagged_data_direction, hue='last_unflagged_direction', s=markersize_not_valid, palette="husl")
 
             plt.title(station)
             plt.tight_layout()
