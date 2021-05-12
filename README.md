@@ -1,6 +1,11 @@
 # Wind fields downscaling in complex terrain using convolutional neural networks
-Ongoing study - PhD Louis Le Toumelin
+
+Work in progress
+
+Ongoing study - PhD Louis Le Toumelin - louis.letoumelin@gmail.com
+
 **Supervisors:** Isabelle Gouttevin, Fatima Karbou
+
 *Centre Etudes de la Neige (Snow Research Center) - CNRM - CNRS  - Météo-France*
 
 ## How it works
