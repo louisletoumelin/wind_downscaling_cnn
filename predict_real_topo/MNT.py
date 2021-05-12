@@ -17,6 +17,7 @@ class MNT(Data_2D):
     _dask = _dask
 
     def __init__(self, path_to_file, name=None, resolution_x=25, resolution_y=25):
+        print("\nBegin MNT creation")
         t0 = t()
 
         # Inherit from Data
@@ -35,7 +36,7 @@ class MNT(Data_2D):
         self.name = name
 
         t1 = t()
-        print(f"\nMNT created in {np.round(t1-t0, 2)} seconds\n")
+        print(f"MNT created in {np.round(t1-t0, 2)} seconds\n")
 
     def load_mnt_files(self, path_to_file, verbose=True):
         if _dask:

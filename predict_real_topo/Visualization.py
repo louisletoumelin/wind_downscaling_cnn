@@ -599,13 +599,15 @@ class Visualization:
         ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
         ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
-    def qc_plot_validity(self, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
+    def qc_plot_validity(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
 
         # Select time series
         time_series = self.p.observation.time_series
 
+        if stations == 'all':
+            stations = time_series["name"].unique()
 
-        for station in time_series["name"].unique():
+        for station in stations:
 
             # Select station
             time_serie_station = time_series[time_series["name"] == station]
@@ -629,12 +631,15 @@ class Visualization:
 
             plt.title(station)
 
-    def qc_plot_resolution(self, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
+    def qc_plot_resolution(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
 
         # Select time series
         time_series = self.p.observation.time_series
 
-        for station in time_series["name"].unique():
+        if stations == 'all':
+            stations = time_series["name"].unique()
+
+        for station in stations:
 
             # Select station
             time_serie_station = time_series[time_series["name"] == station]
@@ -672,12 +677,15 @@ class Visualization:
             plt.title(station)
             plt.tight_layout()
 
-    def qc_plot_constant(self, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
+    def qc_plot_constant(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
 
         # Select time series
         time_series = self.p.observation.time_series
 
-        for station in time_series["name"].unique():
+        if stations == 'all':
+            stations = time_series["name"].unique()
+
+        for station in stations:
 
             # Select station
             time_serie_station = time_series[time_series["name"] == station]

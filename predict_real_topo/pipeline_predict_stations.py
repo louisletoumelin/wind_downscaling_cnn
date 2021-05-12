@@ -51,24 +51,24 @@ To be modified
 """
 
 GPU = False
-Z0 = False
+Z0 = True
 load_z0 = True
 save_z0 = False
 peak_valley = True
-launch_predictions = False
-select_date_time_serie = False
+launch_predictions = True
+select_date_time_serie = True
 verbose = True
 stations_to_predict = ['Col du Lac Blanc']
 line_profile = False
 
 # Date to predict
 day_begin = 1
-month_begin = 1
-year_begin = 2008
+month_begin = 6
+year_begin = 2019
 
-day_end = 1
-month_end = 5
-year_end = 2021
+day_end = 30
+month_end = 6
+year_end = 2019
 
 begin = str(year_begin) + "-" + str(month_begin) + "-" + str(day_begin)
 end = str(year_end) + "-" + str(month_end) + "-" + str(day_end)

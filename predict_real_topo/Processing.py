@@ -215,7 +215,7 @@ class Processing:
         -------
         Standardized topography : array
         """
-        if verbose: print(f"__Normalize done with mean {np.round(mean)} and std {np.round(std)}")
+        if verbose: print(f"__Normalize done with mean {len(mean)} means and one std {np.round(std)}")
 
         if librairie == 'tensorflow':
             topo_HD = tf.constant(topo_HD, dtype=tf.float32)
@@ -232,7 +232,7 @@ class Processing:
             else:
                 return ((topo_HD - mean) / std)
 
-    def _select_nwp_time_serie_at_pixel(self, station_name, Z0=False, verbose=False, variable=None):
+    def _select_nwp_time_serie_at_pixel(self, station_name, Z0=False, verbose=False, return_time=True):
         """
         Extract a time serie from the nwp, for several variables, at a station location.
 
@@ -271,11 +271,12 @@ class Processing:
 
         # Select NWP data
         nwp_instance = self.nwp.data_xr
+        if return_time:
+            time = nwp_instance.time.data
+            return(time)
+
         wind_speed = nwp_instance.Wind.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
-        if variable == "UV":
-            return(wind_speed)
         wind_dir = nwp_instance.Wind_DIR.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
-        time = nwp_instance.time.data
 
         # Select Z0 informaiton
         if Z0 == True:
@@ -289,7 +290,7 @@ class Processing:
 
         if verbose: print(f"Selected time series for pixel at station: {station_name}")
 
-        return (wind_dir, wind_speed, time, Z0, Z0REL, ZS)
+        return (wind_dir, wind_speed, Z0, Z0REL, ZS)
 
     def _select_time_serie_from_array_xr(self, array_xr, station_name='Col du Lac Blanc', variable='UV', center=True):
         """
@@ -784,49 +785,56 @@ class Processing:
                                       input_speed=input_speed, input_dir=input_dir)
             return(array_xr)
 
-    def select_height_for_exposed_wind_speed(self, height=None, zs=None, peak_valley=None):
+    def select_height_for_exposed_wind_speed(self, height=None, zs=None, peak_valley=None, nb_station=None):
         if peak_valley:
-            return(height.reshape((nb_station, 1)))
+            return(height)
         else:
             return(zs)
-        height = peak_valley_height.reshape((nb_station, 1)) if peak_valley else ZS_all
 
     def _predict_at_stations(self, stations_name, fast=False, verbose=True, plot=False, Z0_cond=True, peak_valley=True,
                             log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
                             ideal_case=False, input_speed=3, input_dir=270):
         """
-        Predicts wind fields using CNN.
+        Wind downscaling operated at observation stations sites only.
 
-        This function takes advantage of broadcasting. It doesn't use np.concatenate to store data as it is slow on large
-        arrays. This function should work on a GPU for distributed predictions (not tried yet).
+        Parameters
+        ----------
+        stations_name : list of strings
+            List containing station names
+        Z0_cond : boolean
+            To expose wind speed
+        peak_valley : boolean
+            Use mean peak valley height to expose wind. An other option is to use mean height.
+        log_profile_ : boolean(s)
+            If True, apply a log profile inside the function to adapt to calculation heights.
+        ideal_case: boolean
+            If True, run an ideal case during one day where the input speed and direction are specified by the user
+        input_speed: float
+            Input wind speed specified by the user for ideal cases (Default: 3 [m/s])
+        input_dir: float
+            Input wind direction specified by the user for ideal cases (Default: 270 [°], wind coming from the West)
 
-        Processing time: 15 minutes for 1 month for 52 stations
-
-        Input:
-
-            station_name
-            ex = ['Col du Lac Blanc']
+        Returns
+        -------
+        array_xr : xarray DataFrame
+            Result dataframe containing wind components, speeds, wind directions, accelerations and input data
 
 
-        Options:
-
-            fast: use pre-rotated topographies (not working)
-            verbose: print detailed execution
-            plot: plot intermediate results (to debug)
-
-
-        Output:
-
-            array_xr (xarray data storing wind fiels, forcing and topographic informations)
-
+        Exemple
+        -------
+        array_xr = p._predict_at_stations(['Col du Lac Blanc',
+                             verbose=True,
+                             Z0_cond=True,
+                             peak_valley=True,
+                             ideal_case=False)
         """
 
         # Select timeframe
         self._select_timeframe_nwp(ideal_case=ideal_case, verbose=True)
 
         # Simulation parameters
-        wind_speed = self._select_nwp_time_serie_at_pixel(random.choice(stations_name), variable="UV")
-        nb_sim = len(wind_speed)
+        time_xr = self._select_nwp_time_serie_at_pixel(random.choice(stations_name), return_time=True)
+        nb_sim = len(time_xr)
         nb_station = len(stations_name)
 
         # initialize arrays
@@ -846,11 +854,16 @@ class Processing:
             print(f"\nBegin downscaling at {single_station}")
 
             # Select nwp pixel
-            wind_dir, wind_speed, time_xr, Z0, Z0REL, ZS = self._select_nwp_time_serie_at_pixel(single_station,
-                                                                                                Z0=Z0_cond)
+            wind_dir_all[idx_station, :], wind_speed_all[idx_station, :], Z0_all[idx_station, :], \
+            Z0REL_all[idx_station, :], ZS_all[idx_station, :] = self._select_nwp_time_serie_at_pixel(single_station,
+                                                                                                Z0=Z0_cond, return_time=False)
             # For ideal case, we define the input speed and direction
-            if ideal_case: wind_speed, wind_dir = self._scale_wind_for_ideal_case(wind_speed, wind_dir, input_speed,
-                                                                                  input_dir)
+            if ideal_case:
+                wind_speed_all[idx_station, :], \
+                wind_dir_all[idx_station, :] = self._scale_wind_for_ideal_case(wind_speed_all[idx_station, :],
+                                                                               wind_dir_all[idx_station, :],
+                                                                               input_speed,
+                                                                               input_dir)
 
             # Extract topography
             topo_HD, topo_x_l93, topo_y_l93 = self.observation.extract_MNT_around_station(single_station,
@@ -859,22 +872,14 @@ class Processing:
                                                                                           nb_pixel)
 
             # Rotate topographies
-            topo[idx_station, :, :, :, 0] = self.rotate_topography(topo_HD, wind_dir, clockwise=False)[:, y_offset_left:y_offset_right, x_offset_left:x_offset_right]
+            topo[idx_station, :, :, :, 0] = self.rotate_topography(topo_HD, wind_dir_all[idx_station, :], clockwise=False)[:, y_offset_left:y_offset_right, x_offset_left:x_offset_right]
 
             # Store results
-            wind_speed_all[idx_station, :] = wind_speed
-            wind_dir_all[idx_station, :] = wind_dir
-            if Z0_cond:
-                Z0_all[idx_station, :] = Z0
-                Z0REL_all[idx_station, :] = Z0REL
-                ZS_all[idx_station, :] = ZS
             all_topo_HD[idx_station, :, :] = topo_HD[y_offset_left:y_offset_right, x_offset_left:x_offset_right]
             all_topo_x_small_l93[idx_station, :] = topo_x_l93[x_offset_left:x_offset_right]
             all_topo_y_small_l93[idx_station, :] = topo_y_l93[y_offset_left:y_offset_right]
-            peak_valley_height[idx_station] = np.int32(
-                2 * np.nanstd(topo_HD[y_offset_left:y_offset_right, x_offset_left:x_offset_right]))
-            mean_height[idx_station] = np.int32(
-                np.nanmean(topo_HD[y_offset_left:y_offset_right, x_offset_left:x_offset_right]))
+            peak_valley_height[idx_station] = np.int32(2 * np.nanstd(all_topo_HD[idx_station, :, :]))
+            mean_height[idx_station] = np.int32(np.nanmean(all_topo_HD[idx_station, :, :]))
 
         # Exposed wind
         if Z0_cond:
@@ -936,16 +941,16 @@ class Processing:
         if verbose: print(f"__Prediction reshaped: {prediction.shape}")
 
         # Reshape for broadcasting
-        wind_speed = wind_speed_all.reshape((nb_station, nb_sim, 1, 1, 1))
+        wind_speed_all = wind_speed_all.reshape((nb_station, nb_sim, 1, 1, 1))
         if Z0_cond:
             exp_Wind, acceleration_factor, ten_m_array, three_m_array, Z0_all = self.reshape_list_array(
                 list_array=[exp_Wind, acceleration_factor, ten_m_array, three_m_array, Z0_all],
                 shape=(nb_station, nb_sim, 1, 1, 1))
             peak_valley_height = peak_valley_height.reshape((nb_station, 1, 1, 1, 1))
-        wind_dir = wind_dir_all.reshape((nb_station, nb_sim, 1, 1))
+        wind_dir_all = wind_dir_all.reshape((nb_station, nb_sim, 1, 1))
 
         # Wind speed scaling
-        scaling_wind = exp_Wind if Z0_cond else wind_speed
+        scaling_wind = exp_Wind if Z0_cond else wind_speed_all
         prediction = self.wind_speed_scaling(scaling_wind, prediction, linear=True)
 
         # Copy wind variable
@@ -968,20 +973,29 @@ class Processing:
         # Recalculate with respect to original coordinates
         UV = self.compute_wind_speed(U=U_old, V=V_old, W=None)  # Good coord. but not on the right pixel [m/s]
         alpha = self.angular_deviation(U_old, V_old)  # Expressed in the rotated coord. system [radian]
-        UV_DIR = self.direction_from_alpha(wind_dir, alpha)  # Good coord. but not on the right pixel [radian]
+        UV_DIR = self.direction_from_alpha(wind_dir_all, alpha)  # Good coord. but not on the right pixel [radian]
 
         # Verification of shapes
         assert_equal_shapes([U_old, V_old, W_old, UV, alpha, UV_DIR], (nb_station, nb_sim, self.n_rows, self.n_col))
 
         # Calculate U and V along initial axis
         # Good coord. but not on the right pixel [m/s]
-        U_old, V_old = self.horizontal_wind_component(UV=UV, UV_DIR=UV_DIR, verbose=True)
+        prediction[:, :, :, :, 0], prediction[:, :, :, :, 1] = self.horizontal_wind_component(UV=UV,
+                                                                                              UV_DIR=UV_DIR,
+                                                                                              verbose=True)
+        del UV_DIR
 
         # Rotate clockwise to put the wind value on the right topography pixel
         if verbose: print('__Start rotating to initial position')
-        U = self.rotate_topography(U_old[:, :, :, :], wind_dir_all[:, :], clockwise=True, verbose=False)
-        V = self.rotate_topography(V_old[:, :, :, :], wind_dir_all[:, :], clockwise=True, verbose=False)
-        W = self.rotate_topography(W_old[:, :, :, :], wind_dir_all[:, :], clockwise=True, verbose=False)
+        prediction = np.moveaxis(prediction, -1, 2)
+        wind_dir_all = wind_dir_all.reshape((nb_station, nb_sim, 1))
+        prediction = self.rotate_topography(prediction[:, :, :, :, :], wind_dir_all[:, :, :], clockwise=True, verbose=False)
+        prediction = np.moveaxis(prediction, 2, -1)
+
+        U = prediction[:, :, :, :, 0].view()
+        V = prediction[:, :, :, :, 1].view()
+        W = prediction[:, :, :, :, 2].view()
+
         if verbose: print('__Wind prediction rotated for initial topography')
 
         # Compute wind direction
@@ -995,7 +1009,7 @@ class Processing:
             (nb_station, nb_sim, 1, 1))) if Z0_cond else UVW * np.nan
 
         # Reshape after broadcasting
-        wind_speed, wind_dir, Z0_all = self.reshape_list_array(list_array=[wind_speed, wind_dir, Z0_all],
+        wind_speed_all, wind_dir_all, Z0_all = self.reshape_list_array(list_array=[wind_speed_all, wind_dir_all, Z0_all],
                                                                shape=(nb_station, nb_sim))
         if Z0_cond:
             exp_Wind, acceleration_factor, a1, a2, a3 = self.reshape_list_array(
@@ -1007,7 +1021,7 @@ class Processing:
 
         # Verification of shapes
         assert_equal_shapes([U,V,W,UV_DIR], (nb_station, nb_sim, self.n_rows, self.n_col))
-        assert_equal_shapes([wind_speed,wind_dir], (nb_station, nb_sim))
+        assert_equal_shapes([wind_speed_all,wind_dir_all], (nb_station, nb_sim))
 
         if verbose: print('__Reshape final predictions done')
 
@@ -1017,12 +1031,12 @@ class Processing:
                                          "V": (["station", "time", "y", "x"], V),
                                          "W": (["station", "time", "y", "x"], W),
                                          "UV": (["station", "time", "y", "x"], np.sqrt(U ** 2 + V ** 2)),
-                                         "UVW": (["station", "time", "y", "x"], UVW),
+                                         "UVW": (["station", "time", "y", "x"], self.compute_wind_speed(U=U, V=V, W=W)),
                                          "UV_DIR_deg": (["station", "time", "y", "x"], UV_DIR),
                                          "alpha_deg": (["station", "time", "y", "x"],
-                                                       wind_dir.reshape((nb_station, nb_sim, 1, 1)) - UV_DIR),
-                                         "NWP_wind_speed": (["station", "time"], wind_speed),
-                                         "NWP_wind_DIR": (["station", "time"], wind_dir),
+                                                       wind_dir_all.reshape((nb_station, nb_sim, 1, 1)) - UV_DIR),
+                                         "NWP_wind_speed": (["station", "time"], wind_speed_all),
+                                         "NWP_wind_DIR": (["station", "time"], wind_dir_all),
                                          "ZS_mnt": (["station", "y", "x"], all_topo_HD,),
                                          "peak_valley_height": (["station"], peak_valley_height),
                                          "XX": (["station", "x"], all_topo_x_small_l93,),

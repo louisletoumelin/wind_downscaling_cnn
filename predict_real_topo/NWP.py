@@ -40,6 +40,7 @@ class NWP(Data_2D):
                  variables_of_interest=['Wind', 'Wind_DIR', 'LAT', 'LON', 'ZS'], verbose=True, path_to_file_npy=None,
                  save=False, load_z0=False):
         if verbose:
+            print("\nBegin NWP creation")
             t0 = t()
 
         # inherit from data
@@ -79,7 +80,7 @@ class NWP(Data_2D):
 
         if verbose:
             t1 = t()
-            print(f"\nNWP created in {np.round(t1-t0, 2)} seconds\n")
+            print(f"NWP created in {np.round(t1-t0, 2)} seconds\n")
 
     def load_nwp_files(self, path_to_file=None, preprocess_function=None): #self._preprocess_ncfile
         if _dask:
