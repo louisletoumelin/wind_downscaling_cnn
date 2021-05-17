@@ -15,14 +15,10 @@ except:
     _shapely_geometry = False
 
 try:
-    import geopandas as gpd
-    _geopandas = True
-except:
-    _geopandas = False
-try:
     import concurrent.futures
+    _concurrent = True
 except:
-    pass
+    _concurrent = False
 
 from Data_2D import Data_2D
 
@@ -30,6 +26,7 @@ from Data_2D import Data_2D
 class Observation:
 
     _shapely_geometry = _shapely_geometry
+    _concurrent = _concurrent
 
     def __init__(self, path_to_list_stations, path_to_time_series, path_vallot=None, path_saint_sorlin=None,
                  path_argentiere=None, begin=None, end=None, select_date_time_serie=True,

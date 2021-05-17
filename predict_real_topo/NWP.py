@@ -19,12 +19,6 @@ try:
 except:
     _shapely_geometry = False
 
-try:
-    import geopandas as gpd
-    _geopandas = True
-except:
-    _geopandas = False
-
 
 from Data_2D import Data_2D
 
@@ -34,7 +28,6 @@ class NWP(Data_2D):
     _dask = _dask
     _pyproj = _pyproj
     _shapely_geometry = _shapely_geometry
-    _geopandas = _geopandas
 
     def __init__(self, path_to_file, name=None, begin=None, end=None, save_path=None, path_Z0_2018=None, path_Z0_2019=None,
                  variables_of_interest=['Wind', 'Wind_DIR', 'LAT', 'LON', 'ZS'], verbose=True, path_to_file_npy=None,
@@ -174,9 +167,6 @@ class NWP(Data_2D):
             Z0_var_1h_2017 = (Z0_1h_2019['Z0'].data + Z0_1h_2018['Z0'].data) / 2
             Z0REL_1h_2017 = (Z0_1h_2019['Z0REL'].data + Z0_1h_2018['Z0REL'].data) / 2
 
-        del Z0_1h_2018
-        del Z0_1h_2019
-
         # Create file for 2017
         Z0_1h_2017 = xr.Dataset(data_vars={"Z0": (["time", "yy", "xx"], Z0_var_1h_2017),
                                            "Z0REL": (["time", "yy", "xx"], Z0REL_1h_2017),
@@ -198,7 +188,6 @@ class NWP(Data_2D):
 
         index_2020 = pd.DataFrame(np.ones(full_indexes[3].shape), index=full_indexes[3])
         index_2020_small = index_2020[np.logical_not((index_2020.index.month == 2) & (index_2020.index.day == 29))]
-        del index_2020
 
         Z0_1h_2020_small = xr.Dataset(data_vars={"Z0": (["time", "yy", "xx"], Z0_1h_2017['Z0'].values),
                                            "Z0REL": (["time", "yy", "xx"], Z0_1h_2017['Z0REL'].values),
@@ -207,19 +196,16 @@ class NWP(Data_2D):
                                 coords={"time": index_2020_small.index,
                                         "xx": np.array(list(range(176))),
                                         "yy": np.array(list(range(226)))})
-        del Z0_1h_2017
-        del index_2020
-        del index_2020_small
 
+        # Update empty dataset with values from 2017
         Z0_1h_2020.update(Z0_1h_2020_small)
 
         # Full array
         if verbose: print(' .. Concat netcdf Z0 files')
-        #array_Z0 = xr.concat([Z0_1h_2017, Z0_1h_2018, Z0_1h_2019, Z0_1h_2020], dim='time')
+        array_Z0 = xr.concat([Z0_1h_2017, Z0_1h_2018, Z0_1h_2019, Z0_1h_2020], dim='time')
 
-        if save: Z0_1h_2020.to_netcdf(self.save_path + 'processed_Z0_2020.nc')
-        print('Z0 2020 finished')
-        #return(array_Z0)
+        if save: Z0_1h_2020.to_netcdf(self.save_path + 'processed_Z0.nc')
+        return(array_Z0)
 
     def _add_Z0(self, path_Z0_2018, path_Z0_2019, save=False, load=False, verbose=True):
         if verbose: print('__Start adding Z0')
