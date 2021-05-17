@@ -21,35 +21,30 @@ from Utils import print_current_line, environment_GPU, change_dtype_if_required,
 # try importing optional modules
 try:
     from numba import jit, prange, float64, float32, int32, int64
-
     _numba = True
 except:
     _numba = False
 
 try:
     import numexpr as ne
-
     _numexpr = True
 except:
     _numexpr = False
 
 try:
     from shapely.geometry import Point
-
     _shapely_geometry = True
 except:
     _shapely_geometry = False
 
 try:
     import geopandas as gpd
-
     _geopandas = True
 except:
     _geopandas = False
 
 try:
     import dask
-
     _dask = True
 except:
     _dask = False

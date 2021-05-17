@@ -51,9 +51,9 @@ To be modified
 """
 
 GPU = False
-Z0 = False
-load_z0 = True
-save_z0 = False
+Z0 = True
+load_z0 = False
+save_z0 = True
 peak_valley = True
 launch_predictions = False
 select_date_time_serie = False
@@ -64,11 +64,11 @@ line_profile = False
 # Date to predict
 day_begin = 1
 month_begin = 1
-year_begin = 2019
+year_begin = 2020
 
-day_end = 1
-month_end = 5
-year_end = 2019
+day_end = 31
+month_end = 12
+year_end = 2020
 
 begin = str(year_begin) + "-" + str(month_begin) + "-" + str(day_begin)
 end = str(year_end) + "-" + str(month_end) + "-" + str(day_end)
@@ -121,7 +121,8 @@ BDclim = Observation(prm["BDclim_stations_path"],
                      path_Col_du_Lac_Blanc=prm["path_Col_du_Lac_Blanc"],
                      path_Muzelle_Lac_Blanc=prm["path_Muzelle_Lac_Blanc"],
                      path_Col_de_Porte=prm["path_Col_de_Porte"],
-                     path_Col_du_Lautaret=prm["path_Col_du_Lautaret"])
+                     path_Col_du_Lautaret=prm["path_Col_du_Lautaret"],
+                     GPU=GPU)
 
 # Compute nearest neighbor sif CPU, load them if GPU
 if not (GPU):

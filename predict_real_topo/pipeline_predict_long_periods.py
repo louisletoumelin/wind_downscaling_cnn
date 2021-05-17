@@ -31,6 +31,10 @@ Z0 = True
 load_z0 = True
 save_z0 = False
 peak_valley = True
+select_date_time_serie = True
+verbose = True
+stations = ['Col du Lac Blanc']
+line_profile = False
 variable = 'UV'
 
 day_begin = 1
@@ -50,7 +54,7 @@ Utils
 """
 
 # Create prm
-prm = create_prm(GPU, month_prediction=False)
+prm = create_prm(GPU, month_prediction=True)
 
 """
 MNT and NWP
@@ -61,16 +65,32 @@ IGN = MNT(prm["topo_path"], name="IGN")
 
 # NWP for initialization
 prm = update_selected_path(year_begin, month_begin, day_begin, prm)
-AROME = NWP(prm["selected_path"], name="AROME", begin=date_begin, end=date_begin_after,
-                save_path=prm["save_path"], path_Z0_2018=prm["path_Z0_2018"], path_Z0_2019=prm["path_Z0_2019"],
-                verbose=True, load_z0=load_z0, save=save_z0)
+AROME = NWP(prm["selected_path"],
+            name="AROME",
+            begin=date_begin,
+            end=date_begin_after,
+            save_path=prm["save_path"],
+            path_Z0_2018=prm["path_Z0_2018"],
+            path_Z0_2019=prm["path_Z0_2019"],
+            verbose=verbose,
+            load_z0=load_z0,
+            save=save_z0)
 
 # BDclim
-BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"],
-                     begin=date_begin, end=date_end, select_date_time_serie=False,
+BDclim = Observation(prm["BDclim_stations_path"],
+                     prm["BDclim_data_path"],
+                     begin=date_begin,
+                     end=date_end,
+                     select_date_time_serie=select_date_time_serie,
                      path_vallot=prm["path_vallot"],
                      path_saint_sorlin=prm["path_saint_sorlin"],
-                     path_argentiere=prm["path_argentiere"])
+                     path_argentiere=prm["path_argentiere"],
+                     path_Dome_Lac_Blanc=prm["path_Dome_Lac_Blanc"],
+                     path_Col_du_Lac_Blanc=prm["path_Col_du_Lac_Blanc"],
+                     path_Muzelle_Lac_Blanc=prm["path_Muzelle_Lac_Blanc"],
+                     path_Col_de_Porte=prm["path_Col_de_Porte"],
+                     path_Col_du_Lautaret=prm["path_Col_du_Lautaret"],
+                     GPU=GPU)
 
 if not(GPU):
     number_of_neighbors = 4
@@ -82,6 +102,8 @@ del AROME
 """
 Iteration for each month of the considered period
 """
+if stations == 'all':
+    stations = BDclim.stations["name"].values
 
 # Select range
 iterator = select_range(month_begin, month_end, year_begin, year_end, date_begin, date_end)
@@ -98,10 +120,25 @@ for index, (day, month, year) in enumerate(iterator):
     end = str(year) + "-" + str(month) + "-" + str(day)
     prm = update_selected_path(year, month, day, prm)
 
+    # Initialize results
+    if index == 0:
+        for station in stations:
+            results["nwp"][station] = []
+            results["cnn"][station] = []
+            results["obs"][station] = []
+
+
     # AROME
-    AROME = NWP(prm["selected_path"], name="AROME", begin=begin, end=end,
-                save_path=prm["save_path"], path_Z0_2018=prm["path_Z0_2018"], path_Z0_2019=prm["path_Z0_2019"],
-                verbose=True, load_z0=load_z0, save=save_z0)
+    AROME = NWP(prm["selected_path"],
+                name="AROME",
+                begin=begin,
+                end=end,
+                save_path=prm["save_path"],
+                path_Z0_2018=prm["path_Z0_2018"],
+                path_Z0_2019=prm["path_Z0_2019"],
+                verbose=verbose,
+                load_z0=load_z0,
+                save=save_z0)
 
     # Processing
     p = Processing(obs=BDclim,
@@ -111,13 +148,6 @@ for index, (day, month, year) in enumerate(iterator):
                    GPU=GPU,
                    data_path=prm['data_path'])
 
-    # Initialize results
-    stations = BDclim.stations["name"]
-    if index == 0:
-        for station in stations:
-            results["nwp"][station] = []
-            results["cnn"][station] = []
-            results["obs"][station] = []
 
     # Predictions
     array_xr = p.predict_at_stations(stations,

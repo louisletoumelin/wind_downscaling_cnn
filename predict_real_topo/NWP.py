@@ -82,19 +82,21 @@ class NWP(Data_2D):
             t1 = t()
             print(f"NWP created in {np.round(t1-t0, 2)} seconds\n")
 
-    def load_nwp_files(self, path_to_file=None, preprocess_function=None): #self._preprocess_ncfile
+    def load_nwp_files(self, path_to_file=None, preprocess_function=None, parallel=False, verbose=True): #self._preprocess_ncfile
         if _dask:
             # Open netcdf file
             self.data_xr = xr.open_mfdataset(path_to_file,
                                              preprocess=preprocess_function,
                                              concat_dim='time',
-                                             parallel=False).astype(np.float32, copy=False)
+                                             parallel=parallel).astype(np.float32, copy=False)
+            if verbose: print(f"__Used xr.open_mfdataset to open NWP and parallel is {parallel}")
         else:
             print("\nNot using dask to open netcdf files\n")
             self.data_xr = xr.open_dataset(path_to_file)
             self.data_xr = preprocess_function(self.data_xr)
+            if verbose: print("__Used xr.open_dataset to open NWP")
 
-    def add_l93_coordinates(self, path_to_file_npy=None):
+    def add_l93_coordinates(self, path_to_file_npy=None, verbose=True):
         if _pyproj:
             self.data_xr = self.gps_to_l93(data_xr=self.data_xr,
                                            shape=self.shape,
@@ -102,38 +104,47 @@ class NWP(Data_2D):
                                            lat='LAT',
                                            height=self.height,
                                            length=self.length)
+            if verbose: print("__Projected lat/lon coordinates into l93 with pyproj")
         else:
             self._add_X_Y_L93(path_to_file_npy)
+            if verbose: print("__Added l93 coordinates from npy. Did not project lat/lon")
+
 
     def _add_X_Y_L93(self, path_to_file_npy):
         X_L93 = np.load(path_to_file_npy + "_X_L93.npy")
         Y_L93 = np.load(path_to_file_npy + "_Y_L93.npy")
-        data_xr = self.data_xr
-        data_xr['X_L93'] = (('yy', 'xx'), X_L93)
-        data_xr['Y_L93'] = (('yy', 'xx'), Y_L93)
-        self.data_xr = data_xr
+        self.data_xr['X_L93'] = (('yy', 'xx'), X_L93)
+        self.data_xr['Y_L93'] = (('yy', 'xx'), Y_L93)
 
     def _interpolate_Z0(self, path_Z0_2018, path_Z0_2019, verbose=True, save=False):
+
         # Open netcdf files
         z0_10_days_2018 = xr.open_mfdataset(path_Z0_2018, parallel=False)
         z0_10_days_2019 = xr.open_mfdataset(path_Z0_2019, parallel=False)
 
         # Create time indexes
         full_indexes = []
-        for year in [2017, 2018, 2019]:
+        for year in [2017, 2018, 2019, 2020]:
             start_time = f"{year}-01-01T00:00:00"
             end_time = f"{year}-12-31T23:00:00"
             full_indexes.append(pd.date_range(start=start_time, end=end_time, freq="1H"))
 
         # Select Z0 and Z0REL and downsample to 1H
+        # Nearest neighbors interpolation for 2018
         Z0_1h_2018_nearest = z0_10_days_2018[['Z0', 'Z0REL']].interp(time=full_indexes[1], method="nearest",
                                                                   kwargs={"fill_value": "extrapolate"})
         if verbose: print(' .. interpolated nearest 2018')
+
+        # Linear interpolation for 2018
         Z0_1h_2018_linear = z0_10_days_2018[['Z0', 'Z0REL']].interp(time=full_indexes[1], method="linear")
         if verbose: print(' .. interpolated linear 2018')
+
+        # Nearest neighbors interpolation for 2019
         Z0_1h_2019_nearest = z0_10_days_2019[['Z0', 'Z0REL']].interp(time=full_indexes[2], method="nearest",
                                                                   kwargs={"fill_value": "extrapolate"})
         if verbose: print(' .. interpolated nearest 2019')
+
+        # Linear interpolation for 2018
         Z0_1h_2019_linear = z0_10_days_2019[['Z0', 'Z0REL']].interp(time=full_indexes[2], method="linear")
         if verbose: print(' .. interpolated linear 2019')
 
@@ -149,7 +160,6 @@ class NWP(Data_2D):
         # Linear interpolation between points and nearest extrapolation outside
         inside_2018 = Z0_1h_2018_linear.time.isin(short_time_2018)
         inside_2019 = Z0_1h_2019_linear.time.isin(short_time_2019)
-
         Z0_1h_2018 = Z0_1h_2018_linear.where(inside_2018, Z0_1h_2018_nearest)
         Z0_1h_2019 = Z0_1h_2019_linear.where(inside_2019, Z0_1h_2019_nearest)
 
@@ -164,6 +174,9 @@ class NWP(Data_2D):
             Z0_var_1h_2017 = (Z0_1h_2019['Z0'].data + Z0_1h_2018['Z0'].data) / 2
             Z0REL_1h_2017 = (Z0_1h_2019['Z0REL'].data + Z0_1h_2018['Z0REL'].data) / 2
 
+        del Z0_1h_2018
+        del Z0_1h_2019
+
         # Create file for 2017
         Z0_1h_2017 = xr.Dataset(data_vars={"Z0": (["time", "yy", "xx"], Z0_var_1h_2017),
                                            "Z0REL": (["time", "yy", "xx"], Z0REL_1h_2017),
@@ -172,16 +185,44 @@ class NWP(Data_2D):
                                 coords={"time": full_indexes[0],
                                         "xx": np.array(list(range(176))),
                                         "yy": np.array(list(range(226)))})
+
+        # Create a file for 2020 (including 29 February)
+        shape_2020 = (len(full_indexes[3]), 226, 176)
+        Z0_1h_2020 = xr.Dataset(data_vars={"Z0": (["time", "yy", "xx"], np.empty(shape_2020)*np.nan),
+                                           "Z0REL": (["time", "yy", "xx"], np.empty(shape_2020)*np.nan),
+                                           },
+
+                                coords={"time": full_indexes[3],
+                                        "xx": np.array(list(range(176))),
+                                        "yy": np.array(list(range(226)))})
+
+        index_2020 = pd.DataFrame(np.ones(full_indexes[3].shape), index=full_indexes[3])
+        index_2020_small = index_2020[np.logical_not((index_2020.index.month == 2) & (index_2020.index.day == 29))]
+        del index_2020
+
+        Z0_1h_2020_small = xr.Dataset(data_vars={"Z0": (["time", "yy", "xx"], Z0_1h_2017['Z0'].values),
+                                           "Z0REL": (["time", "yy", "xx"], Z0_1h_2017['Z0REL'].values),
+                                           },
+
+                                coords={"time": index_2020_small.index,
+                                        "xx": np.array(list(range(176))),
+                                        "yy": np.array(list(range(226)))})
+        del Z0_1h_2017
+        del index_2020
+        del index_2020_small
+
+        Z0_1h_2020.update(Z0_1h_2020_small)
+
         # Full array
         if verbose: print(' .. Concat netcdf Z0 files')
-        array_Z0 = xr.concat([Z0_1h_2017, Z0_1h_2018, Z0_1h_2019], dim='time')
+        #array_Z0 = xr.concat([Z0_1h_2017, Z0_1h_2018, Z0_1h_2019, Z0_1h_2020], dim='time')
 
-        if save: array_Z0.to_netcdf(self.save_path + 'processed_Z0.nc')
-
-        return(array_Z0)
+        if save: Z0_1h_2020.to_netcdf(self.save_path + 'processed_Z0_2020.nc')
+        print('Z0 2020 finished')
+        #return(array_Z0)
 
     def _add_Z0(self, path_Z0_2018, path_Z0_2019, save=False, load=False, verbose=True):
-        if verbose: print('\nStart adding Z0')
+        if verbose: print('__Start adding Z0')
         year, month, day = self.begin.split('-')
         if load:
             array_Z0 = xr.open_dataset(self.save_path + f'processed_Z0_{year}.nc', chunks={"time": 12})

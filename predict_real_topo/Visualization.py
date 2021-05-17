@@ -14,14 +14,12 @@ import seaborn as sns
 try:
     from shapely.geometry import Point
     from shapely.geometry import Polygon
-
     _shapely_geometry = True
 except:
     _shapely_geometry = False
 
 try:
     import geopandas as gpd
-
     _geopandas = True
 except:
     _geopandas = False

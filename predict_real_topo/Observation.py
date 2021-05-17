@@ -34,23 +34,21 @@ class Observation:
     def __init__(self, path_to_list_stations, path_to_time_series, path_vallot=None, path_saint_sorlin=None,
                  path_argentiere=None, begin=None, end=None, select_date_time_serie=True,
                  path_Dome_Lac_Blanc=None, path_Col_du_Lac_Blanc=None, path_Muzelle_Lac_Blanc=None,
-                 path_Col_de_Porte=None, path_Col_du_Lautaret=None):
+                 path_Col_de_Porte=None, path_Col_du_Lautaret=None, GPU=False):
+
         print("\nBegin Observation creation")
         t0 = t()
 
-        # Path and dates
+        # Dates
         self.begin = begin
         self.end = end
-        self.path_to_list_stations = path_to_list_stations
-        self.path_to_time_series = path_to_time_series
-        self.path_vallot = path_vallot
-        self.path_saint_sorlin = path_saint_sorlin
-        self.path_argentiere = path_argentiere
-        self.path_Dome_Lac_Blanc = path_Dome_Lac_Blanc
-        self.path_Col_du_Lac_Blanc = path_Col_du_Lac_Blanc
-        self.path_Muzelle_Lac_Blanc = path_Muzelle_Lac_Blanc
-        self.path_Col_de_Porte = path_Col_de_Porte
-        self.path_Col_du_Lautaret = path_Col_du_Lautaret
+
+        # Paths
+        self._add_all_stations_paths(path_to_list_stations, path_to_time_series, path_vallot,
+                                     path_saint_sorlin, path_argentiere, path_Dome_Lac_Blanc,
+                                     path_Col_du_Lac_Blanc, path_Muzelle_Lac_Blanc,
+                                     path_Col_de_Porte, path_Col_du_Lautaret, GPU=GPU)
+        # Quality control
         self._qc = False
         self._qc_init = False
 
@@ -58,53 +56,85 @@ class Observation:
         self.load_observation_files(type='station', path=path_to_list_stations)
 
         # Add additional stations
-        if self.path_vallot is not None: self._add_station(name='Vallot')
-        if self.path_saint_sorlin is not None: self._add_station(name='Saint-Sorlin')
-        if self.path_argentiere is not None: self._add_station(name='Argentiere')
-        if self.path_Dome_Lac_Blanc is not None: self._add_station(name='Dome Lac Blanc')
-        if self.path_Col_du_Lac_Blanc is not None: self._add_station(name='Col du Lac Blanc')
-        if self.path_Muzelle_Lac_Blanc is not None: self._add_station(name='La Muzelle Lac Blanc')
-        if self.path_Col_de_Porte is not None: self._add_station(name='Col de Porte')
-        if self.path_Col_du_Lautaret is not None: self._add_station(name='Col du Lautaret')
+        self._add_all_stations(GPU=GPU)
 
         # Time series
         self.load_observation_files(type='time_series', path=path_to_time_series)
         if select_date_time_serie: self._select_date_time_serie()
 
         # Add additional time series
-        if self.path_vallot is not None: self._add_time_serie_vallot(log_profile=True)
-        if self.path_saint_sorlin is not None: self._add_time_serie_glacier(name='Saint-Sorlin', log_profile=False)
-        if self.path_argentiere is not None: self._add_time_serie_glacier(name='Argentiere', log_profile=False)
-        if self.path_Dome_Lac_Blanc is not None: self._add_time_serie_Col(name='Dome Lac Blanc', log_profile=False)
-        if self.path_Col_du_Lac_Blanc is not None: self._add_time_serie_Col(name='Col du Lac Blanc', log_profile=False)
-        if self.path_Muzelle_Lac_Blanc is not None: self._add_time_serie_Col(name='La Muzelle Lac Blanc', log_profile=False)
-        if self.path_Col_de_Porte is not None: self._add_time_serie_Col(name='Col de Porte', log_profile=False)
-        if self.path_Col_du_Lautaret is not None: self._add_time_serie_Col(name='Col du Lautaret', log_profile=False)
+        self._add_all_time_series(GPU=GPU)
         if select_date_time_serie: self._select_date_time_serie()
 
         # float32
-        self.time_series.loc[:, self.time_series.dtypes == 'float64'] = self.time_series.loc[:, self.time_series.dtypes == 'float64'].astype('float32')
+        self._downcast_dtype(oldtype='float64', newtype='float32')
+
         t1 = t()
         print(f"Observation created in {np.round(t1-t0, 2)} seconds\n")
 
-    def load_observation_files(self, type=None, path=None, datetime_index=True, date_column='date'):
+    def _add_all_stations_paths(self, path_to_list_stations, path_to_time_series, path_vallot,
+                          path_saint_sorlin, path_argentiere, path_Dome_Lac_Blanc,
+                          path_Col_du_Lac_Blanc, path_Muzelle_Lac_Blanc,
+                          path_Col_de_Porte, path_Col_du_Lautaret, GPU=False):
+        if not(GPU):
+            self.path_to_list_stations = path_to_list_stations
+            self.path_to_time_series = path_to_time_series
+            self.path_vallot = path_vallot
+            self.path_saint_sorlin = path_saint_sorlin
+            self.path_argentiere = path_argentiere
+            self.path_Dome_Lac_Blanc = path_Dome_Lac_Blanc
+            self.path_Col_du_Lac_Blanc = path_Col_du_Lac_Blanc
+            self.path_Muzelle_Lac_Blanc = path_Muzelle_Lac_Blanc
+            self.path_Col_de_Porte = path_Col_de_Porte
+            self.path_Col_du_Lautaret = path_Col_du_Lautaret
+
+    def _downcast_dtype(self, oldtype='float64', newtype='float32'):
+        self.time_series.loc[:, self.time_series.dtypes == oldtype ] = self.time_series.loc[:, self.time_series.dtypes == oldtype].astype(newtype)
+
+    def _add_all_stations(self, GPU=False):
+        if not(GPU):
+            if self.path_vallot is not None: self._add_station(name='Vallot')
+            if self.path_saint_sorlin is not None: self._add_station(name='Saint-Sorlin')
+            if self.path_argentiere is not None: self._add_station(name='Argentiere')
+            if self.path_Dome_Lac_Blanc is not None: self._add_station(name='Dome Lac Blanc')
+            if self.path_Col_du_Lac_Blanc is not None: self._add_station(name='Col du Lac Blanc')
+            if self.path_Muzelle_Lac_Blanc is not None: self._add_station(name='La Muzelle Lac Blanc')
+            if self.path_Col_de_Porte is not None: self._add_station(name='Col de Porte')
+            if self.path_Col_du_Lautaret is not None: self._add_station(name='Col du Lautaret')
+
+    def _add_all_time_series(self, GPU=False):
+        if not(GPU):
+            if self.path_vallot is not None: self._add_time_serie_vallot(log_profile=True)
+            if self.path_saint_sorlin is not None: self._add_time_serie_glacier(name='Saint-Sorlin', log_profile=False)
+            if self.path_argentiere is not None: self._add_time_serie_glacier(name='Argentiere', log_profile=False)
+            if self.path_Dome_Lac_Blanc is not None: self._add_time_serie_Col(name='Dome Lac Blanc', log_profile=False)
+            if self.path_Col_du_Lac_Blanc is not None: self._add_time_serie_Col(name='Col du Lac Blanc', log_profile=False)
+            if self.path_Muzelle_Lac_Blanc is not None: self._add_time_serie_Col(name='La Muzelle Lac Blanc', log_profile=False)
+            if self.path_Col_de_Porte is not None: self._add_time_serie_Col(name='Col de Porte', log_profile=False)
+            if self.path_Col_du_Lautaret is not None: self._add_time_serie_Col(name='Col du Lautaret', log_profile=False)
+
+    def load_observation_files(self, type=None, path=None, datetime_index=True, date_column='date', verbose=True):
 
         if type == 'station':
             if _shapely_geometry:
                 self.stations = pd.read_csv(path)
+                if verbose: print(f"__Stations loaded using pd.read_csv")
             else:
                 self.stations = pd.read_pickle(path)
+                if verbose: print(f"__Stations loaded using pd.read_pickle")
 
         if type == 'time_series':
             self.time_series = pd.read_csv(path)
             if datetime_index: self.time_series.index = self.time_series[date_column].apply(lambda x: np.datetime64(x))
+            if verbose: print(f"__Time series loaded using pd.read_csv")
 
-    def _select_date_time_serie(self, begin=None, end=None):
+    def _select_date_time_serie(self, begin=None, end=None, verbose=True):
         if (begin is None) and (end is None):
             begin = self.begin
             end = self.end
         mask = (self.time_series.index >= begin) & (self.time_series.index <= end)
         self.time_series = self.time_series[mask]
+        if verbose: print("__Dates time serie selected")
 
     def _add_station(self, name=None):
 
@@ -192,7 +222,7 @@ class Observation:
         new_station["Unnamed: 8"] = np.nan
         self.stations = pd.concat([self.stations, new_station], ignore_index=True)
 
-    def _add_time_serie_Col(self, name='Dome Lac Blanc', log_profile=False):
+    def _add_time_serie_Col(self, name='Dome Lac Blanc', log_profile=False, verbose=True):
 
         # Select station
         if name == 'Dome Lac Blanc':
@@ -264,8 +294,9 @@ class Observation:
             print(f"Log profile not implemented at {name}")
 
         self.time_series = pd.concat([self.time_series, station_df])
+        if verbose: print(f"__{name} time series loaded using pd.read_csv")
 
-    def _add_time_serie_vallot(self, log_profile=True):
+    def _add_time_serie_vallot(self, log_profile=True, verbose=True):
 
         # Create a DataFrame with all yearly files
         vallot = []
@@ -315,8 +346,9 @@ class Observation:
             vallot['vw10m(m/s)'] = vallot['vw10m(m/s)'] * log_profile
 
         self.time_series = pd.concat([self.time_series, vallot])
+        if verbose: print("__Vallot time series loaded using pd.read_csv")
 
-    def _add_time_serie_glacier(self, log_profile=False, name=None, verbose=False):
+    def _add_time_serie_glacier(self, log_profile=False, name=None, verbose=True):
 
         # Create a file containing all years
         glacier = []
@@ -351,7 +383,7 @@ class Observation:
         # Print number of NaNs
         if verbose:
             nb_nan = len(glacier[glacier["date"].isna()])
-            print("Found NaNs in dates: " + str(nb_nan))
+            #print("Found NaNs in dates: " + str(nb_nan))
 
         # Discard NaNs in dates
         glacier = glacier[glacier["date"].notna()]
@@ -381,14 +413,14 @@ class Observation:
         # Discard duplicates
         if verbose:
             nb_duplicate = len(glacier[glacier.index.duplicated()])
-            print("Found date duplicate: " + str(nb_duplicate))
+            #print("Found date duplicate: " + str(nb_duplicate))
         glacier = glacier[~glacier.index.duplicated()]
 
         if name == 'Argentiere':
             if verbose:
                 # Print number of annotated observations
                 nb_annotated_observations = len(glacier[glacier["Unnamed: 7"].notna()])
-                print("Annotated observations: " + str(nb_annotated_observations))
+                #print("Annotated observations: " + str(nb_annotated_observations))
 
             # Discard annotated observations
             glacier = glacier[glacier["Unnamed: 7"].isna()]
@@ -404,7 +436,7 @@ class Observation:
 
         if verbose:
             nb_missing_dates = len(glacier.asfreq('1H').index) - len(glacier.index)
-            print("Number missing dates: " + str(nb_missing_dates))
+            #print("Number missing dates: " + str(nb_missing_dates))
 
         if log_profile:
             # Apply log profile
@@ -416,6 +448,7 @@ class Observation:
             z0_glacier['Wind speed (m/s)'] = z0_glacier['Wind speed (m/s)'] * log_profile
 
         self.time_series = pd.concat([self.time_series, glacier])
+        if verbose: print(f"__{name} time series loaded using pd.read_csv")
 
     def stations_to_gdf(self, from_epsg="epsg:4326", x="LON", y="LAT"):
         """
