@@ -135,7 +135,7 @@ class Observation:
 
     def _add_station(self, name=None):
 
-        if name == 'Vallot':
+        if name == 'Vallot':#test
             X = 998884.573304192
             Y = 6533967.012767595
             numposte = np.nan
