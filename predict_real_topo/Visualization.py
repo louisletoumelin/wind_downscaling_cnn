@@ -9,26 +9,31 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from mpl_toolkits.mplot3d import axes3d  # Warning
-import seaborn as sns
+
+try:
+    import seaborn as sns
+    _seaborn=True
+except ModuleNotFoundError:
+    _seaborn=False
 
 try:
     from shapely.geometry import Point
     from shapely.geometry import Polygon
     _shapely_geometry = True
-except:
+except ModuleNotFoundError:
     _shapely_geometry = False
 
 try:
     import geopandas as gpd
     _geopandas = True
-except:
+except ModuleNotFoundError:
     _geopandas = False
 
 try:
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
     _cartopy = True
-except:
+except ModuleNotFoundError:
     _cartopy = False
 
 from MidpointNormalize import MidpointNormalize

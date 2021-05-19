@@ -11,7 +11,7 @@ try:
     from shapely.geometry import Point
     from shapely.geometry import Polygon
     _shapely_geometry = True
-except:
+except ModuleNotFoundError:
     _shapely_geometry = False
 
 try:
@@ -117,8 +117,15 @@ class Observation:
                 self.stations = pd.read_csv(path)
                 if verbose: print(f"__Stations loaded using pd.read_csv")
             else:
-                self.stations = pd.read_pickle(path)
-                if verbose: print(f"__Stations loaded using pd.read_pickle")
+                #self.stations = pd.read_pickle(path)
+                self.stations = pd.read_csv(path)
+                list_variables_str = ['AROME_NN_0', 'index_AROME_NN_0', 'AROME_NN_1','index_AROME_NN_1', 'AROME_NN_2',
+                               'index_AROME_NN_2', 'AROME_NN_3', 'index_AROME_NN_3', 'index_IGN_NN_0_cKDTree',
+                               'IGN_NN_0_cKDTree', 'index_IGN_NN_1_cKDTree', 'IGN_NN_1_cKDTree',
+                               'index_IGN_NN_2_cKDTree', 'IGN_NN_2_cKDTree', 'index_IGN_NN_3_cKDTree',
+                               'IGN_NN_3_cKDTree']
+                self.stations[list_variables_str] = self.stations[list_variables_str].apply(lambda x: x.apply(eval))
+                if verbose: print(f"__Stations loaded using pd.read_csv and eval function to convert str into tuples")
 
         if type == 'time_series':
             self.time_series = pd.read_csv(path)

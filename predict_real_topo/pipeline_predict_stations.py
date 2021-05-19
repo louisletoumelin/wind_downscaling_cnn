@@ -3,9 +3,10 @@ from time import time as t
 t_init = t()
 
 import numpy as np
-import tensorflow as tf
-import matplotlib.pyplot as plt
-from line_profiler import LineProfiler
+try:
+    import matplotlib.pyplot as plt
+except ModuleNotFoundError:
+    pass
 
 
 def round(t1, t2):  return (np.round(t2 - t1, 2))
@@ -51,24 +52,25 @@ To be modified
 """
 
 GPU = False
+horovod = False
 Z0 = True
-load_z0 = False
-save_z0 = True
+load_z0 = True
+save_z0 = False
 peak_valley = True
-launch_predictions = False
-select_date_time_serie = False
+launch_predictions = True
+select_date_time_serie = True
 verbose = True
 stations_to_predict = ['Col du Lac Blanc']
 line_profile = False
 
 # Date to predict
 day_begin = 1
-month_begin = 1
-year_begin = 2020
+month_begin = 6
+year_begin = 2019
 
-day_end = 31
-month_end = 12
-year_end = 2020
+day_end = 5
+month_end = 6
+year_end = 2019
 
 begin = str(year_begin) + "-" + str(month_begin) + "-" + str(day_begin)
 end = str(year_end) + "-" + str(month_end) + "-" + str(day_end)
@@ -82,7 +84,7 @@ Utils
 load_z0, save_z0 = check_save_and_load(load_z0, save_z0)
 
 # Initialize horovod and GPU
-if GPU: connect_GPU_to_horovod()
+if GPU and horovod: connect_GPU_to_horovod()
 
 # Create prm
 prm = create_prm(GPU=GPU, Z0=Z0, end=end, month_prediction=True)
@@ -104,6 +106,7 @@ AROME = NWP(prm["selected_path"],
             save_path=prm["save_path"],
             path_Z0_2018=prm["path_Z0_2018"],
             path_Z0_2019=prm["path_Z0_2019"],
+            path_to_file_npy=prm["path_to_file_npy"],
             verbose=verbose,
             load_z0=load_z0,
             save=save_z0)
@@ -114,15 +117,15 @@ BDclim = Observation(prm["BDclim_stations_path"],
                      begin=begin,
                      end=end,
                      select_date_time_serie=select_date_time_serie,
-                     path_vallot=prm["path_vallot"],
-                     path_saint_sorlin=prm["path_saint_sorlin"],
-                     path_argentiere=prm["path_argentiere"],
-                     path_Dome_Lac_Blanc=prm["path_Dome_Lac_Blanc"],
-                     path_Col_du_Lac_Blanc=prm["path_Col_du_Lac_Blanc"],
-                     path_Muzelle_Lac_Blanc=prm["path_Muzelle_Lac_Blanc"],
-                     path_Col_de_Porte=prm["path_Col_de_Porte"],
-                     path_Col_du_Lautaret=prm["path_Col_du_Lautaret"],
-                     GPU=GPU)
+                     GPU=GPU)#,
+                     #path_vallot=prm["path_vallot"],
+                     #path_saint_sorlin=prm["path_saint_sorlin"],
+                     #path_argentiere=prm["path_argentiere"],
+                     #path_Dome_Lac_Blanc=prm["path_Dome_Lac_Blanc"],
+                     #path_Col_du_Lac_Blanc=prm["path_Col_du_Lac_Blanc"],
+                     #path_Muzelle_Lac_Blanc=prm["path_Muzelle_Lac_Blanc"],
+                     #path_Col_de_Porte=prm["path_Col_de_Porte"],
+                     #path_Col_du_Lautaret=prm["path_Col_du_Lautaret"],
 
 # Compute nearest neighbor sif CPU, load them if GPU
 if not (GPU):
@@ -155,7 +158,6 @@ if launch_predictions:
                                      peak_valley=peak_valley,
                                      ideal_case=False,
                                      line_profile=line_profile)
-    print(BDclim.time_series.columns)
 
 t2 = t()
 print(f'\nPredictions in {round(t1, t2)} seconds')

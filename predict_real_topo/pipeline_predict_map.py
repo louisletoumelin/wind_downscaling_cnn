@@ -50,15 +50,18 @@ Simulation parameters
 """
 
 GPU = False
+horovod = False
 Z0 = True
 load_z0 = True
 save_z0 = False
 peak_valley = True
 launch_predictions = True
+select_date_time_serie=True
 function_map = 'indexes' #'indexes' or 'classic'
+verbose=True
 
-dx = 10_000
-dy = 15_000
+dx = 20_000
+dy = 25_000
 
 hour_begin = 15
 day_begin = 1
@@ -87,7 +90,7 @@ if save_z0:
 if GPU: connect_GPU_to_horovod()
 
 # Create prm
-prm = create_prm(GPU, end=end, month_prediction=True)
+prm = create_prm(GPU, end=end, month_prediction=True, Z0=Z0)
 
 """
 MNT, NWP and observations
@@ -96,16 +99,25 @@ MNT, NWP and observations
 IGN = MNT(prm["topo_path"], name="IGN")
 
 # AROME
-AROME = NWP(prm["selected_path"], name="AROME", begin=begin, end=end,
-            save_path=prm["save_path"], path_Z0_2018=prm["path_Z0_2018"], path_Z0_2019=prm["path_Z0_2019"],
-            verbose=True, load_z0=load_z0, save=save_z0)
+AROME = NWP(prm["selected_path"],
+            name="AROME",
+            begin=begin,
+            end=end,
+            save_path=prm["save_path"],
+            path_Z0_2018=prm["path_Z0_2018"],
+            path_Z0_2019=prm["path_Z0_2019"],
+            path_to_file_npy=prm["path_to_file_npy"],
+            verbose=verbose,
+            load_z0=load_z0,
+            save=save_z0)
 
 # BDclim
-BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"],
-                     begin=begin, end=end, select_date_time_serie=False,
-                     path_vallot=prm["path_vallot"],
-                     path_saint_sorlin=prm["path_saint_sorlin"],
-                     path_argentiere=prm["path_argentiere"])
+BDclim = Observation(prm["BDclim_stations_path"],
+                     prm["BDclim_data_path"],
+                     begin=begin,
+                     end=end,
+                     select_date_time_serie=select_date_time_serie,
+                     GPU=GPU)
 
 if not(GPU):
     number_of_neighbors = 4
@@ -159,10 +171,10 @@ print(f"\n All prediction in  {round(t_init, t_end) / 60} minutes")
 import matplotlib.pyplot as plt
 
 plt.figure()
-plt.imshow(mnt_data1[0,:,:])
+plt.imshow(mnt_data[0,:,:])
 
-U = wind_map1[0, :, :, 0]
-V = wind_map1[0, :, :, 1]
+U = wind_map[0, :, :, 0]
+V = wind_map[0, :, :, 1]
 UV = np.sqrt(U**2+V**2)
 plt.figure()
 plt.imshow(UV)

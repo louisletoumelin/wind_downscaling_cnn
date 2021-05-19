@@ -8,13 +8,13 @@ from Data_2D import Data_2D
 try:
     import dask
     _dask = True
-except:
+except ModuleNotFoundError:
     _dask = False
 
 try:
     import rasterio
     _rasterio = True
-except:
+except ModuleNotFoundError:
     _rasterio = False
 
 

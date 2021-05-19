@@ -1,12 +1,22 @@
 from time import time as t
 t_init = t()
 
+"""
+1 station and 3 months 
+CPU = 1.16 min
+
+22 stations  and 3 months
+GPU = 4 min
+
+28.4 min
+10 stations and 2.5 years
+"""
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 import datetime
-from line_profiler import LineProfiler
-from PRM_predict import create_prm, update_selected_path
+#from line_profiler import LineProfiler
+from PRM_predict import create_prm, update_selected_path, select_path_to_file_npy
 from Utils import connect_GPU_to_horovod, select_range
 
 def round(t1, t2):  return (np.round(t2 - t1, 2))
@@ -26,24 +36,28 @@ from Utils import connect_GPU_to_horovod, select_range
 Simulation parameters
 """
 
-GPU = False
+GPU = True
+horovod = True
 Z0 = True
 load_z0 = True
 save_z0 = False
 peak_valley = True
 select_date_time_serie = True
 verbose = True
-stations = ['Col du Lac Blanc']
+stations = ['BARCELONNETTE', 'DIGNE LES BAINS', 'RESTEFOND-NIVOSE',
+            'LA MURE-ARGENS', 'ARVIEUX', 'PARPAILLON-NIVOSE', 'EMBRUN',
+            'LA FAURIE', 'GAP', 'LA MEIJE-NIVOSE', 'LE PLENAY', 'SEYNOD-AREA', 'Vallot', 'Saint-Sorlin', 'Argentiere',
+            'Dome Lac Blanc','Col du Lac Blanc', 'La Muzelle Lac Blanc', 'Col de Porte','Col du Lautaret']
 line_profile = False
 variable = 'UV'
 
 day_begin = 1
 month_begin = 9
-year_begin = 2018
+year_begin = 2017
 
-day_end = 30
-month_end = 9
-year_end = 2018
+day_end = 31
+month_end = 5
+year_end = 2020
 
 date_begin = str(year_begin) + "-" + str(month_begin) + "-" + str(day_begin)
 date_begin_after = str(year_begin) + "-" + str(month_begin) + "-" + str(day_begin+1)
@@ -54,7 +68,10 @@ Utils
 """
 
 # Create prm
-prm = create_prm(GPU, month_prediction=True)
+prm = create_prm(GPU=GPU, Z0=Z0, end=date_begin, month_prediction=True)
+
+# Initialize horovod and GPU
+if GPU and horovod: connect_GPU_to_horovod()
 
 """
 MNT and NWP
@@ -72,6 +89,7 @@ AROME = NWP(prm["selected_path"],
             save_path=prm["save_path"],
             path_Z0_2018=prm["path_Z0_2018"],
             path_Z0_2019=prm["path_Z0_2019"],
+            path_to_file_npy=prm["path_to_file_npy"],
             verbose=verbose,
             load_z0=load_z0,
             save=save_z0)
@@ -113,12 +131,18 @@ results["nwp"] = {}
 results["cnn"] = {}
 results["obs"] = {}
 
-
+t0 = t()
 for index, (day, month, year) in enumerate(iterator):
-
+    print("\n\n Date: \n")
+    print(month, year)
     begin = str(year) + "-" + str(month) + "-" + str(1)
     end = str(year) + "-" + str(month) + "-" + str(day)
     prm = update_selected_path(year, month, day, prm)
+    prm["path_to_file_npy"] = select_path_to_file_npy(prm, GPU=GPU)
+
+    if year == 2018 and (month ==5 or month==6):
+        continue
+
 
     # Initialize results
     if index == 0:
@@ -136,6 +160,7 @@ for index, (day, month, year) in enumerate(iterator):
                 save_path=prm["save_path"],
                 path_Z0_2018=prm["path_Z0_2018"],
                 path_Z0_2019=prm["path_Z0_2019"],
+                path_to_file_npy=prm["path_to_file_npy"],
                 verbose=verbose,
                 load_z0=load_z0,
                 save=save_z0)
@@ -175,4 +200,5 @@ for index, (day, month, year) in enumerate(iterator):
     del e
     del array_xr
     del AROME
-    del BDclim
+t1 = t()
+print(f"\n All prediction in  {round(t0, t1) / 60} minutes")

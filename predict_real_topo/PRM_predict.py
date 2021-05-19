@@ -41,13 +41,13 @@ def create_prm(GPU=None, Z0=None, end=None, month_prediction=True):
         # Topography
         prm["topo_path"] = prm["data_path"] + "MNT/IGN_25m/preprocessed_MNT.nc"
         # Observations
-        prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/17_05_2021/extract_FF_T_RR1_alp_2009010100_2021013100.pkl"
+        prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/17_05_2021/extract_FF_T_RR1_alp_2009010100_2021013100_stations.csv"
         # 2009-2021
         prm["BDclim_data_path"] = prm["data_path"] + "BDclim/17_05_2021/extract_FF_T_RR1_alp_2009010100_2021013100.csv"
 
         # NWP
         prm["AROME_path_1"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2017080106_2018080106_32bits.nc"
-        prm["AROME_path_2"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2018080106_2019060106_32bits.nc"
+        prm["AROME_path_2"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2018080106_2019050106_32bits.nc"
         prm["AROME_path_3"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2019060107_2019070106_32bits.nc"
         prm["AROME_path_4"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2019060106_2020060206_32bits.nc"
         prm["AROME_path"] = [prm["AROME_path_1"], prm["AROME_path_2"], prm["AROME_path_3"], prm["AROME_path_4"]]
@@ -110,7 +110,7 @@ def update_selected_path(year, month, day, prm):
 def select_path_to_file_npy(prm, GPU=False):
     if GPU:
         prm_path = prm["selected_path"]
-        path = "/".join(prm_path.split('/')[:-1]) + "/L93_npy/" + prm_path.split('/')[-1].split('.csv')[0] + '.pkl'
+        path = "/".join(prm_path.split('/')[:-1]) + "/L93_npy/" + prm_path.split('/')[-1].split('.csv')[0].split('.nc')[0]
         return(path)
     else:
         return(None)

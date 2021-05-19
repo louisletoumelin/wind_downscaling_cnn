@@ -26,11 +26,11 @@ class Evaluation:
         station name (default 'Col du Lac Blanc')
 
         Output:
-        Datafrae containing NWP values at the station
+        Dataframe containing NWP values at the station
 
         """
-        wind_dir, wind_speed, time, _, _, _ = self.v.p._select_nwp_time_serie_at_pixel(station_name)
-        nwp_time_serie = pd.DataFrame(np.transpose([wind_dir, wind_speed]), columns=['Wind_DIR', 'UV'], index=time)
+        wind_dir, wind_speed, time_index, _, _, _ = self.v.p._select_nwp_time_serie_at_pixel(station_name, time=False, all=True)
+        nwp_time_serie = pd.DataFrame(np.transpose([wind_dir, wind_speed]), columns=['Wind_DIR', 'UV'], index=time_index)
         return (nwp_time_serie)
 
     def create_dataframe_from_predictions(self, station_name='Col du Lac Blanc', array_xr=None):

@@ -6,17 +6,17 @@ from time import time as t
 try:
     import pyproj
     _pyproj = True
-except:
+except ModuleNotFoundError:
     _pyproj = False
 try:
     import dask
     _dask = True
-except:
+except ModuleNotFoundError:
     _dask = False
 try:
     from shapely.geometry import Point
     _shapely_geometry = True
-except:
+except ModuleNotFoundError:
     _shapely_geometry = False
 
 
@@ -69,7 +69,7 @@ class NWP(Data_2D):
             self._add_Z0(path_Z0_2018, path_Z0_2019, save=save, load=load_z0, verbose=True)
 
         # float32
-        self.data_xr = self.data_xr.astype("float32")
+        self.data_xr = self.data_xr.astype("float32", copy=False)
 
         if verbose:
             t1 = t()
@@ -104,10 +104,14 @@ class NWP(Data_2D):
 
 
     def _add_X_Y_L93(self, path_to_file_npy):
-        X_L93 = np.load(path_to_file_npy + "_X_L93.npy")
-        Y_L93 = np.load(path_to_file_npy + "_Y_L93.npy")
-        self.data_xr['X_L93'] = (('yy', 'xx'), X_L93)
-        self.data_xr['Y_L93'] = (('yy', 'xx'), Y_L93)
+        X_L93 = np.load(path_to_file_npy + '_X_L93.npy')
+        Y_L93 = np.load(path_to_file_npy + '_Y_L93.npy')
+        try:
+            self.data_xr['X_L93'] = (('yy', 'xx'), X_L93[0:225, 0:175])
+            self.data_xr['Y_L93'] = (('yy', 'xx'), Y_L93[0:225, 0:175])
+        except ValueError:
+            self.data_xr['X_L93'] = (('yy', 'xx'), X_L93)
+            self.data_xr['Y_L93'] = (('yy', 'xx'), Y_L93)
 
     def _interpolate_Z0(self, path_Z0_2018, path_Z0_2019, verbose=True, save=False):
 
@@ -211,7 +215,8 @@ class NWP(Data_2D):
         if verbose: print('__Start adding Z0')
         year, month, day = self.begin.split('-')
         if load:
-            array_Z0 = xr.open_dataset(self.save_path + f'processed_Z0_{year}.nc', chunks={"time": 12})
+            chunks = {"time": 12} if _dask else None
+            array_Z0 = xr.open_dataset(self.save_path + f'processed_Z0_{year}_32bits.nc', chunks=chunks).astype("float32", copy=False)
         else:
             # Interpolate
             array_Z0 = self._interpolate_Z0(path_Z0_2018, path_Z0_2019, verbose=verbose, save=save)
@@ -219,6 +224,9 @@ class NWP(Data_2D):
         # Drop additional pixels
         array_Z0 = array_Z0.where((array_Z0.xx < 175), drop=True)
         array_Z0 = array_Z0.where((array_Z0.yy < 225), drop=True)
+        self.data_xr = self.data_xr.where((array_Z0.xx < 175), drop=True)
+        self.data_xr = self.data_xr.where((array_Z0.yy < 225), drop=True)
+        if verbose: print(' .. Discard additionnal pixels')
 
         # Save the file locally
         if save:
