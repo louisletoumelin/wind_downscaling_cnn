@@ -1662,11 +1662,54 @@ class Processing:
 
         return (wind_map, [], nwp_data_initial, nwp_data, mnt_data)
 
+    def prepare_time_and_domain_nwp(self, year_0, month_0, day_0, hour_0,year_1, month_1, day_1, hour_1,
+                                    station_name=None, dx=None, dy=None):
+
+        begin = datetime.datetime(year_0, month_0, day_0, hour_0)
+        end = datetime.datetime(year_1, month_1, day_1, hour_1)
+        self._select_timeframe_nwp(begin=begin,end=end)
+
+        nwp_data = self._select_large_domain_around_station(station_name, dx, dy, type="NWP", additionnal_dx_mnt=None)
+        return(nwp_data)
+
+    def interpolate_wind_grid_xarray(self, nwp_data, interp=3, method='linear', verbose=True):
+
+        # Calculate U_nwp and V_nwp
+        nwp_data = self.horizontal_wind_component(working_with_xarray=True, xarray_data=nwp_data)
+
+        # Drop variables
+        nwp_data = nwp_data.drop_vars(["Wind", "Wind_DIR"])
+
+        # Interpolate AROME
+        nwp_data = self.interpolate_xarray_grid(xarray_data=nwp_data, interp=interp, method=method)
+        nwp_data = self.compute_wind_speed(computing='xarray', xarray_data=nwp_data)
+
+        return(nwp_data)
+
+    def get_caracteristics_nwp(self, nwp_data):
+        times = nwp_data.time.data
+        nb_time_step = len(times)
+        nwp_x_l93 = nwp_data.X_L93
+        nwp_y_l93 = nwp_data.Y_L93
+        nb_px_nwp_y, nb_px_nwp_x = nwp_x_l93.shape
+        return(times, nb_time_step, nwp_x_l93, nwp_y_l93, nb_px_nwp_y, nb_px_nwp_x)
+
+    def get_caracteristics_mnt(self, mnt_data, verbose=True):
+
+        xmin_mnt = np.nanmin(mnt_data.x.data)
+        ymax_mnt = np.nanmax(mnt_data.y.data)
+        resolution_x = self.mnt.resolution_x
+        resolution_y = self.mnt.resolution_y
+
+        if verbose: print("__Selected NWP caracteristics")
+
+        return(xmin_mnt, ymax_mnt, resolution_x, resolution_y)
+
     # todo save indexes second rotation
     def predict_map_indexes(self, station_name='Col du Lac Blanc', x_0=None, y_0=None, dx=10_000, dy=10_000, interp=3,
                             year_0=None, month_0=None, day_0=None, hour_0=None,
                             year_1=None, month_1=None, day_1=None, hour_1=None,
-                            Z0_cond=False, verbose=True, peak_valley=True,
+                            Z0_cond=False, verbose=True, peak_valley=True, method='linear',
                             log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False):
 
         if not (_numba):
@@ -1674,37 +1717,19 @@ class Processing:
 
         # Select NWP data
         if verbose: print("Selecting NWP")
-        self._select_timeframe_nwp(begin=datetime.datetime(year_0, month_0, day_0, hour_0),
-                                  end=datetime.datetime(year_1, month_1, day_1, hour_1))
-        nwp_data = self._select_large_domain_around_station(station_name, dx, dy, type="NWP", additionnal_dx_mnt=None)
+        nwp_data = self.prepare_time_and_domain_nwp(year_0, month_0, day_0, hour_0, year_1, month_1, day_1, hour_1,
+                                                    station_name=station_name, dx=dx, dy=dy)
 
         # Copy data
         nwp_data_initial = nwp_data.copy(deep=False)
-
-        # Calculate U_nwp and V_nwp
-        if verbose: print("U_nwp and V_nwp computation")
-        nwp_data = self.horizontal_wind_component(working_with_xarray=True, xarray_data=nwp_data)
-
-        # Drop variables
-        nwp_data = nwp_data.drop_vars(["Wind", "Wind_DIR"])
-
-        # Interpolate AROME
-        if verbose: print("AROME interpolation")
-        nwp_data = self.interpolate_xarray_grid(xarray_data=nwp_data, interp=interp, method='linear')
-        nwp_data = self.compute_wind_speed(computing='xarray', xarray_data=nwp_data)
+        nwp_data = self.interpolate_wind_grid_xarray(nwp_data, interp=interp, method=method, verbose=verbose)
 
         # Time scale and domain length
-        times = nwp_data.time.data
-        nb_time_step = len(times)
-        nwp_x_l93 = nwp_data.X_L93
-        nwp_y_l93 = nwp_data.Y_L93
-        nb_px_nwp_y, nb_px_nwp_x = nwp_x_l93.shape
+        times, nb_time_step, nwp_x_l93, nwp_y_l93, nb_px_nwp_y, nb_px_nwp_x = self.get_caracteristics_nwp(nwp_data)
 
         # Select MNT data
-        if verbose: print("Selecting NWP")
         mnt_data = self._select_large_domain_around_station(station_name, dx, dy, type="MNT", additionnal_dx_mnt=2_000)
-        xmin_mnt = np.nanmin(mnt_data.x.data)
-        ymax_mnt = np.nanmax(mnt_data.y.data)
+        xmin_mnt, ymax_mnt, resolution_x, resolution_y = self.get_caracteristics_mnt(mnt_data)
 
         # NWP forcing data
         if verbose: print("Selecting forcing data")
@@ -1725,8 +1750,6 @@ class Processing:
 
         # Constants
         nb_pixel = 70
-        resolution_x = self.mnt.resolution_x
-        resolution_y = self.mnt.resolution_y
 
         # Load pre_rotated indexes
         all_mat = np.load(self.data_path + "MNT/indexes_rot.npy")
