@@ -141,12 +141,16 @@ if launch_predictions:
         predict = p.predict_map_indexes
     if function_map == 'classic':
         predict = p.predict_map
-    wind_map, weights, nwp_data_initial, nwp_data, mnt_data = predict(year_0=year_begin, month_0=month_begin,
+    ttest=t()
+    wind_map1, weights1, nwp_data_initial1, nwp_data1, mnt_data1 = predict(year_0=year_begin, month_0=month_begin,
                                                                       day_0=day_begin, hour_0=hour_begin,
                                                                       year_1=year_end, month_1=month_end,
                                                                       day_1=day_end, hour_1=hour_end,
                                                                       dx=dx, dy=dy,
-                                                                      peak_valley=peak_valley, Z0_cond=Z0)
+                                                                      peak_valley=peak_valley, Z0_cond=Z0,
+                                                                      type_rotation='scipy')
+    ttest1=t()
+    print(f'\nDownscaling scipy in {round(ttest, ttest1)} seconds')
 
 t2 = t()
 print(f'\nPredictions in {round(t1, t2)} seconds')
