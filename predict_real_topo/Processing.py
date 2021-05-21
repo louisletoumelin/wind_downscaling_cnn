@@ -758,10 +758,10 @@ class Processing:
         alpha = np.where(max_alt_deviation>P95,
                          np.where(min_alt_deviation<P05, alpha_i, alpha_max),
                          np.where(min_alt_deviation<P05, alpha_min, 1))
-        print(np.quantile(alpha, 0.5))
-        print(np.quantile(alpha, 0.8))
-        print(np.quantile(alpha, 0.9))
-        print(np.nanmax(alpha))
+        print("Quantile 0.5 alpha", np.quantile(alpha, 0.5))
+        print("Quantile 0.8 alpha", np.quantile(alpha, 0.8))
+        print("Quantile 0.9 alpha", np.quantile(alpha, 0.9))
+        print("Max alpha", np.nanmax(alpha))
 
 
         return(alpha*std)
@@ -884,6 +884,9 @@ class Processing:
                                                                     z_out=height / 2,
                                                                     z0=Z0_all,
                                                                     z0_rel=Z0REL_all)
+            #exp_Wind = wind_speed_all
+            #acceleration_factor = exp_Wind*0+1
+
             a2 = self.wind_speed_ratio(num=exp_Wind, den=wind2)
             del wind2
             wind3 = np.copy(exp_Wind)
@@ -897,8 +900,8 @@ class Processing:
 
         # Normalize
         _, std = self._load_norm_prm()
-        mean_height = mean_height.reshape((nb_station, 1, 1))
-        std = self.get_closer_from_learning_conditions(topo, mean_height, std)
+        mean_height = mean_height.reshape((nb_station, 1, 1, 1))
+        std = self.get_closer_from_learning_conditions(topo, mean_height, std, axis=(2,3))
         mean_height = mean_height.reshape((nb_station, 1, 1, 1, 1))
         std = std.reshape((nb_station, nb_sim, 1, 1, 1))
         topo = self.normalize_topo(topo, mean_height, std)
@@ -1220,14 +1223,15 @@ class Processing:
         return(xmin_mnt, ymax_mnt, resolution_x, resolution_y)
 
     # todo save indexes second rotation
-    def predict_map_indexes(self, station_name='Col du Lac Blanc', x_0=None, y_0=None, dx=10_000, dy=10_000, interp=3,
-                            year_0=None, month_0=None, day_0=None, hour_0=None,
-                            year_1=None, month_1=None, day_1=None, hour_1=None,
-                            Z0_cond=False, verbose=True, peak_valley=True, method='linear', type_rotation='indexes',
-                            log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False):
+    def _predict_maps(self, station_name='Col du Lac Blanc', x_0=None, y_0=None, dx=10_000, dy=10_000, interp=3,
+                        year_0=None, month_0=None, day_0=None, hour_0=None,
+                        year_1=None, month_1=None, day_1=None, hour_1=None,
+                        Z0_cond=False, verbose=True, peak_valley=True, method='linear', type_rotation='indexes',
+                        log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
+                        nb_pixels=15, interpolate_final_map=True):
 
-        if not (_numba):
-            raise ModuleNotFoundError('predict_map_indexes needs numba to operate')
+        #if not (_numba):
+        #    raise ModuleNotFoundError('predict_map_indexes needs numba to operate')
 
         # Select NWP data
         if verbose: print("Selecting NWP")
@@ -1258,7 +1262,6 @@ class Processing:
         mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt = self._get_mnt_data_and_shape(mnt_data)
         coord = [mnt_data_x, mnt_data_y]
         wind_map = np.zeros((nb_time_step, shape_x_mnt, shape_y_mnt, 3), dtype=np.float32)
-        topo_concat = np.empty((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 79, 69), dtype=np.float32)
         peak_valley_height = np.empty((nb_px_nwp_y, nb_px_nwp_x), dtype=np.float32)
         mean_height = np.empty((nb_px_nwp_y, nb_px_nwp_x), dtype=np.float32)
 
@@ -1315,32 +1318,29 @@ class Processing:
             y_right = nb_pixel + 40
             x_left = nb_pixel - 34
             x_right = nb_pixel + 35
-            topo_i = topo_i.reshape((nb_time_step,  nb_px_nwp_y, nb_px_nwp_x, 140, 140))
+            print("Shape topo_i", topo_i.shape)
+            topo_i = topo_i.reshape((nb_px_nwp_y, nb_px_nwp_x, 140, 140))
             topo_rot = self.r.select_rotation(data=topo_i,
                                               wind_dir=angle,
                                               clockwise=False)[:, :, :, y_left:y_right, x_left:x_right]
         topo_rot = topo_rot.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 79, 69))
 
-
-        # Store result
-        topo_concat[:, :, :, :, :] = topo_rot
-
         # Normalize
         _, std = self._load_norm_prm()
         mean_height = mean_height.reshape((1, nb_px_nwp_y, nb_px_nwp_x, 1, 1))
-        std = self.get_closer_from_learning_conditions(topo_concat, mean_height, std, axis=(3,4))
+        std = self.get_closer_from_learning_conditions(topo_rot, mean_height, std, axis=(3,4))
         std = std.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 1, 1))
-        topo_concat = self.normalize_topo(topo_concat, mean_height, std).astype(dtype=np.float32, copy=False)
+        topo_rot = self.normalize_topo(topo_rot, mean_height, std).astype(dtype=np.float32, copy=False)
 
         # Reshape for tensorflow
-        topo_concat = topo_concat.reshape((nb_time_step * nb_px_nwp_x * nb_px_nwp_y, self.n_rows, self.n_col, 1))
+        topo_rot = topo_rot.reshape((nb_time_step * nb_px_nwp_x * nb_px_nwp_y, self.n_rows, self.n_col, 1))
 
         # Load model
         self.load_model(dependencies=True)
 
         # Predictions
-        prediction = self.model.predict(topo_concat)
-        print("Acceleration maximum CNN", np.nanmax(prediction/3))
+        prediction = self.model.predict(topo_rot)
+
 
         # Reshape predictions for analysis and broadcasting
         prediction = prediction.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, self.n_rows, self.n_col, 3)).astype(
@@ -1349,6 +1349,8 @@ class Processing:
                                                                                                           copy=False)
         wind_DIR_nwp = wind_DIR_nwp.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 1, 1)).astype(np.float32,
                                                                                                    copy=False)
+        acceleration_cnn = prediction / 3
+        print("Acceleration maximum CNN", np.nanmax(acceleration_cnn))
 
         # Exposed wind speed
         if Z0_cond:
@@ -1356,7 +1358,7 @@ class Processing:
             # Reshape for broadcasting
             Z0_nwp = Z0_nwp.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 1, 1, 1))
             Z0REL_nwp = Z0REL_nwp.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 1, 1, 1))
-            ZS_nwp = ZS_nwp.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 1, 1, 1))
+            ZS_nwp = ZS_nwp.reshape((1, nb_px_nwp_y, nb_px_nwp_x, 1, 1, 1))
             peak_valley_height = peak_valley_height.reshape((1, nb_px_nwp_y, nb_px_nwp_x, 1, 1, 1))
             ten_m_array = peak_valley_height * 0 + 10
             three_m_array = peak_valley_height * 0 + 10
@@ -1424,7 +1426,7 @@ class Processing:
 
         # Good axis and pixel location [m/s]
         i = 0
-        save_pixels = 10
+        save_pixels = nb_pixels
         if type_rotation == 'indexes':
             y_center = 70
             x_center = 70
@@ -1450,7 +1452,7 @@ class Processing:
             angle = angle.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 1))
             wind_large = self.r.select_rotation(data=wind, wind_dir=angle, clockwise=True)
             wind_large = np.moveaxis(wind_large, 3, -1)
-
+        acceleration_all = np.empty(wind_map.shape[:-1])
 
 
         for j in range(nb_px_nwp_y):
@@ -1463,8 +1465,10 @@ class Processing:
                 wind_map[:, mnt_y_left:mnt_y_right,mnt_x_left:mnt_x_right, :] = wind_large[:,j,i,
                                                                                       y_offset_left:y_offset_right,
                                                                                       x_offset_left:x_offset_right, :]
+                UV = np.sqrt(wind_large[:,j,i,y_offset_left:y_offset_right,x_offset_left:x_offset_right, 0]**2+wind_large[:,j,i,y_offset_left:y_offset_right,x_offset_left:x_offset_right, 1]**2)
+                acceleration_all[:,mnt_y_left:mnt_y_right,mnt_x_left:mnt_x_right] = UV/wind_speed_nwp[:,j,i]
 
-        @jit([float32[:, :, :, :](int64, float32[:, :, :, :])], nopython=True)
+        #@jit([float32[:, :, :, :](int64, float32[:, :, :, :])], nopython=True)
         def interpolate_final_result(nb_time_step, wind_map):
             for time_step in range(nb_time_step):
                 for component in range(3):
@@ -1481,8 +1485,8 @@ class Processing:
                         if np.isnan(neighbors).sum() <= 3:
                             wind_map[time_step, y, x, component] = np.mean(neighbors[~np.isnan(neighbors)])
             return (wind_map)
-
-        wind_map = interpolate_final_result(nb_time_step, wind_map)
+        if interpolate_final_map:
+            wind_map = interpolate_final_result(nb_time_step, wind_map)
         """
         # Interpolate final map
         print("Final interpolation")
@@ -1508,4 +1512,33 @@ class Processing:
                 # Interpolate
                 wind_map[time_step, :, :, component] = interpolate.griddata((x1, y1), newarr.ravel(), (xx, yy), method='linear')
         """
-        return (wind_map, coord, nwp_data_initial, nwp_data, mnt_data)
+        return (wind_map, acceleration_all, coord, nwp_data_initial, nwp_data, mnt_data)
+
+    def predict_maps(self, station_name='Col du Lac Blanc', x_0=None, y_0=None, dx=10_000, dy=10_000, interp=3,
+                        year_0=None, month_0=None, day_0=None, hour_0=None,
+                        year_1=None, month_1=None, day_1=None, hour_1=None,
+                        Z0_cond=False, verbose=True, peak_valley=True, method='linear', type_rotation='indexes',
+                        log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
+                        line_profile=False, nb_pixels=15,  interpolate_final_map=True):
+        """
+        This function is used to select predictions at stations or the lin profiled version
+        """
+        if line_profile:
+            from line_profiler import LineProfiler
+            lp = LineProfiler()
+            lp_wrapper = lp(self._predict_maps)
+            lp_wrapper(station_name=station_name, x_0=x_0, y_0=y_0, dx=dx, dy=dy, interp=interp,
+                        year_0=year_0, month_0=month_0, day_0=day_0, hour_0=hour_0,
+                        year_1=year_1, month_1=month_1, day_1=day_1, hour_1=hour_1, interpolate_final_map=interpolate_final_map,
+                        Z0_cond=Z0_cond, verbose=verbose, peak_valley=peak_valley, nb_pixels=nb_pixels,
+                       method=method, type_rotation=type_rotation, log_profile_to_h_2=log_profile_to_h_2,
+                       log_profile_from_h_2=log_profile_from_h_2, log_profile_10m_to_3m=log_profile_10m_to_3m)
+            lp.print_stats()
+        else:
+            array_xr = self._predict_maps(station_name=station_name, x_0=x_0, y_0=y_0, dx=dx, dy=dy, interp=interp,
+                        year_0=year_0, month_0=month_0, day_0=day_0, hour_0=hour_0,
+                        year_1=year_1, month_1=month_1, day_1=day_1, hour_1=hour_1, interpolate_final_map=interpolate_final_map,
+                        Z0_cond=Z0_cond, verbose=verbose, peak_valley=peak_valley, nb_pixels=nb_pixels,
+                        method=method, type_rotation=type_rotation, log_profile_to_h_2=log_profile_to_h_2,
+                        log_profile_from_h_2=log_profile_from_h_2, log_profile_10m_to_3m=log_profile_10m_to_3m)
+            return(array_xr)

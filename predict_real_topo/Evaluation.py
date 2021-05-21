@@ -203,6 +203,38 @@ class Evaluation:
             plt.title(station_name + '\n' + "Bias" + '\n' + variable)
 
     @staticmethod
+    def plot_bias_long_period(results, stations=['Col du Lac Blanc'], groupby='month', rolling_time=None):
+
+        if groupby is not None:
+            rolling_time = None
+
+        for station in stations:
+            plt.figure()
+            nwp = pd.concat(results["nwp"][station])
+            cnn = pd.concat(results["cnn"][station])
+            obs = pd.concat(results["obs"][station])
+
+            nwp_obs = nwp - obs
+            cnn_obs = cnn - obs
+
+            if groupby == 'month':
+                nwp_obs.groupby(nwp_obs.index.month).mean().plot(linestyle='--', marker='x')
+                cnn_obs.groupby(cnn_obs.index.month).mean().plot(linestyle='--', marker='x')
+            elif groupby == 'year':
+                nwp_obs.groupby(nwp_obs.index.month).mean().plot(linestyle='--', marker='x')
+                cnn_obs.groupby(cnn_obs.index.month).mean().plot(linestyle='--', marker='x')
+            elif groupby == None:
+                nwp_obs.plot(linestyle='--', marker='x')
+                cnn_obs.plot(linestyle='--', marker='x')
+            elif rolling_time is not None:
+                nwp_obs.rolling(rolling_time).mean().plot(linestyle='--', marker='x')
+                cnn_obs.rolling(rolling_time).mean().plot(linestyle='--', marker='x')
+
+            plt.legend(("bias NWP", "bias CNN"))
+            plt.ylabel("Wind speed [m/s]")
+            plt.title(station)
+
+    @staticmethod
     def pearson_correlation(y_true, y_pred):
         # return(tf.linalg.trace(tfp.stats.correlation(y_pred, y_true))/3)
         return (pd.concat([pd.DataFrame(y_true), pd.DataFrame(y_pred)], axis=1).corr().iloc[0, 1])

@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy.ndimage import rotate
+import concurrent.futures
 
 try:
     from numba import jit, prange, float64, float32, int32, int64
@@ -85,17 +86,18 @@ class Rotation:
         if librairie =='num':
             return(self.rotate_topo_indexes_numpy(all_mat, topo_rot, topo_i, angles))
 
-    @staticmethod
-    @jit([float64[:, :, :, :, :, :](int32[:, :, :], float64[:, :, :, :, :, :], float64[:, :, :, :, :], int32[:, :, :])],
-         nopython=True)
-    def rotate_wind_indexes_numba(all_mat, wind_large, wind, angles):
-        for time in range(wind_large.shape[0]):
-            for y in range(wind_large.shape[1]):
-                for x in range(wind_large.shape[2]):
-                    angle_i = angles[time, y, x]
-                    for number, (index_y, index_x) in enumerate(zip(all_mat[angle_i, :, 0], all_mat[angle_i, :, 1])):
-                        wind_large[time, y, x, index_y, index_x, :] = wind[time, y, x, number, :]
-        return (wind_large)
+    if _numba:
+        @staticmethod
+        @jit([float64[:, :, :, :, :, :](int32[:, :, :], float64[:, :, :, :, :, :], float64[:, :, :, :, :], int32[:, :, :])],
+             nopython=True)
+        def rotate_wind_indexes_numba(all_mat, wind_large, wind, angles):
+            for time in range(wind_large.shape[0]):
+                for y in range(wind_large.shape[1]):
+                    for x in range(wind_large.shape[2]):
+                        angle_i = angles[time, y, x]
+                        for number, (index_y, index_x) in enumerate(zip(all_mat[angle_i, :, 0], all_mat[angle_i, :, 1])):
+                            wind_large[time, y, x, index_y, index_x, :] = wind[time, y, x, number, :]
+            return (wind_large)
 
     @staticmethod
     def rotate_wind_indexes_numpy(all_mat, wind_large, wind, angles):
@@ -107,17 +109,18 @@ class Rotation:
                         wind_large[time, y, x, index_y, index_x, :] = wind[time, y, x, number, :]
         return (wind_large)
 
-    @staticmethod
-    @jit([float32[:, :, :, :](int32[:, :, :], float32[:, :, :, :], float32[:, :, :, :], int32[:, :, :])],nopython=True)
-    def rotate_topo_indexes_numba(all_mat, topo_rot, topo_i, angles):
-        for time in range(topo_rot.shape[0]):
-            for y in range(topo_i.shape[0]):
-                for x in range(topo_i.shape[1]):
-                    angle = angles[time, y, x]
-                    for number in range(79 * 69):
-                        topo_rot[time, y, x, number] = topo_i[
-                            y, x, all_mat[angle, number, 0], all_mat[angle, number, 1]]
-        return (topo_rot)
+    if _numba:
+        @staticmethod
+        @jit([float32[:, :, :, :](int32[:, :, :], float32[:, :, :, :], float32[:, :, :, :], int32[:, :, :])],nopython=True)
+        def rotate_topo_indexes_numba(all_mat, topo_rot, topo_i, angles):
+            for time in range(topo_rot.shape[0]):
+                for y in range(topo_i.shape[0]):
+                    for x in range(topo_i.shape[1]):
+                        angle = angles[time, y, x]
+                        for number in range(79 * 69):
+                            topo_rot[time, y, x, number] = topo_i[
+                                y, x, all_mat[angle, number, 0], all_mat[angle, number, 1]]
+            return (topo_rot)
 
     @staticmethod
     def rotate_topo_indexes_numpy(all_mat, topo_rot, topo_i, angles):

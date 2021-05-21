@@ -102,7 +102,6 @@ class NWP(Data_2D):
             self._add_X_Y_L93(path_to_file_npy)
             if verbose: print("__Added l93 coordinates from npy. Did not project lat/lon")
 
-
     def _add_X_Y_L93(self, path_to_file_npy):
         X_L93 = np.load(path_to_file_npy + '_X_L93.npy')
         Y_L93 = np.load(path_to_file_npy + '_Y_L93.npy')

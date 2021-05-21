@@ -1,10 +1,17 @@
 from time import time as t
 
 t_init = t()
+"""
+1h 20km x 20km
+CPU: 1min 49
+GPU: 14 sec
 
+24h 50km x 40km
+GPU: 20min
+"""
 import numpy as np
 import tensorflow as tf
-from line_profiler import LineProfiler
+#from line_profiler import LineProfiler
 
 
 def round(t1, t2):  return (np.round(t2 - t1, 2))
@@ -49,16 +56,21 @@ Stations
 Simulation parameters
 """
 
-GPU = False
-horovod = False
+GPU = True
+horovod = True
 Z0 = True
 load_z0 = True
 save_z0 = False
 peak_valley = True
 launch_predictions = True
 select_date_time_serie=True
-function_map = 'indexes' #'indexes' or 'classic'
+type_rotation = 'scipy' # 'indexes' or 'scipy'
 verbose=True
+line_profile=False
+
+interp=2
+nb_pixels=15
+interpolate_final_map=True
 
 dx = 20_000
 dy = 25_000
@@ -69,7 +81,7 @@ month_begin = 10
 year_begin = 2018
 
 hour_end = 15
-day_end = 1
+day_end = 2
 month_end = 10
 year_end = 2018
 
@@ -137,18 +149,21 @@ p = Processing(obs=BDclim,
                data_path=prm['data_path'])
 t1 = t()
 if launch_predictions:
-    if function_map == 'indexes':
-        predict = p.predict_map_indexes
-    if function_map == 'classic':
-        predict = p.predict_map
+
+    predict = p.predict_maps
+
     ttest=t()
-    wind_map1, weights1, nwp_data_initial1, nwp_data1, mnt_data1 = predict(year_0=year_begin, month_0=month_begin,
+    wind_map, acceleration_all, coords, nwp_data_initial, nwp_data, mnt_data = predict(year_0=year_begin, month_0=month_begin,
                                                                       day_0=day_begin, hour_0=hour_begin,
                                                                       year_1=year_end, month_1=month_end,
                                                                       day_1=day_end, hour_1=hour_end,
                                                                       dx=dx, dy=dy,
                                                                       peak_valley=peak_valley, Z0_cond=Z0,
-                                                                      type_rotation='scipy')
+                                                                      type_rotation=type_rotation,
+                                                                      line_profile=line_profile,
+                                                                      interp=interp,
+                                                                      nb_pixels=nb_pixels,
+                                                                      interpolate_final_map=interpolate_final_map)
     ttest1=t()
     print(f'\nDownscaling scipy in {round(ttest, ttest1)} seconds')
 
@@ -172,11 +187,11 @@ t_end = t()
 print(f"\n All prediction in  {round(t_init, t_end) / 60} minutes")
 
 """
-import matplotlib.pyplot as plt
 
 plt.figure()
 plt.imshow(mnt_data[0,:,:])
 
+import matplotlib.pyplot as plt
 U = wind_map[0, :, :, 0]
 V = wind_map[0, :, :, 1]
 UV = np.sqrt(U**2+V**2)
@@ -209,8 +224,8 @@ V = wind_map[0, :, :, 1]
 UV = np.sqrt(U**2+V**2)
 
 #mnt_data = mnt_data[0, :, :]
-x_mnt = mnt_data.x
-y_mnt = mnt_data.y
+x_mnt = coords[0]
+y_mnt = coords[1]
 XX, YY = np.meshgrid(x_mnt, y_mnt)
 
 nwp_data_initial = nwp_data_initial.assign(theta=lambda x: (np.pi / 180) * (x["Wind_DIR"] % 360))

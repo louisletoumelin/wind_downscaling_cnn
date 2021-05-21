@@ -10,6 +10,9 @@ GPU = 4 min
 
 28.4 min
 10 stations and 2.5 years
+
+1 station and all years:
+13 min
 """
 import numpy as np
 import pandas as pd
@@ -36,18 +39,15 @@ from Utils import connect_GPU_to_horovod, select_range
 Simulation parameters
 """
 
-GPU = True
-horovod = True
+GPU = False
+horovod = False
 Z0 = True
 load_z0 = True
 save_z0 = False
 peak_valley = True
 select_date_time_serie = True
 verbose = True
-stations = ['BARCELONNETTE', 'DIGNE LES BAINS', 'RESTEFOND-NIVOSE',
-            'LA MURE-ARGENS', 'ARVIEUX', 'PARPAILLON-NIVOSE', 'EMBRUN',
-            'LA FAURIE', 'GAP', 'LA MEIJE-NIVOSE', 'LE PLENAY', 'SEYNOD-AREA', 'Vallot', 'Saint-Sorlin', 'Argentiere',
-            'Dome Lac Blanc','Col du Lac Blanc', 'La Muzelle Lac Blanc', 'Col de Porte','Col du Lautaret']
+stations = ['Col du Lac Blanc', 'La Muzelle Lac Blanc']
 line_profile = False
 variable = 'UV'
 

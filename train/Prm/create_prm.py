@@ -14,22 +14,22 @@ def create_prm_dict():
     """
     prms = {
         # Necessary
-        'date': ['15_03'],
+        'date': ['20_05'],
         # 'VCD' or 'UNet'
         'model': ['UNet'],
         # Specify only one name even if multiple prm are contained in prms
-        'name_simu': ['retest_opt'],
+        'name_simu': ['retrain_with_mean_each_sample'],
         # 'fold', 'class', 'degree', 'xi', 'all'
-        'type_of_training': ['fold'],
+        'type_of_training': ['all'],
 
         # General
         'loss': ["mse"],
         'learning_rate': [0.001],
         'decay': [0.0001],
         # 'RMSprop' 'Adam' 'AMSgrad' 'Adamax' 'Nadam'
-        'optimizer': ['Adam', 'AMSgrad'],
+        'optimizer': ['RMSprop'],
         'list_metrics': [['mae', 'root_mse']],
-        'epochs': [150],  # 150
+        'epochs': [300],  # 150
         'batch_size': [32],
 
         # Reduce on plateau

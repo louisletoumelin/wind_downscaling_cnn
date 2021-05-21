@@ -69,11 +69,14 @@ def print_reshaped_data_dimension(x_train, y_train, x_val=None, y_val=None):
 
 def normalize_training_features(x_train, x_val=None):
     """Normalize training and validation features"""
-    train_mean, train_std = np.mean(x_train), np.std(x_train)
+    train_mean, train_std = np.mean(x_train, axis=(1,2)), np.std(x_train)
+    train_mean = train_mean.reshape((train_mean.shape[0], 1, 1, 1))
     x_train = (x_train - train_mean) / train_std
     if x_val is not None:
+        train_mean = np.mean(x_val, axis=(1, 2))
+        train_mean = train_mean.reshape((train_mean.shape[0], 1, 1, 1))
         x_val = (x_val - train_mean) / train_std
-    return (x_train, x_val, train_mean, train_std)
+    return (x_train, x_val, np.mean(train_mean), train_std)
 
 
 def dict_to_array(dictionary):

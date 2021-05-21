@@ -104,9 +104,9 @@ class Observation:
             if self.path_vallot is not None: self._add_time_serie_vallot(log_profile=True)
             if self.path_saint_sorlin is not None: self._add_time_serie_glacier(name='Saint-Sorlin', log_profile=False)
             if self.path_argentiere is not None: self._add_time_serie_glacier(name='Argentiere', log_profile=False)
-            if self.path_Dome_Lac_Blanc is not None: self._add_time_serie_Col(name='Dome Lac Blanc', log_profile=False)
-            if self.path_Col_du_Lac_Blanc is not None: self._add_time_serie_Col(name='Col du Lac Blanc', log_profile=False)
-            if self.path_Muzelle_Lac_Blanc is not None: self._add_time_serie_Col(name='La Muzelle Lac Blanc', log_profile=False)
+            if self.path_Dome_Lac_Blanc is not None: self._add_time_serie_Col(name='Dome Lac Blanc', log_profile=True)
+            if self.path_Col_du_Lac_Blanc is not None: self._add_time_serie_Col(name='Col du Lac Blanc', log_profile=True)
+            if self.path_Muzelle_Lac_Blanc is not None: self._add_time_serie_Col(name='La Muzelle Lac Blanc', log_profile=True)
             if self.path_Col_de_Porte is not None: self._add_time_serie_Col(name='Col de Porte', log_profile=False)
             if self.path_Col_du_Lautaret is not None: self._add_time_serie_Col(name='Col du Lautaret', log_profile=False)
 
@@ -269,16 +269,20 @@ class Observation:
                 alti = 2808
                 lat = 45.1276528
                 lon = 6.10564167
+                z_wind_sensor = 8.5
 
             if name == 'La Muzelle Lac Blanc':
                 alti = 2722
                 lat = 45.1272833
                 lon = 6.1111249999999995
+                z_wind_sensor = 7
 
             if name == 'Col du Lac Blanc':
                 alti = 2720
                 lat = 45.1276389
                 lon = 6.1115555
+                z_wind_sensor = 7.5
+
 
             if name == 'Col de Porte':
                 alti = 1325
@@ -295,7 +299,10 @@ class Observation:
         station_df["date"] = station_df.index
 
         if log_profile:
-            print(f"Log profile not implemented at {name}")
+            Z0_col = 0.054
+            log_profile = np.log(10 / Z0_col) / np.log(z_wind_sensor / Z0_col)
+            station_df['vw10m(m/s)'] = station_df['vw10m(m/s)'] * log_profile
+            print(f"___log profile at {name} obs calculated")
 
         self.time_series = pd.concat([self.time_series, station_df])
         if verbose: print(f"__{name} time series loaded using pd.read_csv")
