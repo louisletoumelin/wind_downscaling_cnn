@@ -3,7 +3,7 @@ from time import time as t
 t_init = t()
 """
 1h 20km x 20km
-CPU: 1min 49
+CPU: 2min
 GPU: 14 sec
 
 24h 50km x 40km
@@ -56,8 +56,8 @@ Stations
 Simulation parameters
 """
 
-GPU = True
-horovod = True
+GPU = False
+horovod = False
 Z0 = True
 load_z0 = True
 save_z0 = False
@@ -67,6 +67,7 @@ select_date_time_serie=True
 type_rotation = 'scipy' # 'indexes' or 'scipy'
 verbose=True
 line_profile=False
+memory_profile=False
 
 interp=2
 nb_pixels=15
@@ -74,14 +75,13 @@ interpolate_final_map=True
 
 dx = 20_000
 dy = 25_000
-
 hour_begin = 15
 day_begin = 1
 month_begin = 10
 year_begin = 2018
 
 hour_end = 15
-day_end = 2
+day_end = 1
 month_end = 10
 year_end = 2018
 
@@ -161,6 +161,7 @@ if launch_predictions:
                                                                       peak_valley=peak_valley, Z0_cond=Z0,
                                                                       type_rotation=type_rotation,
                                                                       line_profile=line_profile,
+                                                                      memory_profile=memory_profile,
                                                                       interp=interp,
                                                                       nb_pixels=nb_pixels,
                                                                       interpolate_final_map=interpolate_final_map)
