@@ -45,7 +45,6 @@ class MNT(Data_2D):
         self.resolution_y = resolution_y
         self.name = name
 
-
     def load_mnt_files(self, path_to_file, verbose=True, chunks=None):
         if _rasterio:
             if not(_dask):
@@ -70,8 +69,8 @@ class MNT(Data_2D):
             resolution_x = self.resolution_x
             resolution_y = self.resolution_y
 
-        index_x_MNT = (x - xmin_MNT) // resolution_x
-        index_y_MNT = (ymax_MNT - y) // resolution_y
+        index_x_MNT = np.intp((x - xmin_MNT) // resolution_x)
+        index_y_MNT = np.intp((ymax_MNT - y) // resolution_y)
         return (index_x_MNT, index_y_MNT)
 
     @property

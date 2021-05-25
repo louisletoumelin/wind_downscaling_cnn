@@ -148,7 +148,7 @@ class Processing:
                 acceleration_factor = np.where(acceleration_factor > 0, acceleration_factor, 1)
                 exp_Wind = wind_speed * acceleration_factor
 
-            print(f"__Acceleration maximum expose {np.nanmax(acceleration_factor)}")
+            print(f"____Acceleration maximum expose {np.nanmax(acceleration_factor)}")
             return (exp_Wind, acceleration_factor)
 
     def normalize_topo(self, topo_HD, mean, std, dtype=np.float32, librairie='num', verbose=True):
@@ -348,7 +348,7 @@ class Processing:
 
         self.nwp.select_timeframe(begin=begin, end=end)
 
-        if verbose: print("NWP: Working on specific time window")
+        if verbose: print("__NWP time window selected")
 
     @staticmethod
     def _scale_wind_for_ideal_case(wind_speed, wind_dir, input_speed, input_dir, verbose=True):
@@ -455,7 +455,7 @@ class Processing:
                            computing='num', out=None,
                            xarray_data=None, u_name="U", v_name="V", verbose=True):
         """
-        Calculates wind speed from wind sped components.
+        Calculates wind speed from wind speed components.
 
         First detects the number of wind component then calculates wind speed.
         The calculation can be performed on nmexpr, numpy or xarray dataset
@@ -588,6 +588,26 @@ class Processing:
         UV_DIR = change_dtype_if_required(UV_DIR, np.float32)
         if verbose: print("__Wind_DIR calculated from alpha")
         return (UV_DIR)
+
+    def mean_peak_valley(self, topo, verbose=True):
+        """
+        2 * std(topography)
+
+        Mean peak valley height
+
+        Parameters
+        ----------
+        topo : ndarray
+            topography
+
+        Returns
+        -------
+        peak_valley_height : ndarray
+            Mean peak valley height
+        """
+        peak_valley_height = 2 * np.nanstd(topo)
+        if verbose: print("__Mean peak valley computed")
+        return(peak_valley_height.astype(np.float32))
 
     def horizontal_wind_component(self, UV=None, UV_DIR=None,
                                   working_with_xarray=False, xarray_data=None, wind_name="Wind",
@@ -723,7 +743,7 @@ class Processing:
                             log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
                             ideal_case=False, input_speed=3, input_dir=270, line_profile=False):
         """
-        This function is used to select predictions at stations or the lin profiled version
+        This function is used to select predictions at stations, the line profiled version or the memory profiled version
         """
         if line_profile:
             from line_profiler import LineProfiler
@@ -749,6 +769,7 @@ class Processing:
             return(zs)
 
     def get_closer_from_learning_conditions(self, topo, mean_height, std, P95=530, P05=-527, axis=(1,2)):
+
         max_alt_deviation = np.nanmax(topo.squeeze() - mean_height, axis=axis)
         min_alt_deviation = np.nanmin(topo.squeeze() - mean_height, axis=axis)
 
@@ -759,11 +780,10 @@ class Processing:
         alpha = np.where(max_alt_deviation>P95,
                          np.where(min_alt_deviation<P05, alpha_i, alpha_max),
                          np.where(min_alt_deviation<P05, alpha_min, 1))
-        print("__Quantile 0.5 alpha", np.quantile(alpha, 0.5))
-        print("__Quantile 0.8 alpha", np.quantile(alpha, 0.8))
-        print("__Quantile 0.9 alpha", np.quantile(alpha, 0.9))
-        print("__Max alpha", np.nanmax(alpha))
-
+        print("____Quantile 0.5 alpha", np.quantile(alpha, 0.5))
+        print("____Quantile 0.8 alpha", np.quantile(alpha, 0.8))
+        print("____Quantile 0.9 alpha", np.quantile(alpha, 0.9))
+        print("____Max alpha", np.nanmax(alpha))
 
         return(alpha*std)
 
@@ -1181,13 +1201,14 @@ class Processing:
 
 
     def prepare_time_and_domain_nwp(self, year_0, month_0, day_0, hour_0,year_1, month_1, day_1, hour_1,
-                                    station_name=None, dx=None, dy=None, additionnal_dx_mnt=None):
+                                    station_name=None, dx=None, dy=None, additionnal_dx_mnt=None, verbose=True):
 
         begin = datetime.datetime(year_0, month_0, day_0, hour_0)
         end = datetime.datetime(year_1, month_1, day_1, hour_1)
         self._select_timeframe_nwp(begin=begin,end=end)
 
         nwp_data = self._select_large_domain_around_station(station_name, dx, dy, type="NWP", additionnal_dx_mnt=additionnal_dx_mnt)
+        if verbose: print("__Prepare time and domain NWP")
         return(nwp_data)
 
     def interpolate_wind_grid_xarray(self, nwp_data, interp=3, method='linear', verbose=True):
@@ -1236,11 +1257,7 @@ class Processing:
                         log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
                         nb_pixels=15, interpolate_final_map=True):
 
-        #if not (_numba):
-        #    raise ModuleNotFoundError('predict_map_indexes needs numba to operate')
-
         # Select NWP data
-        if verbose: print("Selecting NWP")
         nwp_data = self.prepare_time_and_domain_nwp(year_0, month_0, day_0, hour_0, year_1, month_1, day_1, hour_1,
                                                     station_name=station_name, dx=dx, dy=dy)
 
@@ -1255,9 +1272,9 @@ class Processing:
         mnt_data = self._select_large_domain_around_station(station_name, dx, dy, type="MNT", additionnal_dx_mnt=2_000)
         xmin_mnt, ymax_mnt, resolution_x, resolution_y = self.get_caracteristics_mnt(mnt_data)
         mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt = self._get_mnt_data_and_shape(mnt_data)
+        coord = [mnt_data_x, mnt_data_y]
 
         # NWP forcing data
-
         variables = ["Wind", "Wind_DIR", "Z0", "Z0REL", "ZS"] if Z0_cond else ["Wind", "Wind_DIR"]
         if Z0_cond:
             wind_speed_nwp, wind_DIR_nwp, Z0_nwp, Z0REL_nwp, ZS_nwp = self.extract_from_xarray_to_numpy(nwp_data, variables)
@@ -1265,7 +1282,6 @@ class Processing:
             wind_speed_nwp, wind_DIR_nwp = self.extract_from_xarray_to_numpy(nwp_data, variables)
 
         # Initialize wind map
-        coord = [mnt_data_x, mnt_data_y]
         wind_map = np.zeros((nb_time_step, shape_x_mnt, shape_y_mnt, 3), dtype=np.float32)
         peak_valley_height = np.empty((nb_px_nwp_y, nb_px_nwp_x), dtype=np.float32)
         mean_height = np.empty((nb_px_nwp_y, nb_px_nwp_x), dtype=np.float32)
@@ -1274,18 +1290,17 @@ class Processing:
         nb_pixel = 70
 
         # Load pre_rotated indexes
-        all_mat = np.load(self.data_path + "MNT/indexes_rot.npy")
-        all_mat = np.int32(all_mat.reshape(360, 79 * 69, 2))
-
-        i = 0
-        x_nwp_L93 = nwp_x_l93.view()
-        y_nwp_L93 = nwp_y_l93.view()
-        wind_DIR = wind_DIR_nwp.view()
+        all_mat = np.load(self.data_path + "MNT/indexes_rot.npy").astype(np.int32).reshape(360, 79 * 69, 2)
 
         # Select indexes MNT
-        # todo change here
-        idx_x_mnt = np.intp((x_nwp_L93[:,:] - xmin_mnt) // resolution_x)
-        idx_y_mnt = np.intp((ymax_mnt - y_nwp_L93[:,:]) // resolution_y)
+        idx_x_mnt, idx_y_mnt = self.mnt.find_nearest_MNT_index(nwp_x_l93[:, :],
+                                                               nwp_y_l93[:, :],
+                                                               look_for_corners=False,
+                                                               xmin_MNT=xmin_mnt,
+                                                               ymax_MNT=ymax_mnt,
+                                                               look_for_resolution=False,
+                                                               resolution_x=resolution_x,
+                                                               resolution_y=resolution_y)
 
         # Large topo
         topo_i = np.empty((nb_px_nwp_y, nb_px_nwp_x, 140, 140)).astype(np.float32)
@@ -1296,11 +1311,11 @@ class Processing:
                 topo_i[j, i, :, :] = mnt_data[0, y-nb_pixel:y + nb_pixel, x - nb_pixel:x + nb_pixel]
 
         # Mean peak_valley altitude
-        peak_valley_height[:, :] = np.int32(2 * np.nanstd(topo_i))
+        peak_valley_height[:, :] = self.mean_peak_valley(topo_i, )
         mean_height[:, :] = np.int32(np.mean(topo_i))
 
         # Wind direction
-        angle = np.where(wind_DIR > 0, np.int32(wind_DIR - 1), np.int32(359))
+        angle = np.where(wind_DIR_nwp > 0, np.int32(wind_DIR_nwp - 1), np.int32(359))
 
         # Rotate topography
         if type_rotation == 'indexes':
@@ -1344,7 +1359,7 @@ class Processing:
         wind_DIR_nwp = wind_DIR_nwp.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 1, 1)).astype(np.float32,
                                                                                                    copy=False)
         acceleration_cnn = prediction / 3
-        print("Acceleration maximum CNN", np.nanmax(acceleration_cnn))
+        print("____Acceleration maximum CNN", np.nanmax(acceleration_cnn))
 
         # Exposed wind speed
         if Z0_cond:
@@ -1403,9 +1418,8 @@ class Processing:
         UV_DIR = UV_DIR.astype(dtype=np.float32, copy=False)
         all_mat = all_mat.astype(np.int32, copy=False)
 
-        # Reshape wind speed and wind direction
+        # Reshape wind speed
         wind_speed_nwp = wind_speed_nwp.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x))
-        wind_DIR_nwp = wind_DIR_nwp.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x))
 
         # Calculate U and V along initial axis
         U_old, V_old = self.horizontal_wind_component(UV=UV,
@@ -1429,12 +1443,8 @@ class Processing:
         x_offset_left = x_center - save_pixels
         x_offset_right = x_center + save_pixels + 1
 
-
-        print("__Wind rotations")
-
-
         if type_rotation=='indexes':
-            wind_large = np.empty((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 140, 140, 3)) * np.nan
+            wind_large = np.empty((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 140, 140, 3)).astype(np.float32) * np.nan
             wind_large = self.r.select_rotation(all_mat=all_mat, wind_large=wind_large, wind=wind, angles=angle,
                                                 type_rotation='wind_indexes', librairie='numba')
         if type_rotation == 'scipy':
@@ -1444,7 +1454,6 @@ class Processing:
             wind_large = self.r.select_rotation(data=wind, wind_dir=angle, clockwise=True)
             wind_large = np.moveaxis(wind_large, 3, -1)
         acceleration_all = np.empty(wind_map.shape[:-1])
-
 
         for j in range(nb_px_nwp_y):
             for i in range(nb_px_nwp_x):
@@ -1460,9 +1469,9 @@ class Processing:
                 acceleration_all[:,mnt_y_left:mnt_y_right,mnt_x_left:mnt_x_right] = UV/wind_speed_nwp[:,j,i]
 
         #@jit([float32[:, :, :, :](int64, float32[:, :, :, :])], nopython=True)
-        def interpolate_final_result(nb_time_step, wind_map):
-            for time_step in range(nb_time_step):
-                for component in range(3):
+        def interpolate_final_result(wind_map):
+            for time_step in range(wind_map.shape[0]):
+                for component in range(wind_map.shape[3]):
                     # Select component to interpolate
                     wind_component = wind_map[time_step, :, :, component]
                     nan_indexes = np.argwhere(np.isnan(wind_component))
@@ -1512,7 +1521,7 @@ class Processing:
                         log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
                         line_profile=False, nb_pixels=15,  interpolate_final_map=True, memory_profile=False):
         """
-        This function is used to select predictions at stations or the lin profiled version
+        This function is used to select map predictions, the line profiled version or the memory profiled version
         """
         if line_profile:
             from line_profiler import LineProfiler

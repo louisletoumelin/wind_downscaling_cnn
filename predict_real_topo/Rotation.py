@@ -88,8 +88,7 @@ class Rotation:
 
     if _numba:
         @staticmethod
-        @jit([float64[:, :, :, :, :, :](int32[:, :, :], float64[:, :, :, :, :, :], float64[:, :, :, :, :], int32[:, :, :])],
-             nopython=True)
+        @jit([float32[:, :, :, :, :, :](int32[:, :, :], float32[:, :, :, :, :, :], float32[:, :, :, :, :], int32[:, :, :])],nopython=True)
         def rotate_wind_indexes_numba(all_mat, wind_large, wind, angles):
             for time in range(wind_large.shape[0]):
                 for y in range(wind_large.shape[1]):

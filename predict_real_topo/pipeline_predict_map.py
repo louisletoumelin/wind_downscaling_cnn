@@ -73,14 +73,14 @@ interp=2
 nb_pixels=15
 interpolate_final_map=True
 
-dx = 20_000
-dy = 25_000
-hour_begin = 15
+dx = 10_000
+dy = 10_000
+hour_begin = 18
 day_begin = 1
 month_begin = 10
 year_begin = 2018
 
-hour_end = 15
+hour_end = 18
 day_end = 1
 month_end = 10
 year_end = 2018
@@ -159,12 +159,13 @@ if launch_predictions:
                                                                       day_1=day_end, hour_1=hour_end,
                                                                       dx=dx, dy=dy,
                                                                       peak_valley=peak_valley, Z0_cond=Z0,
-                                                                      type_rotation=type_rotation,
+                                                                      type_rotation = 'scipy',
                                                                       line_profile=line_profile,
                                                                       memory_profile=memory_profile,
                                                                       interp=interp,
                                                                       nb_pixels=nb_pixels,
                                                                       interpolate_final_map=interpolate_final_map)
+
     ttest1=t()
     print(f'\nDownscaling scipy in {round(ttest, ttest1)} seconds')
 

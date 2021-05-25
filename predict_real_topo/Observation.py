@@ -499,9 +499,9 @@ class Observation:
         try:
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 list_nearest = executor.map(K_N_N_point, list_coord_station)
-            print("Parallel computation worked for update_stations_with_KNN_from_NWP")
+            print("Parallel computation worked for update_stations_with_KNN_from_NWP\n")
         except:
-            print("Parallel computation using concurrent.futures didn't work, so update_stations_with_KNN_from_NWP will not be parallelized.")
+            print("Parallel computation using concurrent.futures didn't work, so update_stations_with_KNN_from_NWP will not be parallelized.\n")
             list_nearest = map(K_N_N_point, list_coord_station)
 
         # Store results as array
