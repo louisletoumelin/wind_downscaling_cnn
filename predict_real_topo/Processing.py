@@ -1260,26 +1260,20 @@ class Processing:
         # Select NWP data
         nwp_data = self.prepare_time_and_domain_nwp(year_0, month_0, day_0, hour_0, year_1, month_1, day_1, hour_1,
                                                     station_name=station_name, dx=dx, dy=dy)
-
-        # Copy data
         nwp_data_initial = nwp_data.copy(deep=False)
         nwp_data = self.interpolate_wind_grid_xarray(nwp_data, interp=interp, method=method, verbose=verbose)
-
-        # Time scale and domain length
         times, nb_time_step, nwp_x_l93, nwp_y_l93, nb_px_nwp_y, nb_px_nwp_x = self.get_caracteristics_nwp(nwp_data)
+        variables = ["Wind", "Wind_DIR", "Z0", "Z0REL", "ZS"] if Z0_cond else ["Wind", "Wind_DIR"]
+        if Z0_cond:
+            wind_speed_nwp, wind_DIR_nwp, Z0_nwp, Z0REL_nwp, ZS_nwp = self.extract_from_xarray_to_numpy(nwp_data, variables)
+        else:
+            wind_speed_nwp, wind_DIR_nwp = self.extract_from_xarray_to_numpy(nwp_data, variables)
 
         # Select MNT data
         mnt_data = self._select_large_domain_around_station(station_name, dx, dy, type="MNT", additionnal_dx_mnt=2_000)
         xmin_mnt, ymax_mnt, resolution_x, resolution_y = self.get_caracteristics_mnt(mnt_data)
         mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt = self._get_mnt_data_and_shape(mnt_data)
         coord = [mnt_data_x, mnt_data_y]
-
-        # NWP forcing data
-        variables = ["Wind", "Wind_DIR", "Z0", "Z0REL", "ZS"] if Z0_cond else ["Wind", "Wind_DIR"]
-        if Z0_cond:
-            wind_speed_nwp, wind_DIR_nwp, Z0_nwp, Z0REL_nwp, ZS_nwp = self.extract_from_xarray_to_numpy(nwp_data, variables)
-        else:
-            wind_speed_nwp, wind_DIR_nwp = self.extract_from_xarray_to_numpy(nwp_data, variables)
 
         # Initialize wind map
         wind_map = np.zeros((nb_time_step, shape_x_mnt, shape_y_mnt, 3), dtype=np.float32)
@@ -1425,12 +1419,14 @@ class Processing:
         U_old, V_old = self.horizontal_wind_component(UV=UV,
                                                       UV_DIR=UV_DIR)  # Good coord. but not on the right pixel [m/s]
 
+        #todo tester que l'on a bien U_old et V_old qui se
+        #positionnent dans prediction[:,:,:,:,:0] et prediction[:,:,:,:,:1]
+
         # Reduce size matrix of indexes
         wind = prediction.view(dtype=np.float32)
         wind = wind.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 79 * 69, 3))
 
         # Good axis and pixel location [m/s]
-        i = 0
         save_pixels = nb_pixels
         if type_rotation == 'indexes':
             y_center = 70
@@ -1487,31 +1483,7 @@ class Processing:
             return (wind_map)
         if interpolate_final_map:
             wind_map = interpolate_final_result(nb_time_step, wind_map)
-        """
-        # Interpolate final map
-        print("Final interpolation")
-        for time_step, time in enumerate(times):
-            for component in range(3):
 
-                # Select component to interpolate
-                wind_component = wind_map[time_step, :, :, component]
-
-                # Create x and y axis
-                x = np.arange(0, wind_component.shape[1])
-                y = np.arange(0, wind_component.shape[0])
-
-                # Mask invalid values
-                wind_component = np.ma.masked_invalid(wind_component)
-                xx, yy = np.meshgrid(x, y)
-
-                # Get only the valid values
-                x1 = xx[~wind_component.mask]
-                y1 = yy[~wind_component.mask]
-                newarr = wind_component[~wind_component.mask]
-
-                # Interpolate
-                wind_map[time_step, :, :, component] = interpolate.griddata((x1, y1), newarr.ravel(), (xx, yy), method='linear')
-        """
         return (wind_map, acceleration_all, coord, nwp_data_initial, nwp_data, mnt_data)
 
     def predict_maps(self, station_name='Col du Lac Blanc', x_0=None, y_0=None, dx=10_000, dy=10_000, interp=3,
