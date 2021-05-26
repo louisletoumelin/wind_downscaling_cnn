@@ -1249,6 +1249,98 @@ class Processing:
         if verbose: print("__Variables extracted from xarray data")
         return((array[variable].data.astype(np.float32) for variable in list_variables))
 
+    @staticmethod
+    def _iterate_to_replace_pixels(wind, mnt_map, idx_y_mnt, idx_x_mnt, save_pixels, y_offset_left, y_offset_right, x_offset_left, x_offset_right):
+        for j in range(wind.shape[1]):
+            for i in range(wind.shape[2]):
+                mnt_y_left = idx_y_mnt[j,i] - save_pixels
+                mnt_y_right = idx_y_mnt[j,i] + save_pixels + 1
+                mnt_x_left = idx_x_mnt[j,i] - save_pixels
+                mnt_x_right = idx_x_mnt[j,i] + save_pixels + 1
+
+                mnt_map[:, mnt_y_left:mnt_y_right,mnt_x_left:mnt_x_right, :] = wind[:,j,i,
+                                                                                      y_offset_left:y_offset_right,
+                                                                                      x_offset_left:x_offset_right, :]
+        return(mnt_map)
+
+    def _replace_pixels_on_map(self, mnt_map=None, wind=None, idx_x_mnt=None, idx_y_mnt=None, librairie='num',
+                              y_offset_left=None, y_offset_right=None, x_offset_left=None, x_offset_right=None,
+                              save_pixels=None, verbose=True):
+
+        if librairie == 'numba' and _numba:
+            jit_rpl_px = jit([float32[:,:,:,:](float32[:,:,:,:,:,:], float32[:,:,:,:], int64[:,:], int64[:,:], int64, int64, int64, int64, int64)],
+                             nopython=True)(self._iterate_to_replace_pixels)
+            result = jit_rpl_px(wind, mnt_map, idx_y_mnt, idx_x_mnt, save_pixels, y_offset_left, y_offset_right, x_offset_left, x_offset_right)
+            if verbose: print("____Used numba to replace pixels")
+
+        else:
+            result = self._iterate_to_replace_pixels(wind, mnt_map, idx_y_mnt, idx_x_mnt, save_pixels, y_offset_left, y_offset_right, x_offset_left, x_offset_right)
+            if verbose: print("____Used numpy to replace pixels")
+
+        return(result)
+
+    def replace_pixels_on_map(self, mnt_map=None, wind=None, idx_x_mnt=None, idx_y_mnt=None,
+                              x_center=None, y_center=None, wind_speed_nwp=None, save_pixels=15, acceleration=False,
+                              librairie='numba', verbose=True):
+
+        y_offset_left = y_center - save_pixels
+        y_offset_right = y_center + save_pixels + 1
+        x_offset_left = x_center - save_pixels
+        x_offset_right = x_center + save_pixels + 1
+
+        if verbose: print("__Replaced pixels on map")
+
+        mnt_map = self._replace_pixels_on_map(mnt_map=mnt_map, wind=wind, idx_x_mnt=idx_x_mnt, idx_y_mnt=idx_y_mnt,
+                                              librairie=librairie,save_pixels=save_pixels,
+                                              y_offset_left=y_offset_left, y_offset_right=y_offset_right,
+                                              x_offset_left=x_offset_left, x_offset_right=x_offset_right)
+        if acceleration:
+            for j in range(wind.shape[1]):
+                for i in range(wind.shape[2]):
+                    mnt_y_left = idx_y_mnt[j, i] - save_pixels
+                    mnt_y_right = idx_y_mnt[j, i] + save_pixels + 1
+                    mnt_x_left = idx_x_mnt[j, i] - save_pixels
+                    mnt_x_right = idx_x_mnt[j, i] + save_pixels + 1
+                    acceleration_all = np.empty(mnt_map.shape[:-1])
+                    UV = self.compute_wind_speed(wind[:,j,i,y_offset_left:y_offset_right,x_offset_left:x_offset_right, 0],
+                                                 wind[:,j,i,y_offset_left:y_offset_right,x_offset_left:x_offset_right, 1],
+                                                 verbose=False)
+                    #print(UV.shape)
+                    #print(wind_speed_nwp[:,j,i].shape)
+                    #print(acceleration_all[:,mnt_y_left:mnt_y_right,mnt_x_left:mnt_x_right].shape)
+                    acceleration_all[:,mnt_y_left:mnt_y_right,mnt_x_left:mnt_x_right] = UV/wind_speed_nwp[:,j,i].reshape((wind_speed_nwp.shape[0], 1, 1))
+            return(mnt_map, acceleration_all)
+        else:
+            return(mnt_map, np.array([]))
+
+    def interpolate_final_result(self, wind_map, librairie='numba', verbose=True):
+        if librairie == 'numba' and _numba:
+            jit_int = jit([float32[:, :, :, :](float32[:, :, :, :])], nopython=True)(self._interpolate_array)
+            result = jit_int(wind_map)
+            if verbose: print("____Used numba to perform final interpolation")
+        else:
+            result = self._interpolate_array(wind_map)
+            if verbose: print("____Used numpy to perform final interpolation")
+        return(result)
+
+    @staticmethod
+    def _interpolate_array(wind_map):
+        for time_step in range(wind_map.shape[0]):
+            for component in range(wind_map.shape[3]):
+                # Select component to interpolate
+                wind_component = wind_map[time_step, :, :, component]
+                nan_indexes = np.argwhere(np.isnan(wind_component))
+                for y, x in nan_indexes:
+                    right = (y, x + 1)
+                    left = (y, x - 1)
+                    up = (y + 1, x)
+                    down = (y - 1, x)
+                    neighbors_indexes = [right, left, up, down]
+                    neighbors = np.array([wind_component[index] for index in neighbors_indexes])
+                    if np.isnan(neighbors).sum() <= 3:
+                        wind_map[time_step, y, x, component] = np.mean(neighbors[~np.isnan(neighbors)])
+        return (wind_map)
+
     # todo save indexes second rotation
     def _predict_maps(self, station_name='Col du Lac Blanc', x_0=None, y_0=None, dx=10_000, dy=10_000, interp=3,
                         year_0=None, month_0=None, day_0=None, hour_0=None,
@@ -1363,8 +1455,8 @@ class Processing:
             Z0REL_nwp = Z0REL_nwp.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 1, 1, 1))
             ZS_nwp = ZS_nwp.reshape((1, nb_px_nwp_y, nb_px_nwp_x, 1, 1, 1))
             peak_valley_height = peak_valley_height.reshape((1, nb_px_nwp_y, nb_px_nwp_x, 1, 1, 1))
-            ten_m_array = peak_valley_height * 0 + 10
-            three_m_array = peak_valley_height * 0 + 10
+            ten_m_array = np.zeros_like(peak_valley_height) + 10
+            three_m_array = np.zeros_like(peak_valley_height) + 10
 
             # Choose height in the formula
             if peak_valley:
@@ -1408,81 +1500,39 @@ class Processing:
         alpha = self.angular_deviation(U_old, V_old)  # Expressed in the rotated coord. system [radian]
         UV_DIR = self.direction_from_alpha(wind_DIR_nwp, alpha)  # Good coord. but not on the right pixel [radian]
 
-        # float64 to float32
-        UV_DIR = UV_DIR.astype(dtype=np.float32, copy=False)
-        all_mat = all_mat.astype(np.int32, copy=False)
-
         # Reshape wind speed
         wind_speed_nwp = wind_speed_nwp.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x))
 
         # Calculate U and V along initial axis
-        U_old, V_old = self.horizontal_wind_component(UV=UV,
-                                                      UV_DIR=UV_DIR)  # Good coord. but not on the right pixel [m/s]
-
-        #todo tester que l'on a bien U_old et V_old qui se
-        #positionnent dans prediction[:,:,:,:,:0] et prediction[:,:,:,:,:1]
+        # Good coord. but not on the right pixel [m/s]
+        prediction[:,:,:,:,:,0], prediction[:,:,:,:,:,1] = self.horizontal_wind_component(UV=UV, UV_DIR=UV_DIR)
 
         # Reduce size matrix of indexes
-        wind = prediction.view(dtype=np.float32)
-        wind = wind.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 79 * 69, 3))
-
-        # Good axis and pixel location [m/s]
-        save_pixels = nb_pixels
-        if type_rotation == 'indexes':
-            y_center = 70
-            x_center = 70
-        if type_rotation == 'scipy':
-            y_center = 39
-            x_center = 34
-        y_offset_left = y_center - save_pixels
-        y_offset_right = y_center + save_pixels + 1
-        x_offset_left = x_center - save_pixels
-        x_offset_right = x_center + save_pixels + 1
+        wind = prediction.view(dtype=np.float32).reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 79 * 69, 3))
 
         if type_rotation=='indexes':
+            y_center = 70
+            x_center = 70
             wind_large = np.empty((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 140, 140, 3)).astype(np.float32) * np.nan
             wind_large = self.r.select_rotation(all_mat=all_mat, wind_large=wind_large, wind=wind, angles=angle,
                                                 type_rotation='wind_indexes', librairie='numba')
         if type_rotation == 'scipy':
+            y_center = 39
+            x_center = 34
             wind = np.moveaxis(wind, -1, 3)
             wind = wind.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 3, 79, 69))
             angle = angle.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 1))
             wind_large = self.r.select_rotation(data=wind, wind_dir=angle, clockwise=True)
             wind_large = np.moveaxis(wind_large, 3, -1)
-        acceleration_all = np.empty(wind_map.shape[:-1])
 
-        for j in range(nb_px_nwp_y):
-            for i in range(nb_px_nwp_x):
-                mnt_y_left = idx_y_mnt[j,i] - save_pixels
-                mnt_y_right = idx_y_mnt[j,i] + save_pixels + 1
-                mnt_x_left = idx_x_mnt[j,i] - save_pixels
-                mnt_x_right = idx_x_mnt[j,i] + save_pixels + 1
+        wind_map, acceleration_all = self.replace_pixels_on_map(mnt_map=wind_map, wind=wind_large,
+                                                                idx_x_mnt=idx_x_mnt, idx_y_mnt=idx_y_mnt,
+                                                                x_center=x_center, y_center=y_center,
+                                                                wind_speed_nwp=wind_speed_nwp, save_pixels=nb_pixels,
+                                                                acceleration=True, librairie='numpy')
 
-                wind_map[:, mnt_y_left:mnt_y_right,mnt_x_left:mnt_x_right, :] = wind_large[:,j,i,
-                                                                                      y_offset_left:y_offset_right,
-                                                                                      x_offset_left:x_offset_right, :]
-                UV = np.sqrt(wind_large[:,j,i,y_offset_left:y_offset_right,x_offset_left:x_offset_right, 0]**2+wind_large[:,j,i,y_offset_left:y_offset_right,x_offset_left:x_offset_right, 1]**2)
-                acceleration_all[:,mnt_y_left:mnt_y_right,mnt_x_left:mnt_x_right] = UV/wind_speed_nwp[:,j,i]
-
-        #@jit([float32[:, :, :, :](int64, float32[:, :, :, :])], nopython=True)
-        def interpolate_final_result(wind_map):
-            for time_step in range(wind_map.shape[0]):
-                for component in range(wind_map.shape[3]):
-                    # Select component to interpolate
-                    wind_component = wind_map[time_step, :, :, component]
-                    nan_indexes = np.argwhere(np.isnan(wind_component))
-                    for y, x in nan_indexes:
-                        right = (y, x + 1)
-                        left = (y, x - 1)
-                        up = (y + 1, x)
-                        down = (y - 1, x)
-                        neighbors_indexes = [right, left, up, down]
-                        neighbors = np.array([wind_component[index] for index in neighbors_indexes])
-                        if np.isnan(neighbors).sum() <= 3:
-                            wind_map[time_step, y, x, component] = np.mean(neighbors[~np.isnan(neighbors)])
-            return (wind_map)
         if interpolate_final_map:
-            wind_map = interpolate_final_result(nb_time_step, wind_map)
+            wind_map = self.interpolate_final_result(wind_map, librairie='numpy')
 
         return (wind_map, acceleration_all, coord, nwp_data_initial, nwp_data, mnt_data)
 

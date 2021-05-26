@@ -1,14 +1,16 @@
 from time import time as t
 
 t_init = t()
+
 """
-1h 20km x 20km
-CPU: 2min
-GPU: 14 sec
+1h 50km x 40km
+CPU: Downscaling scipy in 77.09 seconds
+GPU: Downscaling scipy in 28.16 seconds
 
 24h 50km x 40km
-GPU: 20min
+GPU: Downscaling scipy in 542.96 seconds (9 min)
 """
+
 import numpy as np
 import tensorflow as tf
 #from line_profiler import LineProfiler
@@ -56,8 +58,8 @@ Stations
 Simulation parameters
 """
 
-GPU = False
-horovod = False
+GPU = True
+horovod = True
 Z0 = True
 load_z0 = True
 save_z0 = False
@@ -68,20 +70,19 @@ type_rotation = 'scipy' # 'indexes' or 'scipy'
 verbose=True
 line_profile=False
 memory_profile=False
-
 interp=2
 nb_pixels=15
 interpolate_final_map=True
 
-dx = 10_000
-dy = 10_000
+dx = 20_000
+dy = 25_000
 hour_begin = 18
 day_begin = 1
 month_begin = 10
 year_begin = 2018
 
 hour_end = 18
-day_end = 1
+day_end = 6
 month_end = 10
 year_end = 2018
 

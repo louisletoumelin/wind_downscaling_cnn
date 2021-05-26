@@ -1,6 +1,7 @@
 def connect_GPU_to_horovod():
     import horovod.tensorflow.keras as hvd
     import tensorflow as tf
+    tf.keras.backend.clear_session()
     hvd.init()
     # Horovod: pin GPU to be used to process local rank (one GPU per process)
     gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -8,10 +9,6 @@ def connect_GPU_to_horovod():
         tf.config.experimental.set_memory_growth(gpu, True)
     if gpus:
         tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
-    print(gpus)
-    print("test gpu")
-    # gpu_options = tf.GPUOptions(allow_growth=True)
-    # session = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
 
 
 def environment_GPU(GPU=True):

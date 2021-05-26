@@ -532,8 +532,8 @@ class Observation:
         for idx_station in range(nb_station):
             l93_station_x, l93_station_y = self.stations["X"].values[idx_station], self.stations["Y"].values[
                 idx_station]
-            index_MNT_x = int(all_MNT_index_x.values[idx_station])
-            index_MNT_y = int(all_MNT_index_y.values[idx_station])
+            index_MNT_x = np.intp(all_MNT_index_x[idx_station])
+            index_MNT_y = np.intp(all_MNT_index_y[idx_station])
 
             list_nearest_neighbors = []
             list_index_neighbors = []
