@@ -1428,6 +1428,9 @@ class Processing:
         std = std.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 1, 1)).astype(dtype=np.float32, copy=False)
         topo_rot = self.normalize_topo(topo_rot, mean_height, std).astype(dtype=np.float32, copy=False)
 
+        del std
+        del mean_height
+
         # Reshape for tensorflow
         topo_rot = topo_rot.reshape((nb_time_step * nb_px_nwp_x * nb_px_nwp_y, self.n_rows, self.n_col, 1))
 
@@ -1483,7 +1486,7 @@ class Processing:
                                                   verbose=verbose, z_in_verbose="height/2", z_out_verbose="10m")
 
         # Wind speed scaling
-        scaling_wind = exp_Wind if Z0_cond else wind_speed_nwp
+        scaling_wind = exp_Wind.view() if Z0_cond else wind_speed_nwp.view()
         prediction = self.wind_speed_scaling(scaling_wind, prediction, linear=True)
 
         if log_profile_10m_to_3m:
@@ -1493,12 +1496,14 @@ class Processing:
         # Wind computations
         U_old = prediction[:, :, :, :, :, 0].view(dtype=np.float32)  # Expressed in the rotated coord. system [m/s]
         V_old = prediction[:, :, :, :, :, 1].view(dtype=np.float32)  # Expressed in the rotated coord. system [m/s]
-        W_old = prediction[:, :, :, :, :, 2].view(dtype=np.float32)  # Good coord. but not on the right pixel [m/s]
+        #W_old = prediction[:, :, :, :, :, 2].view(dtype=np.float32)  # Good coord. but not on the right pixel [m/s]
 
         # Recalculate with respect to original coordinates
         UV = self.compute_wind_speed(U=U_old, V=V_old, W=None)  # Good coord. but not on the right pixel [m/s]
         alpha = self.angular_deviation(U_old, V_old)  # Expressed in the rotated coord. system [radian]
         UV_DIR = self.direction_from_alpha(wind_DIR_nwp, alpha)  # Good coord. but not on the right pixel [radian]
+
+        del alpha
 
         # Reshape wind speed
         wind_speed_nwp = wind_speed_nwp.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x))
@@ -1506,6 +1511,9 @@ class Processing:
         # Calculate U and V along initial axis
         # Good coord. but not on the right pixel [m/s]
         prediction[:,:,:,:,:,0], prediction[:,:,:,:,:,1] = self.horizontal_wind_component(UV=UV, UV_DIR=UV_DIR)
+
+        del UV_DIR
+        del UV
 
         # Reduce size matrix of indexes
         wind = prediction.view(dtype=np.float32).reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 79 * 69, 3))
@@ -1530,6 +1538,10 @@ class Processing:
                                                                 x_center=x_center, y_center=y_center,
                                                                 wind_speed_nwp=wind_speed_nwp, save_pixels=nb_pixels,
                                                                 acceleration=True, librairie='numpy')
+
+        del wind_large
+        del angle
+        del wind
 
         if interpolate_final_map:
             wind_map = self.interpolate_final_result(wind_map, librairie='numpy')
