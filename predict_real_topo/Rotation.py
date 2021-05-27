@@ -73,17 +73,15 @@ class Rotation:
 
         if librairie == 'numba' and _numba:
             return(self.rotate_wind_indexes_numba(all_mat, wind_large, wind, angles))
-
-        if librairie == 'num':
+        else:
             return(self.rotate_wind_indexes_numpy(all_mat, wind_large, wind, angles))
 
     def rotate_topo_indexes(self, librairie='numba', all_mat=None, topo_rot=None, topo_i=None, angles=None):
 
-        if librairie=='numba' and _numba:
+        if librairie == 'numba' and _numba:
             # (360, 5451, 2) (1, 21, 21, 5451) (21, 21, 140, 140) (1, 21, 21)
             return(self.rotate_topo_indexes_numba(all_mat, topo_rot, topo_i, angles))
-
-        if librairie =='num':
+        else:
             return(self.rotate_topo_indexes_numpy(all_mat, topo_rot, topo_i, angles))
 
     if _numba:

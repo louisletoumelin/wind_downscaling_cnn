@@ -47,47 +47,18 @@ Stations
        'LE PLENAY', 'SEYNOD-AREA', 'Col du Lac Blanc', 'Col du Lautaret', 'Vallot', 'Saint-Sorlin', 'Argentiere']
 """
 
-"""
-To be modified
-"""
-
-GPU = False
-horovod = False
-Z0 = False
-load_z0 = True
-save_z0 = False
-peak_valley = True
-launch_predictions = False
-select_date_time_serie = False
-verbose = True
-stations_to_predict = ['Col du Lac Blanc']
-line_profile = False
-
-# Date to predict
-day_begin = 1
-month_begin = 5
-year_begin = 2008
-
-day_end = 1
-month_end = 5
-year_end = 2021
-
-begin = str(year_begin) + "-" + str(month_begin) + "-" + str(day_begin)
-end = str(year_end) + "-" + str(month_end) + "-" + str(day_end)
+# Create prm
+prm = create_prm(month_prediction=True)
 
 """
 Utils
 """
 
-
-# Safety
-load_z0, save_z0 = check_save_and_load(load_z0, save_z0)
-
 # Initialize horovod and GPU
-if GPU and horovod: connect_GPU_to_horovod()
+if prm["GPU"] and prm["horovod"]: connect_GPU_to_horovod()
 
 # Create prm
-prm = create_prm(GPU=GPU, Z0=Z0, end=end, month_prediction=True)
+prm = create_prm(month_prediction=True)
 
 """
 MNT, NWP and observations
@@ -101,23 +72,23 @@ IGN = MNT(prm["topo_path"],
 # AROME
 AROME = NWP(prm["selected_path"],
             name="AROME",
-            begin=begin,
-            end=end,
+            begin=prm["begin"],
+            end=prm["end"],
             save_path=prm["save_path"],
             path_Z0_2018=prm["path_Z0_2018"],
             path_Z0_2019=prm["path_Z0_2019"],
             path_to_file_npy=prm["path_to_file_npy"],
-            verbose=verbose,
-            load_z0=load_z0,
-            save=save_z0)
+            verbose=prm["verbose"],
+            load_z0=prm["load_z0"],
+            save=prm["save_z0"])
 
 # BDclim
 BDclim = Observation(prm["BDclim_stations_path"],
                      prm["BDclim_data_path"],
-                     begin=begin,
-                     end=end,
-                     select_date_time_serie=select_date_time_serie,
-                     GPU=GPU,
+                     begin=prm["begin"],
+                     end=prm["end"],
+                     select_date_time_serie=prm["select_date_time_serie"],
+                     GPU=prm["GPU"],
                      path_vallot=prm["path_vallot"],
                      path_saint_sorlin=prm["path_saint_sorlin"],
                      path_argentiere=prm["path_argentiere"],
@@ -128,7 +99,7 @@ BDclim = Observation(prm["BDclim_stations_path"],
                      path_Col_du_Lautaret=prm["path_Col_du_Lautaret"])
 
 # Compute nearest neighbor sif CPU, load them if GPU
-if not (GPU):
+if not (prm["GPU"]):
     number_of_neighbors = 4
     BDclim.update_stations_with_KNN_from_NWP(number_of_neighbors, AROME)
     BDclim.update_stations_with_KNN_from_MNT_using_cKDTree(IGN)
@@ -143,21 +114,21 @@ p = Processing(obs=BDclim,
                mnt=IGN,
                nwp=AROME,
                model_path=prm['model_path'],
-               GPU=GPU,
+               GPU=prm["GPU"],
                data_path=prm['data_path'])
 
 t1 = t()
-if launch_predictions:
+if prm["launch_predictions"]:
 
-    if stations_to_predict == 'all':
-        stations_to_predict = BDclim.stations["name"].values
+    if prm["stations_to_predict"] == 'all':
+        prm["stations_to_predict"] = BDclim.stations["name"].values
 
-    array_xr = p.predict_at_stations(stations_to_predict,
+    array_xr = p.predict_at_stations(prm["stations_to_predict"],
                                      verbose=True,
-                                     Z0_cond=Z0,
-                                     peak_valley=peak_valley,
+                                     Z0_cond=prm["Z0"],
+                                     peak_valley=prm["peak_valley"],
                                      ideal_case=False,
-                                     line_profile=line_profile)
+                                     line_profile=prm["line_profile"])
 
 t2 = t()
 print(f'\nPredictions in {round(t1, t2)} seconds')
@@ -170,7 +141,7 @@ v = Visualization(p)
 # v.plot_comparison_topography_MNT_NWP(station_name='Col du Lac Blanc', new_figure=False)
 
 # Evaluation
-if launch_predictions: e = Evaluation(v, array_xr)
+if prm["launch_predictions"]: e = Evaluation(v, array_xr)
 
 # e.plot_time_serie(array_xr, 'Col du Lac Blanc', year=year_begin)
 

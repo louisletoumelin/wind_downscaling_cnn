@@ -1018,7 +1018,7 @@ class Processing:
 
         # Acceleration NWP to CNN
         acceleration_all = self.wind_speed_ratio(num=UVW, den=wind1.reshape(
-            (nb_station, nb_sim, 1, 1))) if Z0_cond else UVW * np.nan
+            (nb_station, nb_sim, 1, 1))) if Z0_cond else np.full_like(UVW, np.nan)
 
         # Reshape after broadcasting
         wind_speed_all, wind_dir_all, Z0_all = self.reshape_list_array(list_array=[wind_speed_all, wind_dir_all, Z0_all],
@@ -1341,6 +1341,34 @@ class Processing:
                         wind_map[time_step, y, x, component] = np.mean(neighbors[~np.isnan(neighbors)])
         return (wind_map)
 
+    def plot_model(self):
+        # Load model
+        self.load_model(dependencies=True)
+
+        import visualkeras
+        from tensorflow.python.keras.layers import Dense, Conv2D, Flatten, Dropout, MaxPooling2D, ZeroPadding2D, Cropping2D, InputLayer
+        from collections import defaultdict
+        import matplotlib
+        import matplotlib.pylab as pl
+        from PIL import ImageFont
+        color_map = defaultdict(dict)
+        norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
+        colors = pl.cm.ocean(norm(np.linspace(0, 1, 9)), bytes=True)
+
+        color_map[Conv2D]['fill'] = tuple(colors[7])
+        color_map[ZeroPadding2D]['fill'] = tuple(colors[6])
+        color_map[Dropout]['fill'] = tuple(colors[5])
+        color_map[MaxPooling2D]['fill'] = tuple(colors[4])
+        color_map[Dense]['fill'] = tuple(colors[3])
+        color_map[Flatten]['fill'] = tuple(colors[2])
+        color_map[Cropping2D]['fill'] = tuple(colors[1])
+        color_map[InputLayer]['fill'] = tuple(colors[0])
+
+        font = ImageFont.truetype("arial.ttf", 35)  # using comic sans is strictly prohibited!
+        visualkeras.layered_view(self.model, color_map=color_map, legend=True, draw_volume=True, draw_funnel=True, shade_step=0, font=font, scale_xy=2, scale_z=0.5, to_file='output85.png')
+        #tf.keras.utils.plot_model(self.model, to_file='Model1.png')
+        #tf.keras.utils.plot_model(self.model, to_file='Model2.png', show_shapes=True)
+
     # todo save indexes second rotation
     def _predict_maps(self, station_name='Col du Lac Blanc', x_0=None, y_0=None, dx=10_000, dy=10_000, interp=3,
                         year_0=None, month_0=None, day_0=None, hour_0=None,
@@ -1439,6 +1467,31 @@ class Processing:
 
         # Predictions
         prediction = self.model.predict(topo_rot)
+        """
+        import visualkeras
+        from tensorflow.python.keras.layers import Dense, Conv2D, Flatten, Dropout, MaxPooling2D, ZeroPadding2D, Cropping2D, InputLayer
+        from collections import defaultdict
+        color_map = defaultdict(dict)
+        import matplotlib
+        import matplotlib.pylab as pl
+        from PIL import ImageFont
+        norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
+        colors = pl.cm.ocean(norm(np.linspace(0, 1, 9)), bytes=True)
+
+        color_map[Conv2D]['fill'] = tuple(colors[7])
+        color_map[ZeroPadding2D]['fill'] = tuple(colors[6])
+        color_map[Dropout]['fill'] = tuple(colors[5])
+        color_map[MaxPooling2D]['fill'] = tuple(colors[4])
+        color_map[Dense]['fill'] = tuple(colors[3])
+        color_map[Flatten]['fill'] = tuple(colors[2])
+        color_map[Cropping2D]['fill'] = tuple(colors[1])
+        color_map[InputLayer]['fill'] = tuple(colors[0])
+
+        font = ImageFont.truetype("arial.ttf", 35)  # using comic sans is strictly prohibited!
+        visualkeras.layered_view(self.model, color_map=color_map, legend=True, draw_volume=True, draw_funnel=True, shade_step=0, font=font, scale_xy=2, scale_z=0.5, to_file='output85.png')
+        #tf.keras.utils.plot_model(self.model, to_file='Model1.png')
+        #tf.keras.utils.plot_model(self.model, to_file='Model2.png', show_shapes=True)
+        """
 
         # Reshape predictions for analysis and broadcasting
         prediction = prediction.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, self.n_rows, self.n_col, 3)).astype(
@@ -1521,7 +1574,7 @@ class Processing:
         if type_rotation=='indexes':
             y_center = 70
             x_center = 70
-            wind_large = np.empty((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 140, 140, 3)).astype(np.float32) * np.nan
+            wind_large = np.full((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 140, 140, 3), np.nan, dtype=np.float32)
             wind_large = self.r.select_rotation(all_mat=all_mat, wind_large=wind_large, wind=wind, angles=angle,
                                                 type_rotation='wind_indexes', librairie='numba')
         if type_rotation == 'scipy':

@@ -54,85 +54,42 @@ Stations
        'LE PLENAY', 'SEYNOD-AREA', 'Col du Lac Blanc', 'Col du Lautaret', 'Vallot', 'Saint-Sorlin', 'Argentiere']
 """
 
-"""
-Simulation parameters
-"""
-
-GPU = True
-horovod = True
-Z0 = True
-load_z0 = True
-save_z0 = False
-peak_valley = True
-launch_predictions = True
-select_date_time_serie=True
-type_rotation = 'scipy' # 'indexes' or 'scipy'
-verbose=True
-line_profile=False
-memory_profile=False
-interp=2
-nb_pixels=15
-interpolate_final_map=True
-
-dx = 20_000
-dy = 25_000
-hour_begin = 18
-day_begin = 1
-month_begin = 10
-year_begin = 2018
-
-hour_end = 18
-day_end = 6
-month_end = 10
-year_end = 2018
-
-begin = str(year_begin) + "-" + str(month_begin) + "-" + str(day_begin)
-end = str(year_end) + "-" + str(month_end) + "-" + str(day_end)
-
-"""
-Utils
-"""
-
-# Safety
-if load_z0:
-    save_z0 = False
-if save_z0:
-    load_z0 = False
+# Create prm
+prm = create_prm(month_prediction=True)
 
 # Initialize horovod and GPU
-if GPU: connect_GPU_to_horovod()
-
-# Create prm
-prm = create_prm(GPU, end=end, month_prediction=True, Z0=Z0)
+if prm["GPU"]: connect_GPU_to_horovod()
 
 """
 MNT, NWP and observations
 """
+
+
 # IGN
 IGN = MNT(prm["topo_path"], name="IGN")
 
 # AROME
 AROME = NWP(prm["selected_path"],
             name="AROME",
-            begin=begin,
-            end=end,
+            begin=prm["begin"],
+            end=prm["end"],
             save_path=prm["save_path"],
             path_Z0_2018=prm["path_Z0_2018"],
             path_Z0_2019=prm["path_Z0_2019"],
             path_to_file_npy=prm["path_to_file_npy"],
-            verbose=verbose,
-            load_z0=load_z0,
-            save=save_z0)
+            verbose=prm["verbose"],
+            load_z0=prm["load_z0"],
+            save=prm["save_z0"])
 
 # BDclim
 BDclim = Observation(prm["BDclim_stations_path"],
                      prm["BDclim_data_path"],
-                     begin=begin,
-                     end=end,
-                     select_date_time_serie=select_date_time_serie,
-                     GPU=GPU)
+                     begin=prm["begin"],
+                     end=prm["end"],
+                     select_date_time_serie=prm["select_date_time_serie"],
+                     GPU=prm["GPU"])
 
-if not(GPU):
+if not(prm["GPU"]):
     number_of_neighbors = 4
     BDclim.update_stations_with_KNN_from_NWP(number_of_neighbors, AROME)
     BDclim.update_stations_with_KNN_from_MNT_using_cKDTree(IGN)
@@ -141,31 +98,37 @@ if not(GPU):
 Processing, visualization and evaluation
 """
 
+
 # Processing
 p = Processing(obs=BDclim,
                mnt=IGN,
                nwp=AROME,
                model_path=prm['model_path'],
-               GPU=GPU,
+               GPU=prm["GPU"],
                data_path=prm['data_path'])
 t1 = t()
-if launch_predictions:
+if prm["launch_predictions"]:
 
     predict = p.predict_maps
-
     ttest=t()
-    wind_map, acceleration_all, coords, nwp_data_initial, nwp_data, mnt_data = predict(year_0=year_begin, month_0=month_begin,
-                                                                      day_0=day_begin, hour_0=hour_begin,
-                                                                      year_1=year_end, month_1=month_end,
-                                                                      day_1=day_end, hour_1=hour_end,
-                                                                      dx=dx, dy=dy,
-                                                                      peak_valley=peak_valley, Z0_cond=Z0,
-                                                                      type_rotation = 'scipy',
-                                                                      line_profile=line_profile,
-                                                                      memory_profile=memory_profile,
-                                                                      interp=interp,
-                                                                      nb_pixels=nb_pixels,
-                                                                      interpolate_final_map=interpolate_final_map)
+    wind_map, acceleration_all, coords, nwp_data_initial, nwp_data, mnt_data = predict(year_0=prm["year_begin"],
+                                                                                       month_0=prm["month_begin"],
+                                                                                       day_0=prm["day_begin"],
+                                                                                       hour_0=prm["hour_begin"],
+                                                                                       year_1=prm["year_end"],
+                                                                                       month_1=prm["month_end"],
+                                                                                       day_1=prm["day_end"],
+                                                                                       hour_1=prm["hour_end"],
+                                                                                       dx=prm["dx"],
+                                                                                       dy=prm["dy"],
+                                                                                       peak_valley=prm["peak_valley"],
+                                                                                       Z0_cond=prm["Z0"],
+                                                                                       type_rotation = 'scipy',
+                                                                                       line_profile=prm["line_profile"],
+                                                                                       memory_profile=prm["memory_profile"],
+                                                                                       interp=prm["interp"],
+                                                                                       nb_pixels=prm["nb_pixels"],
+                                                                                       interpolate_final_map=prm["interpolate_final_map"])
 
     ttest1=t()
     print(f'\nDownscaling scipy in {round(ttest, ttest1)} seconds')
@@ -173,18 +136,11 @@ if launch_predictions:
 t2 = t()
 print(f'\nPredictions in {round(t1, t2)} seconds')
 
-"""
-lp = LineProfiler()
-lp_wrapper = lp(p.predict_map_indexes)
-lp_wrapper(year_0=2019, month_0=6, day_0=20, hour_0=15, year_1=2019, month_1=6, day_1=20, hour_1=15, dx=20_000, dy=25_000)
-lp.print_stats()
-"""
-
 # Visualization
 v = Visualization(p)
 
 # Evaluation
-if launch_predictions: e = Evaluation(v, array_xr=None)
+if prm["launch_predictions"]: e = Evaluation(v, array_xr=None)
 
 t_end = t()
 print(f"\n All prediction in  {round(t_init, t_end) / 60} minutes")
