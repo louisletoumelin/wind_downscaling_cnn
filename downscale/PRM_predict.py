@@ -45,7 +45,7 @@ def create_prm(GPU=None, Z0=None, end=None, month_prediction=True):
     prm["year_begin"] = 2018
 
     prm["hour_end"] = 18
-    prm["day_end"] = 7
+    prm["day_end"] = 11
     prm["month_end"] = 10
     prm["year_end"] = 2018
 

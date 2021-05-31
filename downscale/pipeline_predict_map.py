@@ -4,16 +4,16 @@ t_init = t()
 
 """
 1h 50km x 40km
-CPU: Downscaling scipy in 77.09 seconds
-GPU: Downscaling scipy in 28.16 seconds
+CPU: Downscaling with scipy rotation in 77.09 seconds
+GPU: Downscaling with scipy rotation in 28.16 seconds
 
 24h 50km x 40km
 GPU: Downscaling scipy in 542.96 seconds (9 min)
+By rule of three, this give 2 days and 2h for downscaling one year at 1h and 25m resolution
 """
 
 import numpy as np
 import tensorflow as tf
-#from line_profiler import LineProfiler
 
 
 def round(t1, t2):  return (np.round(t2 - t1, 2))
@@ -123,7 +123,7 @@ if prm["launch_predictions"]:
                                                                                        dy=prm["dy"],
                                                                                        peak_valley=prm["peak_valley"],
                                                                                        Z0_cond=prm["Z0"],
-                                                                                       type_rotation = 'scipy',
+                                                                                       type_rotation = prm["type_rotation"],
                                                                                        line_profile=prm["line_profile"],
                                                                                        memory_profile=prm["memory_profile"],
                                                                                        interp=prm["interp"],
