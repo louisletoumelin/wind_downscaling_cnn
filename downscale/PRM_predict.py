@@ -12,18 +12,18 @@ def create_prm(GPU=None, Z0=None, end=None, month_prediction=True):
     Simulation parameters
     """
 
-    prm["GPU"] = True
-    prm["horovod"] = True
+    prm["GPU"] = False
+    prm["horovod"] = False
     prm["Z0"] = True
     prm["load_z0"] = True
     prm["save_z0"] = False
     prm["peak_valley"] = True
-    prm["launch_predictions"] = True
-    prm["select_date_time_serie"] = True
+    prm["select_date_time_serie"] = False
     prm["verbose"] = True
     prm["line_profile"] = False
     prm["memory_profile"] = False
     prm["add_additionnal_stations"] = False
+    prm["launch_predictions"] = False
 
     # For predictions at stations
     prm["stations_to_predict"] = ['Col du Lac Blanc']
@@ -36,18 +36,19 @@ def create_prm(GPU=None, Z0=None, end=None, month_prediction=True):
     prm["interp"] = 2
     prm["nb_pixels"] = 15
     prm["interpolate_final_map"] = True
-    prm["dx"] = 20_000
-    prm["dy"] = 25_000
+    prm["dx"] = 10_000
+    prm["dy"] = 12_000
+    prm["extract_stations_only"] = True
 
-    prm["hour_begin"] = 18
-    prm["day_begin"] = 1
-    prm["month_begin"] = 10
-    prm["year_begin"] = 2018
+    prm["hour_begin"] = 1
+    prm["day_begin"] = 2
+    prm["month_begin"] = 6
+    prm["year_begin"] = 2019
 
-    prm["hour_end"] = 18
-    prm["day_end"] = 11
-    prm["month_end"] = 10
-    prm["year_end"] = 2018
+    prm["hour_end"] = 1
+    prm["day_end"] = 2
+    prm["month_end"] = 6
+    prm["year_end"] = 2019
 
     prm["begin"] = str(prm["year_begin"]) + "-" + str(prm["month_begin"]) + "-" + str(prm["day_begin"])
     prm["begin_after"] = str(prm["year_begin"]) + "-" + str(prm["month_begin"]) + "-" + str(prm["day_begin"] + 1)
@@ -91,9 +92,9 @@ def create_prm(GPU=None, Z0=None, end=None, month_prediction=True):
         # Topography
         prm["topo_path"] = prm["data_path"] + "MNT/IGN_25m/preprocessed_MNT.nc"
         # Observations
-        prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/17_05_2021/extract_FF_T_RR1_alp_2009010100_2021013100_stations.csv"
+        prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/02_06_2021/stations.csv"
         # 2009-2021
-        prm["BDclim_data_path"] = prm["data_path"] + "BDclim/17_05_2021/extract_FF_T_RR1_alp_2009010100_2021013100.csv"
+        prm["BDclim_data_path"] = prm["data_path"] + "BDclim/02_06_2021/time_series.csv"
 
         # NWP
         prm["AROME_path_1"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2017080106_2018080106_32bits.nc"
@@ -106,6 +107,9 @@ def create_prm(GPU=None, Z0=None, end=None, month_prediction=True):
     prm["path_Z0_2018"] = prm["data_path"] + "AROME/Z0/Z0_alp_2018010100_2018120700.nc" if prm["Z0"] else None
     prm["path_Z0_2019"] = prm["data_path"] + "AROME/Z0/Z0_alp_20190103_20191227.nc" if prm["Z0"] else None
     prm["save_path"] = prm["data_path"] + "AROME/Z0/" if prm["Z0"] else None
+
+    # QC
+    prm["QC_pkl"] = prm["data_path"] + "BDclim/QC/qc_52.pkl"
 
     # Observation
     prm["path_vallot"] = prm["data_path"] + "BDclim/Vallot/"
@@ -133,12 +137,44 @@ def create_prm(GPU=None, Z0=None, end=None, month_prediction=True):
     # Do not modify: add_additionnal_stations
     prm = add_additionnal_stations(prm)
 
+    prm["list_mf"] = ['BARCELONNETTE', 'DIGNE LES BAINS',
+       'LA MURE-ARGENS', 'ARVIEUX', 'EMBRUN',
+       'LA FAURIE', 'GAP','RISTOLAS',
+       'ST JEAN-ST-NICOLAS', 'TALLARD', "VILLAR D'ARENE",
+       'VILLAR ST PANCRACE', 'ANTIBES-GAROUPE', 'ASCROS', 'CANNES',
+       'CAUSSOLS', 'PEIRA CAVA', 'PEILLE', 'PEONE',
+       'CHAPELLE-EN-VER', 'LUS L CROIX HTE', 'TRICASTIN',
+       'ST ROMAN-DIOIS', 'CREYS-MALVILLE',
+       "ALPE-D'HUEZ", 'LA MURE- RADOME',
+       'GRENOBLE-ST GEOIRS',
+       'ST-ALBAN', 'ST-PIERRE-LES EGAUX', 'GRENOBLE - LVD',
+       'VILLARD-DE-LANS', 'CHAMROUSSE', 'ALBERTVILLE JO',
+       'MERIBEL BURGIN', 'MONT DU CHAT', 'FECLAZ_SAPC',
+       'COL-DES-SAISIES', 'FREJUS', 'LA MASSE',
+       'ST MICHEL MAUR_SAPC', 'TIGNES_SAPC',
+       "VAL D'I SOLAISE", 'LE TOUR',
+       'AGUIL. DU MIDI', 'LE GRAND-BORNAND',
+       'MEYTHET', 'LE PLENAY', 'SEYNOD-AREA']
+
+    prm["list_nivose"] = ['RESTEFOND-NIVOSE', 'PARPAILLON-NIVOSE', 'LA MEIJE-NIVOSE', 'COL AGNEL-NIVOSE',
+       'GALIBIER-NIVOSE', 'ORCIERES-NIVOSE', 'MILLEFONTS-NIVOSE', 'AIGLETON-NIVOSE',
+       'LE GUA-NIVOSE', 'LES ECRINS-NIVOSE', 'ST HILAIRE-NIVOSE',
+       'MERIBEL BURGIN', 'BONNEVAL-NIVOSE',
+       'BELLECOTE-NIVOSE', 'GRANDE PAREI NIVOSE', 'ALLANT-NIVOSE', 'TIGNES_SAPC', 'LE CHEVRIL-NIVOSE',
+       'LES ROCHILLES-NIVOSE', 'AIGUILLES ROUGES-NIVOSE']
+
+    prm["list_additionnal"] = ['Vallot', 'Saint-Sorlin', 'Argentiere', 'Dome Lac Blanc', 'Col du Lac Blanc',
+                               'La Muzelle Lac Blanc', 'Col de Porte']
+
     return(prm)
 
 
-def update_selected_path(prm, month_prediction):
+def update_selected_path(prm, month_prediction, year_end=None, month_end=None, day_end=None, force_date=False):
     if month_prediction:
-        prm = _update_selected_path(prm["year_end"], prm["month_end"], prm["day_end"], prm)
+        if force_date:
+            prm = _update_selected_path(year_end, month_end, day_end, prm)
+        else:
+            prm = _update_selected_path(prm["year_end"], prm["month_end"], prm["day_end"], prm)
     else:
         prm["selected_path"] = prm["AROME_path"]
     return(prm)

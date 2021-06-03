@@ -12,19 +12,22 @@ from mpl_toolkits.mplot3d import axes3d  # Warning
 
 try:
     import seaborn as sns
-    _seaborn=True
+
+    _seaborn = True
 except ModuleNotFoundError:
-    _seaborn=False
+    _seaborn = False
 
 try:
     from shapely.geometry import Point
     from shapely.geometry import Polygon
+
     _shapely_geometry = True
 except ModuleNotFoundError:
     _shapely_geometry = False
 
 try:
     import geopandas as gpd
+
     _geopandas = True
 except ModuleNotFoundError:
     _geopandas = False
@@ -32,6 +35,7 @@ except ModuleNotFoundError:
 try:
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
+
     _cartopy = True
 except ModuleNotFoundError:
     _cartopy = False
@@ -50,7 +54,7 @@ class Visualization:
         if _cartopy:
             self.l93 = ccrs.epsg(2154)
         t1 = t()
-        print(f"\nVizualisation created in {np.round(t1-t0, 2)} seconds\n")
+        print(f"\nVizualisation created in {np.round(t1 - t0, 2)} seconds\n")
 
     def _plot_observation_station(self):
         ax = plt.gca()
@@ -477,7 +481,8 @@ class Visualization:
         plt.title("Wind predictions with CNN" + '\n' + variable + '\n' + station_name + '\n' + str(time))
         self._set_axes_equal(ax)
 
-    def plot_predictions_3D(self, array_xr=None, stations_name=['Col du Lac Blanc'], arrow_length_ratio=0.3, length_arrow_modification=1, arrow=True, alpha=1):
+    def plot_predictions_3D(self, array_xr=None, stations_name=['Col du Lac Blanc'], arrow_length_ratio=0.3,
+                            length_arrow_modification=1, arrow=True, alpha=1):
         """
         3D maps of wind speed (color) on topography (3D data)
         Input:
@@ -525,7 +530,8 @@ class Visualization:
         UVW = array_xr["UVW"].sel(station=random_station_name).isel(time=random_time_idx).data
         self._plot_3D_variable(XX, YY, ZZ, variable, UVW, time, nwp_speed, random_station_name, alpha=alpha)
         if arrow:
-            self._plot_arrows_for_CNN_3D(XX, YY, ZZ, U, V, W, None, nwp_speed, arrow_length_ratio=arrow_length_ratio, length_arrow_modification=length_arrow_modification)
+            self._plot_arrows_for_CNN_3D(XX, YY, ZZ, U, V, W, None, nwp_speed, arrow_length_ratio=arrow_length_ratio,
+                                         length_arrow_modification=length_arrow_modification)
 
     def _plot_arrows_for_CNN_3D(self, XX, YY, ZZ, U, V, W, variable_color, midpoint, cmap="coolwarm",
                                 figsize=(30, 30), colors='black', linewidth=1, length=10,
@@ -543,7 +549,7 @@ class Visualization:
                       U, V, W,
                       colors=colors,
                       linewidth=linewidth,
-                      length=length*length_arrow_modification,
+                      length=length * length_arrow_modification,
                       arrow_length_ratio=arrow_length_ratio,
                       cmap='coolwarm')
         if variable_color is not None:
@@ -602,7 +608,8 @@ class Visualization:
         ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
         ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
-    def qc_plot_validity(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)', markersize_valid=10, markersize_not_valid=20):
+    def qc_plot_validity(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)',
+                         markersize_valid=10, markersize_not_valid=20):
 
         # Select time series
         time_series = self.p.observation.time_series
@@ -730,36 +737,54 @@ class Visualization:
             plt.title(station)
             plt.tight_layout()
 
-    def qc_plot_last_flagged(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)', markersize_valid=10, markersize_not_valid=20):
-
+    def qc_plot_last_flagged(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)',
+                             markersize_large=20, markersize_small=1, fig_to_plot=["speed", "direction_1", "direction_2"]):
         # Select time series
         time_series = self.p.observation.time_series
 
         if stations == 'all':
             stations = time_series["name"].unique()
 
+        nb_subplots = len(fig_to_plot)
+
         for station in stations:
 
             # Select station
             time_serie_station = time_series[time_series["name"] == station]
-            unflagged_data_speed = time_serie_station[time_serie_station['last_unflagged_speed'] != 0]
-            unflagged_data_direction = time_serie_station[time_serie_station['last_unflagged_direction'] != 0]
 
-            plt.figure()
+            fig = plt.figure()
+            if "speed" in fig_to_plot:
+                fig.add_subplot(nb_subplots, 1, 1)
+                nb_categories = len(time_serie_station['last_flagged_speed'].unique())
+                index_0 = np.argwhere(time_serie_station['last_flagged_speed'].unique() == 0)[0][0]
+                list_marker_size = [markersize_large for i in range(nb_categories)]
+                list_marker_size[index_0] = markersize_small
+                sns.scatterplot(x=time_serie_station.index, y=wind_speed, data=time_serie_station, hue='last_flagged_speed',
+                                size='last_flagged_speed', sizes=list_marker_size)
 
-            plt.subplot(211)
-            sns.scatterplot(x=time_serie_station.index, y=wind_speed, data=time_serie_station, hue='last_flagged_speed', s=markersize_valid)
-            sns.scatterplot(x=unflagged_data_speed.index, y=wind_speed, data=unflagged_data_speed, hue='last_unflagged_speed', s=markersize_not_valid, palette="husl")
+            if "direction_1" in fig_to_plot:
+                fig.add_subplot(nb_subplots, 1, 2)
+                nb_categories = len(time_serie_station['last_flagged_direction'].unique())
+                index_0 = np.argwhere(time_serie_station['last_flagged_direction'].unique() == 0)[0][0]
+                list_marker_size = [markersize_large for i in range(nb_categories)]
+                list_marker_size[index_0] = markersize_small
+                sns.scatterplot(x=time_serie_station.index, y=wind_direction, data=time_serie_station,
+                                hue='last_flagged_direction', size='last_flagged_direction', sizes=list_marker_size)
 
-            plt.subplot(212)
-            sns.scatterplot(x=time_serie_station.index, y=wind_direction, data=time_serie_station, hue='last_flagged_direction', s=markersize_valid)
-            sns.scatterplot(x=unflagged_data_direction.index, y=wind_direction, data=unflagged_data_direction, hue='last_unflagged_direction', s=markersize_not_valid, palette="husl")
+            if "direction_2" in fig_to_plot:
+                fig.add_subplot(nb_subplots, 1, 3)
+                nb_categories = len(time_serie_station['last_unflagged_direction'].unique())
+                index_0 = np.argwhere(time_serie_station['last_unflagged_direction'].unique() == 0)[0][0]
+                list_marker_size = [markersize_large for i in range(nb_categories)]
+                list_marker_size[index_0] = markersize_small
+                sns.scatterplot(x=time_serie_station.index, y=wind_direction, data=time_serie_station,
+                                hue='last_unflagged_direction', size='last_unflagged_direction', sizes=list_marker_size)
 
             plt.title(station)
             plt.tight_layout()
 
     def qc_plot_bias_speed(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)',
-                     figsize=(10,10), fontsize=12, update_file=True, df=None):
+                           figsize=(10, 10), fontsize=12, update_file=True, df=None):
 
         # Select time series
         time_series = self.p.observation.time_series
@@ -772,7 +797,7 @@ class Visualization:
             # Select station
             time_serie_station = time_series[time_series["name"] == station]
 
-            if not(update_file):
+            if not (update_file):
                 time_serie_station = df
 
             plt.figure(figsize=figsize)
@@ -788,14 +813,95 @@ class Visualization:
 
         for correct_factor in list_correct_factor:
             if metric == 'mean':
-                time_serie_station = self.p.observation.qc_bias(stations=[station], correct_factor_mean=correct_factor, update_file=False)
+                time_serie_station = self.p.observation.qc_bias(stations=[station], correct_factor_mean=correct_factor,
+                                                                update_file=False)
                 self.qc_plot_bias_speed(stations=[station], update_file=False, df=time_serie_station)
                 plt.title(f'{metric} threshold divided by {correct_factor}')
             elif metric == 'std':
-                time_serie_station = self.p.observation.qc_bias(stations=[station], correct_factor_std=correct_factor, update_file=False)
+                time_serie_station = self.p.observation.qc_bias(stations=[station], correct_factor_std=correct_factor,
+                                                                update_file=False)
                 self.qc_plot_bias_speed(stations=[station], update_file=False, df=time_serie_station)
                 plt.title(f'{metric} threshold divided by {correct_factor}')
             else:
-                time_serie_station = self.p.observation.qc_bias(stations=[station], correct_factor_coeff_var=correct_factor, update_file=False)
+                time_serie_station = self.p.observation.qc_bias(stations=[station],
+                                                                correct_factor_coeff_var=correct_factor,
+                                                                update_file=False)
                 self.qc_plot_bias_speed(stations=[station], update_file=False, df=time_serie_station)
                 plt.title(f'{metric} threshold divided by {correct_factor}')
+
+    def qc_sankey_diagram_speed(self, stations='all', wind_speed='vw10m(m/s)', scale=10):
+        from matplotlib.sankey import Sankey
+        import matplotlib.pylab as pl
+
+        time_series = self.p.observation.time_series
+
+        if stations == 'all':
+            scale = 0.0000001
+        else:
+            time_series = time_series[time_series["name"].isin(stations)]
+            scale = 0.0000001 * scale
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1, xticks=[], yticks=[],
+                             title=None)
+
+        sankey = Sankey(ax=ax, scale=scale, offset=0.2, head_angle=135, format="%i", unit=' ')
+
+        all_speeds = time_series[wind_speed].count()
+        qc_1 = time_series[wind_speed][time_series["qc_1_speed"] != 1].dropna().count()
+        qc_2 = time_series[wind_speed][
+            (time_series["qc_1_speed"] == 1) & (time_series["qc_2_speed"] != 1)].dropna().count()
+        qc_3 = time_series[wind_speed][
+            (time_series["qc_1_speed"] == 1) & (time_series["qc_2_speed"] == 1) & (
+                    time_series["qc_3_speed"] != 1)].dropna().count()
+        qc_5 = time_series[wind_speed][
+            (time_series["qc_1_speed"] == 1) & (time_series["qc_2_speed"] == 1) & (time_series["qc_3_speed"] == 1) & (
+                    time_series["qc_5_speed"] != 1)].dropna().count()
+        qc_6 = time_series[wind_speed][
+            (time_series["qc_1_speed"] == 1) & (time_series["qc_2_speed"] == 1) & (time_series["qc_3_speed"] == 1) & (
+                    time_series["qc_5_speed"] == 1) & (time_series["qc_6_speed"] != 1)].dropna().count()
+
+        colors = pl.cm.cividis(np.linspace(0, 1, 5))
+
+        result_1 = (all_speeds - qc_1)
+        sankey.add(flows=[all_speeds, -qc_1, -result_1],
+                   labels=['All data', 'Unphysical values', None],
+                   orientations=[0, -1, 0],
+                   facecolor=colors[0])
+
+        # Arguments to matplotlib.patches.PathPatch
+        result_2 = result_1 - qc_2
+        sankey.add(flows=[result_1, -qc_2, -result_2],
+                   labels=[None, "Excessive miss", None],
+                   orientations=[0, 1, 0],
+                   prior=0,
+                   connect=(2, 0),
+                   facecolor=colors[1])
+
+        result_3 = result_2 - qc_3
+        sankey.add(flows=[result_2, -qc_3, -result_3],
+                   labels=[None, "Constant sequences", None],
+                   orientations=[0, -1, 0],
+                   prior=1,
+                   connect=(2, 0),
+                   facecolor=colors[2])
+
+        result_4 = result_3 - qc_5
+        sankey.add(flows=[result_3, -qc_5, -result_4],
+                   labels=[None, "High variability", None],
+                   orientations=[0, 1, 0],
+                   prior=2,
+                   connect=(2, 0),
+                   facecolor=colors[3])
+
+        result_5 = result_4 - qc_6
+        sankey.add(flows=[result_4, -qc_6, -result_5],
+                   labels=[None, "Bias", "Valid observations"],
+                   orientations=[0, -1, 0],
+                   prior=3,
+                   connect=(2, 0),
+                   facecolor=colors[4])
+
+        diagrams = sankey.finish()
+        diagrams[0].texts[-1].set_color('r')
+        diagrams[0].text.set_fontweight('bold')

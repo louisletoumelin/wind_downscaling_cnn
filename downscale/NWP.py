@@ -57,12 +57,16 @@ class NWP(Data_2D):
         # Select variables of interest
         self._select_specific_variables()
 
+        # Compute
+        self.compute_array_dask()
+
         # Add L93 coordinates
         self.add_l93_coordinates(path_to_file_npy=path_to_file_npy)
 
         # Modify variables of interest
         self.variables_of_interest = variables_of_interest + ['X_L93', 'Y_L93']
         self._select_specific_variables()
+
 
         # Add z0 variables
         if (path_Z0_2018 is not None) and (path_Z0_2019 is not None):
@@ -74,6 +78,13 @@ class NWP(Data_2D):
         if verbose:
             t1 = t()
             print(f"NWP created in {np.round(t1-t0, 2)} seconds\n")
+
+
+    def compute_array_dask(self):
+        try:
+            self.data_xr = self.data_xr.compute()
+        except:
+            print('Did not use compute method on xarray')
 
     def load_nwp_files(self, path_to_file=None, preprocess_function=None, parallel=False, verbose=True): #self._preprocess_ncfile
         if _dask:
@@ -211,7 +222,9 @@ class NWP(Data_2D):
         return(array_Z0)
 
     def _add_Z0(self, path_Z0_2018, path_Z0_2019, save=False, load=False, verbose=True):
+
         if verbose: print('__Start adding Z0')
+
         year, month, day = self.begin.split('-')
         if load:
             chunks = {"time": 12} if _dask else None
@@ -265,10 +278,7 @@ class NWP(Data_2D):
                 self.data_xr['ZS'] = self.data_xr['ZS'].isel(time=0)
         except:
             pass
-        try:
-            self.data_xr = self.data_xr.compute()
-        except:
-            print('Did not use compute method on xarray')
+
 
     def _preprocess_ncfile(self, netCDF_file):
         try:

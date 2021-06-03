@@ -128,7 +128,8 @@ if prm["launch_predictions"]:
                                                                                        memory_profile=prm["memory_profile"],
                                                                                        interp=prm["interp"],
                                                                                        nb_pixels=prm["nb_pixels"],
-                                                                                       interpolate_final_map=prm["interpolate_final_map"])
+                                                                                       interpolate_final_map=prm["interpolate_final_map"],
+                                                                                       extract_stations_only=prm["extract_stations_only"])
 
     ttest1=t()
     print(f'\nDownscaling scipy in {round(ttest, ttest1)} seconds')

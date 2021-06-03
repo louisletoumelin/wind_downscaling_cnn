@@ -62,12 +62,12 @@ AROME = NWP(prm["selected_path"],
             begin=prm["begin"],
             end=prm["begin_after"],
             save_path=prm["save_path"],
-            path_Z0_2018=prm["path_Z0_2018"],
-            path_Z0_2019=prm["path_Z0_2019"],
+            path_Z0_2018=None,
+            path_Z0_2019=None,
             path_to_file_npy=prm["path_to_file_npy"],
             verbose=prm["verbose"],
-            load_z0=prm["load_z0"],
-            save=prm["save_z0"])
+            load_z0=False,
+            save=False)
 
 # BDclim
 BDclim = Observation(prm["BDclim_stations_path"],
@@ -108,16 +108,18 @@ results["obs"] = {}
 
 t0 = t()
 for index, (day, month, year) in enumerate(iterator):
+
     print("\n\n Date: \n")
     print(month, year)
+
     begin = str(year) + "-" + str(month) + "-" + str(1)
     end = str(year) + "-" + str(month) + "-" + str(day)
-    prm = update_selected_path(prm, month_prediction=True)
+
+    prm = update_selected_path(prm, month_prediction=True, year_end=year, month_end=month, day_end=day, force_date=True)
     prm["path_to_file_npy"] = select_path_to_file_npy(prm, GPU=prm["GPU"])
 
     if year == 2018 and (month ==5 or month==6):
         continue
-
 
     # Initialize results
     if index == 0:
@@ -125,7 +127,6 @@ for index, (day, month, year) in enumerate(iterator):
             results["nwp"][station] = []
             results["cnn"][station] = []
             results["obs"][station] = []
-
 
     # AROME
     AROME = NWP(prm["selected_path"],

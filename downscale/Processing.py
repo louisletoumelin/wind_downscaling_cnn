@@ -324,7 +324,7 @@ class Processing:
                                       input_speed=input_speed, input_dir=input_dir)
             return(array_xr)
 
-    def select_height_for_exposed_wind_speed(self, height=None, zs=None, peak_valley=None, nb_station=None):
+    def select_height_for_exposed_wind_speed(self, height=None, zs=None, peak_valley=None):
         if peak_valley:
             return(height)
         else:
@@ -951,13 +951,49 @@ class Processing:
                 topo_i[j, i, :, :] = mnt_data[0, y-nb_pixel:y+nb_pixel, x-nb_pixel:x+nb_pixel]
         return(topo_i)
 
+    def find_stations_in_domain(self, mnt_data_x=None, mnt_data_y=None, verbose=True):
+
+        # DataFrame with stations
+        stations = self.observation.stations
+
+        # Filters
+        filter_x_min = mnt_data_x.min() < stations['X']
+        filter_x_max = stations['X'] < mnt_data_x.max()
+        filter_y_min = mnt_data_y.min() < stations['Y']
+        filter_y_max = stations['Y'] < mnt_data_y.max()
+
+        # Stations in the domain
+        stations = stations[filter_x_min & filter_x_max & filter_y_min & filter_y_max]
+
+        if verbose:
+            print(f"__Stations found in the domain: \n {stations['name'].values}")
+        return(stations['X'], stations['Y'], stations['name'])
+
+    def extract_dowscaled_wind_at_stations(self,
+                                           mnt_data_x=None, mnt_data_y=None, xmin_mnt=None, ymax_mnt=None,
+                                           resolution_x=None, resolution_y=None, look_for_resolution=False,
+                                           look_for_corners=False, verbose=True):
+
+        x_stations, y_stations, stations = self.find_stations_in_domain(mnt_data_x=mnt_data_x, mnt_data_y=mnt_data_y)
+        idx_x_stations, idx_y_stations = self.mnt.find_nearest_MNT_index(x_stations,
+                                                                         y_stations,
+                                                                         look_for_corners=look_for_corners,
+                                                                         xmin_MNT=xmin_mnt,
+                                                                         ymax_MNT=ymax_mnt,
+                                                                         look_for_resolution=look_for_resolution,
+                                                                         resolution_x=resolution_x,
+                                                                         resolution_y=resolution_y)
+        if verbose: print("__Extracted indexes at stations")
+
+        return(idx_x_stations, idx_y_stations, stations.values)
+
     # todo save indexes second rotation
     def _predict_maps(self, station_name='Col du Lac Blanc', x_0=None, y_0=None, dx=10_000, dy=10_000, interp=3,
                         year_0=None, month_0=None, day_0=None, hour_0=None,
                         year_1=None, month_1=None, day_1=None, hour_1=None,
                         Z0_cond=False, verbose=True, peak_valley=True, method='linear', type_rotation='indexes',
                         log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
-                        nb_pixels=15, interpolate_final_map=True):
+                        nb_pixels=15, interpolate_final_map=True, extract_stations_only=False):
 
         # Select NWP data
         nwp_data = self.prepare_time_and_domain_nwp(year_0, month_0, day_0, hour_0, year_1, month_1, day_1, hour_1,
@@ -1000,8 +1036,6 @@ class Processing:
 
         # Large topo
         topo_i = np.empty((nb_px_nwp_y, nb_px_nwp_x, 140, 140)).astype(np.float32)
-        print(topo_i.dtype, idx_x_mnt.dtype, idx_y_mnt.dtype, mnt_data.dtype, type(nb_pixel))
-        print(topo_i.shape, idx_x_mnt.shape, idx_y_mnt.shape, mnt_data.shape, np.shape(nb_pixel))
         topo_i = self.hstack_topo(topo_i, idx_x_mnt, idx_y_mnt, mnt_data, nb_pixel, librairie='numba')
 
         # Mean peak_valley altitude
@@ -1047,31 +1081,6 @@ class Processing:
 
         # Predictions
         prediction = self.model.predict(topo_rot)
-        """
-        import visualkeras
-        from tensorflow.python.keras.layers import Dense, Conv2D, Flatten, Dropout, MaxPooling2D, ZeroPadding2D, Cropping2D, InputLayer
-        from collections import defaultdict
-        color_map = defaultdict(dict)
-        import matplotlib
-        import matplotlib.pylab as pl
-        from PIL import ImageFont
-        norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
-        colors = pl.cm.ocean(norm(np.linspace(0, 1, 9)), bytes=True)
-
-        color_map[Conv2D]['fill'] = tuple(colors[7])
-        color_map[ZeroPadding2D]['fill'] = tuple(colors[6])
-        color_map[Dropout]['fill'] = tuple(colors[5])
-        color_map[MaxPooling2D]['fill'] = tuple(colors[4])
-        color_map[Dense]['fill'] = tuple(colors[3])
-        color_map[Flatten]['fill'] = tuple(colors[2])
-        color_map[Cropping2D]['fill'] = tuple(colors[1])
-        color_map[InputLayer]['fill'] = tuple(colors[0])
-
-        font = ImageFont.truetype("arial.ttf", 35)  # using comic sans is strictly prohibited!
-        visualkeras.layered_view(self.model, color_map=color_map, legend=True, draw_volume=True, draw_funnel=True, shade_step=0, font=font, scale_xy=2, scale_z=0.5, to_file='output85.png')
-        #tf.keras.utils.plot_model(self.model, to_file='Model1.png')
-        #tf.keras.utils.plot_model(self.model, to_file='Model2.png', show_shapes=True)
-        """
 
         # Reshape predictions for analysis and broadcasting
         prediction = prediction.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, self.n_rows, self.n_col, 3)).astype(
@@ -1095,10 +1104,9 @@ class Processing:
             three_m_array = np.zeros_like(peak_valley_height) + 10
 
             # Choose height in the formula
-            if peak_valley:
-                height = peak_valley_height
-            else:
-                height = ZS_nwp
+            height = self.select_height_for_exposed_wind_speed(height=peak_valley_height,
+                                                               zs=ZS_nwp,
+                                                               peak_valley=peak_valley)
 
             # Apply log profile: 10m => h/2 or 10m => Zs
             if log_profile_to_h_2:
@@ -1111,6 +1119,8 @@ class Processing:
                                                                     z0=Z0_nwp,
                                                                     z0_rel=Z0REL_nwp,
                                                                     verbose=True)
+
+            del Z0REL_nwp
 
             if log_profile_from_h_2:
                 # Apply log profile: h/2 => 10m or Zs => 10m
@@ -1136,6 +1146,7 @@ class Processing:
         alpha = self.wu.angular_deviation(U_old, V_old)  # Expressed in the rotated coord. system [radian]
         UV_DIR = self.wu.direction_from_alpha(wind_DIR_nwp, alpha)  # Good coord. but not on the right pixel [radian]
 
+        del Z0_nwp
         del alpha
 
         # Reshape wind speed
@@ -1179,14 +1190,26 @@ class Processing:
         if interpolate_final_map:
             wind_map = self.interpolate_final_result(wind_map, librairie='numpy')
 
+        if extract_stations_only:
+            idx_x_stations, idx_y_stations, stations = self.extract_dowscaled_wind_at_stations(mnt_data_x=mnt_data_x,
+                                                                                     mnt_data_y=mnt_data_y,
+                                                                                     xmin_mnt=xmin_mnt,
+                                                                                     ymax_mnt=ymax_mnt,
+                                                                                     resolution_x=resolution_x,
+                                                                                     resolution_y=resolution_y)
+
+
+            return(wind_map[:, idx_y_stations, idx_x_stations,:], acceleration_all[:, idx_y_stations, idx_x_stations], nwp_data_initial.time.values, stations, [], [])
+
         return (wind_map, acceleration_all, coord, nwp_data_initial, nwp_data, mnt_data)
 
     def predict_maps(self, station_name='Col du Lac Blanc', x_0=None, y_0=None, dx=10_000, dy=10_000, interp=3,
-                        year_0=None, month_0=None, day_0=None, hour_0=None,
-                        year_1=None, month_1=None, day_1=None, hour_1=None,
-                        Z0_cond=False, verbose=True, peak_valley=True, method='linear', type_rotation='indexes',
-                        log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
-                        line_profile=False, nb_pixels=15,  interpolate_final_map=True, memory_profile=False):
+                     year_0=None, month_0=None, day_0=None, hour_0=None,
+                     year_1=None, month_1=None, day_1=None, hour_1=None,
+                     Z0_cond=False, verbose=True, peak_valley=True, method='linear', type_rotation='indexes',
+                     log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
+                     line_profile=False, nb_pixels=15,  interpolate_final_map=True, memory_profile=False,
+                     extract_stations_only=False):
         """
         This function is used to select map predictions, the line profiled version or the memory profiled version
         """
@@ -1199,7 +1222,8 @@ class Processing:
                         year_1=year_1, month_1=month_1, day_1=day_1, hour_1=hour_1, interpolate_final_map=interpolate_final_map,
                         Z0_cond=Z0_cond, verbose=verbose, peak_valley=peak_valley, nb_pixels=nb_pixels,
                        method=method, type_rotation=type_rotation, log_profile_to_h_2=log_profile_to_h_2,
-                       log_profile_from_h_2=log_profile_from_h_2, log_profile_10m_to_3m=log_profile_10m_to_3m)
+                       log_profile_from_h_2=log_profile_from_h_2, log_profile_10m_to_3m=log_profile_10m_to_3m,
+                       extract_stations_only=extract_stations_only)
             lp.print_stats()
         elif memory_profile:
             from memory_profiler import profile
@@ -1209,7 +1233,8 @@ class Processing:
                 year_1=year_1, month_1=month_1, day_1=day_1, hour_1=hour_1, interpolate_final_map=interpolate_final_map,
                 Z0_cond=Z0_cond, verbose=verbose, peak_valley=peak_valley, nb_pixels=nb_pixels,
                method=method, type_rotation=type_rotation, log_profile_to_h_2=log_profile_to_h_2,
-               log_profile_from_h_2=log_profile_from_h_2, log_profile_10m_to_3m=log_profile_10m_to_3m)
+               log_profile_from_h_2=log_profile_from_h_2, log_profile_10m_to_3m=log_profile_10m_to_3m,
+               extract_stations_only=extract_stations_only)
 
         else:
             array_xr = self._predict_maps(station_name=station_name, x_0=x_0, y_0=y_0, dx=dx, dy=dy, interp=interp,
@@ -1217,5 +1242,6 @@ class Processing:
                         year_1=year_1, month_1=month_1, day_1=day_1, hour_1=hour_1, interpolate_final_map=interpolate_final_map,
                         Z0_cond=Z0_cond, verbose=verbose, peak_valley=peak_valley, nb_pixels=nb_pixels,
                         method=method, type_rotation=type_rotation, log_profile_to_h_2=log_profile_to_h_2,
-                        log_profile_from_h_2=log_profile_from_h_2, log_profile_10m_to_3m=log_profile_10m_to_3m)
+                        log_profile_from_h_2=log_profile_from_h_2, log_profile_10m_to_3m=log_profile_10m_to_3m,
+                        extract_stations_only=extract_stations_only)
             return(array_xr)
