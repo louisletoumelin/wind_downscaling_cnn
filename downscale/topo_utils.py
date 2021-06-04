@@ -235,10 +235,11 @@ class Sgp_helbig(Topo_utils):
             y_right = np.intp(small_idx_y + 79 // 2).reshape(small_idx_y.shape[0] * small_idx_y.shape[1])
             x_left = np.intp(small_idx_x - 69 // 2).reshape(small_idx_x.shape[0] * small_idx_x.shape[1])
             x_right = np.intp(small_idx_x + 69 // 2).reshape(small_idx_x.shape[0] * small_idx_x.shape[1])
+            shape = small_idx_y.shape
 
         mu_flat = np.array([np.mean(mu[i1:j1, i2:j2]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
 
-        mu = mu_flat.reshape((small_idx_y.shape[0], small_idx_y.shape[1]))
+        mu = mu_flat.reshape((shape[0], shape[1])) if reduce_mnt else mu_flat
 
         mu = change_dtype_if_required(mu, np.float32)
         if verbose: print(f"__Subgrid: computed average mu. Output shape: {mu.shape}")
@@ -284,7 +285,7 @@ class Sgp_helbig(Topo_utils):
             std_flat = np.array([np.std(mnt[i1:j1, i2:j2]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
             librairie = "numpy"
 
-        std = std_flat.reshape((small_idx_y.shape[0], small_idx_y.shape[1]))
+        std = std_flat.reshape((small_idx_y.shape[0], small_idx_y.shape[1])) if reduce_mnt else std_flat
         if verbose: print(f"__Subgrid: computed average std. Output shape: {std.shape}. Librairie: {librairie}")
 
         xsi = np.sqrt(2) * std / mu
@@ -303,21 +304,29 @@ class Sgp_helbig(Topo_utils):
         xsi = self.xsi_helbig_map(mnt, mu, idx_x, idx_y, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x, nb_pixels_y=nb_pixels_y, librairie="numba")
 
         x = 1 - (1 - (1/(1+a*mu**b))**c)*np.exp(-d*(L/xsi)**(-2))
+
         x = change_dtype_if_required(x, np.float32)
         if verbose: print(f"__Subgrid: computed x_sgp_topo. Output shape: {x.shape}")
+
         return(x)
 
-    def subgrid_map(self, mnt_large, dx=25, L=2_000, reduce_mnt=True, nb_pixels_x=100, nb_pixels_y=100, verbose=True):
+    def subgrid(self, mnt_large, dx=25, L=2_000, idx_x=None, idx_y=None, type="map", reduce_mnt=True, nb_pixels_x=100, nb_pixels_y=100, verbose=True):
 
-        shape_large = mnt_large.shape
-        if verbose: print(f"Large mnt shape: {shape_large}. Size reduction on x: 2 * {nb_pixels_x}. Size reduction on x: 2 * {nb_pixels_y} ")
-        x = list(range(shape_large[1]))
-        y = list(range(shape_large[0]))
-        idx_x, idx_y = np.array(np.meshgrid(x, y)).astype(np.int32)
+        if type=="map":
+            shape_large = mnt_large.shape
+            if verbose: print(f"Large mnt shape: {shape_large}. Size reduction on x: 2 * {nb_pixels_x}. Size reduction on x: 2 * {nb_pixels_y} ")
+
+            x = list(range(shape_large[1]))
+            y = list(range(shape_large[0]))
+            idx_x, idx_y = np.array(np.meshgrid(x, y)).astype(np.int32)
+
+        reduce_mnt = False if type == "indexes" else reduce_mnt
 
         x_sgp_topo = self.x_sgp_topo_helbig_idx(mnt_large, idx_x, idx_y, dx, L=L, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x, nb_pixels_y=nb_pixels_y)
         x_sgp_topo = change_dtype_if_required(x_sgp_topo, np.float32)
+
         return (x_sgp_topo)
+
 
 
 class Dwnsc_helbig(Sgp_helbig):
@@ -325,39 +334,63 @@ class Dwnsc_helbig(Sgp_helbig):
     def __init__(self):
         super().__init__()
 
-    def x_dsc_topo_helbig_map(self, mnt, dx, verbose=True):
-
+    def x_dsc_topo_helbig(self, mnt, dx=25, idx_x=None, idx_y=None, type="map", verbose=True):
         a = 17.0393
         b = 0.737
         c = 1.0234
         d = 0.3794
         e = 1.9821
 
-        laplacian_map = self.laplacian_map(mnt, dx, helbig=True)
+        if type == "map":
+            laplacian = self.laplacian_map(mnt, dx, helbig=True)
+            mu = self.mu_helbig_map(mnt, dx)
+        elif type == "indexes":
+            laplacian = self.laplacian_idx(mnt, idx_x, idx_y, dx, helbig=True)
+            mu = self.mu_helbig_idx(mnt, dx, idx_x, idx_y)
 
-        term_1 = 1 - a*laplacian_map/(1+a*np.abs(laplacian_map)**b)
-        term_2 = c / (1+d*self.mu_helbig_map(mnt, dx)**e)
+        term_1 = 1 - a*laplacian/(1 + a*np.abs(laplacian)**b)
+        term_2 = c / (1 + d*mu**e)
         x = term_1*term_2
 
-        if verbose: print(f"MNT shape: {mnt.shape}")
-        if verbose: print(f"x_dsc_topo computed. x shape: {x.shape}")
+        if verbose: print(f"__MNT shape: {mnt.shape}")
+        if verbose: print(f"__x_dsc_topo computed. x shape: {x.shape}")
 
         x = change_dtype_if_required(x, np.float32)
         return(x)
 
-    def x_dsc_topo_helbig_idx(self, mnt, idx_x, idx_y, dx):
+    def downscale_helbig(self, mnt_large, dx=25, idx_x=None, idx_y=None, type="map", reduce_mnt=True,
+                         nb_pixels_x=100, nb_pixels_y=100, verbose=True, plot=True):
 
-        a = 17.0393
-        b = 0.737
-        c = 1.0234
-        d = 0.3794
-        e = 1.9821
+        if verbose: print(f"\n Begin subgrid parameterization from Helbig et al. 2017")
+        x_sgp_topo = self.subgrid(mnt_large,
+                                  idx_x=idx_x,
+                                  idx_y=idx_y,
+                                  dx=25,
+                                  L=2_000,
+                                  type=type,
+                                  reduce_mnt=reduce_mnt,
+                                  nb_pixels_x=nb_pixels_x,
+                                  nb_pixels_y=nb_pixels_y,
+                                  verbose=verbose)
 
-        term_1 = 1 - a*self.laplacian_idx(mnt, idx_x, idx_y, dx)/(1+a*self.laplacian_idx(mnt, idx_x, idx_y, dx, helbig=True)**b)
-        term_2 = c / (1+d*self.mu_helbig_idx(mnt, dx)**2)
-        x = term_1*term_2
+        if plot:
+            import matplotlib.pyplot as plt
+            plt.figure()
+            plt.imshow(x_sgp_topo)
+            plt.colorbar()
 
-        x = change_dtype_if_required(x, np.float32)
-        return(x)
+        mnt_small = mnt_large[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
 
+        if verbose: print(f"\n Begin downscaling from Helbig et al. 2017")
+        x_dsc_topo = self.x_dsc_topo_helbig(mnt_small, dx=dx, idx_x=idx_x, idx_y=idx_y, type=type, verbose=True)
 
+        if plot:
+            plt.figure()
+            plt.imshow(x_dsc_topo)
+            plt.colorbar()
+
+            plt.figure()
+            plt.imshow(x_sgp_topo * x_dsc_topo)
+            plt.colorbar()
+
+        return(x_sgp_topo*x_dsc_topo)

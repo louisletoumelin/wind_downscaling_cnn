@@ -14,12 +14,6 @@ IGN = MNT(prm["topo_path"], name="IGN")
 mnt = IGN.data
 mnt_small = mnt[6000:8200, 4000:6000]
 
-subgrid = Sgp_helbig()
-map = subgrid.subgrid_map(mnt_small)
-plt.figure()
-plt.imshow(map)
-
 downscale = Dwnsc_helbig()
-result = downscale.x_dsc_topo_helbig_map(mnt_small, 25)
-plt.figure()
-plt.imshow(result)
+
+downscale.downscale_helbig(mnt_small, idx_x=None, idx_y=None, type="map")
