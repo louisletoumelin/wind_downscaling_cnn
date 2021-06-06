@@ -196,7 +196,7 @@ class Topo_utils:
         result = change_dtype_if_required(result, np.float32)
         return(result)
 
-    def mu_helbig_map(self, mnt, dx):
+    def mu_helbig_map(self, mnt, dx, verbose=True):
         """
         Adapted from I. Gouttevin
 
@@ -204,11 +204,13 @@ class Topo_utils:
         """
         mu = np.sqrt(np.sum(np.array(np.gradient(mnt, dx))**2, axis=0)/2)
         mu = change_dtype_if_required(mu, np.float32)
+        if verbose: print("__mu calculation using numpy")
         return(mu)
 
-    def mu_helbig_idx(self, mnt, dx, idx_x, idx_y):
+    def mu_helbig_idx(self, mnt, dx, idx_x, idx_y, verbose=True):
         mu = self.mu_helbig_map(mnt, dx)
         mu = change_dtype_if_required(mu, np.float32)
+        if verbose: print("__Selecting indexes on mu")
         return(mu[idx_y, idx_x])
 
 
@@ -320,6 +322,8 @@ class Sgp_helbig(Topo_utils):
             y = list(range(shape_large[0]))
             idx_x, idx_y = np.array(np.meshgrid(x, y)).astype(np.int32)
 
+        idx_x = change_dtype_if_required(idx_x, np.int32)
+        idx_y = change_dtype_if_required(idx_y, np.int32)
         reduce_mnt = False if type == "indexes" else reduce_mnt
 
         x_sgp_topo = self.x_sgp_topo_helbig_idx(mnt_large, idx_x, idx_y, dx, L=L, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x, nb_pixels_y=nb_pixels_y)
@@ -345,6 +349,8 @@ class Dwnsc_helbig(Sgp_helbig):
             laplacian = self.laplacian_map(mnt, dx, helbig=True)
             mu = self.mu_helbig_map(mnt, dx)
         elif type == "indexes":
+            idx_x = change_dtype_if_required(idx_x, np.int32)
+            idx_y = change_dtype_if_required(idx_y, np.int32)
             laplacian = self.laplacian_idx(mnt, idx_x, idx_y, dx, helbig=True)
             mu = self.mu_helbig_idx(mnt, dx, idx_x, idx_y)
 
@@ -361,7 +367,7 @@ class Dwnsc_helbig(Sgp_helbig):
     def downscale_helbig(self, mnt_large, dx=25, idx_x=None, idx_y=None, type="map", reduce_mnt=True,
                          nb_pixels_x=100, nb_pixels_y=100, verbose=True, plot=True):
 
-        if verbose: print(f"\n Begin subgrid parameterization from Helbig et al. 2017")
+        if verbose: print(f"\nBegin subgrid parameterization from Helbig et al. 2017")
         x_sgp_topo = self.subgrid(mnt_large,
                                   idx_x=idx_x,
                                   idx_y=idx_y,
@@ -381,7 +387,7 @@ class Dwnsc_helbig(Sgp_helbig):
 
         mnt_small = mnt_large[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
 
-        if verbose: print(f"\n Begin downscaling from Helbig et al. 2017")
+        if verbose: print(f"\nBegin downscaling from Helbig et al. 2017")
         x_dsc_topo = self.x_dsc_topo_helbig(mnt_small, dx=dx, idx_x=idx_x, idx_y=idx_y, type=type, verbose=True)
 
         if plot:
