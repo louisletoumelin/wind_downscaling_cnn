@@ -71,7 +71,9 @@ def normalize_training_features(x_train, x_val=None):
     """Normalize training and validation features"""
     train_mean, train_std = np.mean(x_train, axis=(1,2)), np.std(x_train)
     train_mean = train_mean.reshape((train_mean.shape[0], 1, 1, 1))
+    print(f"Shape x_train before training: {x_train.shape}")
     x_train = (x_train - train_mean) / train_std
+    print(f"Shape x_train after training: {x_train.shape}")
     if x_val is not None:
         train_mean = np.mean(x_val, axis=(1, 2))
         train_mean = train_mean.reshape((train_mean.shape[0], 1, 1, 1))

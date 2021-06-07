@@ -31,6 +31,7 @@ def create_prm_dict():
         'list_metrics': [['mae', 'root_mse']],
         'epochs': [150],
         'batch_size': [32],
+        'additional_flat_topo': True,
 
         # Reduce on plateau
         'ROP_factor': [0.1],

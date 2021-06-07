@@ -212,13 +212,92 @@ class Topo_utils:
         return(mu[idx_y, idx_x])
 
     @staticmethod
-    def _get_window_idx_boundaries(idx_x, idx_y):
-        flat_shape = idx_y.shape[0] * idx_y.shape[1]
-        y_left = np.int32(idx_y - 79 // 2).reshape(flat_shape)
-        y_right = np.int32(idx_y + 79 // 2).reshape(flat_shape)
-        x_left = np.int32(idx_x - 69 // 2).reshape(flat_shape)
-        x_right = np.int32(idx_x + 69 // 2).reshape(flat_shape)
+    def _get_window_idx_boundaries(idx_x, idx_y, x_win=69//2, y_wind=79//2, reshape=True):
+
+        y_left = np.int32(idx_y - y_wind)
+        y_right = np.int32(idx_y + y_wind)
+        x_left = np.int32(idx_x - x_win)
+        x_right = np.int32(idx_x + x_win)
+
+        if reshape:
+            flat_shape = idx_y.shape[0] * idx_y.shape[1]
+            y_left = y_left.reshape(flat_shape)
+            y_right = y_right.reshape(flat_shape)
+            x_left = x_left.reshape(flat_shape)
+            x_right = x_right.reshape(flat_shape)
+
         return(y_left, y_right, x_left, x_right)
+
+    @staticmethod
+    def rolling_window_mean_numpy(in_arr, out_arr, x_win, y_win):
+        """
+        Inspired from
+        https://stackoverflow.com/questions/48215914/vectorized-2-d-moving-window-in-numpy-including-edges
+        """
+        xn, yn = in_arr.shape
+        for x in range(xn):
+            xmin = max(0, x - x_win)
+            xmax = min(xn, x + x_win + 1)
+            for y in range(yn):
+                ymin = max(0, y - y_win)
+                ymax = min(yn, y + y_win + 1)
+                out_arr[x, y] = np.mean(in_arr[xmin:xmax, ymin:ymax])
+        return out_arr
+
+    def tpi_map(self, mnt, radius, resolution=25, librairie='numba'):
+
+        x_win = np.int32(radius // resolution + 1)
+        y_win = x_win
+
+        if librairie == 'numba' and _numba:
+            window_func = jit("float32[:,:](float32[:,:],float32[:,:],int32, int32)", nopython=True, cache=True)(self.rolling_window_mean_numpy)
+        else:
+            window_func = self.rolling_window_mean_numpy
+
+        mean = window_func(mnt, np.empty_like(mnt).astype(np.float32), x_win, y_win)
+
+        return(mnt-mean)
+
+    @staticmethod
+    def _control_idx_boundaries(idx, min_idx=0, max_idx=None):
+        if isinstance(idx, list) or isinstance(idx, np.ndarray):
+            result = []
+            for index, x in enumerate(idx):
+                x = np.where(x < min_idx[index], 0, x)
+                x = np.where(x > max_idx[index], max_idx[index], x)
+                result.append(x)
+            return(result)
+        else:
+            idx = np.where(idx < min_idx, 0, idx)
+            idx = np.where(idx > max_idx, max_idx, idx)
+            return(idx)
+
+    @staticmethod
+    def radius_to_square_window(radius, resolution):
+        if radius % resolution:
+            dx = np.int32(radius / resolution)
+            return(dx, dx)
+        else:
+            dx = np.int32(radius // resolution + 1)
+            return(dx, dx)
+
+    def tpi_idx(self, mnt, idx_x, idx_y, radius, resolution=25):
+
+        x_win, y_win = self.radius_to_square_window(radius, resolution)
+
+        y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y,
+                                                                           x_win=x_win, y_wind=y_win,
+                                                                           reshape=False)
+
+        boundaries_mnt = [mnt.shape[0], mnt.shape[0], mnt.shape[1], mnt.shape[1]]
+        y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
+                                                                        min_idx=[0, 0, 0, 0],
+                                                                        max_idx=boundaries_mnt)
+
+        mean_window = np.array([np.mean(mnt[i1:j1, i2:j2]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
+
+        return(mnt[idx_x, idx_y] - mean_window)
+
 
 class Sgp_helbig(Topo_utils):
 
@@ -229,17 +308,13 @@ class Sgp_helbig(Topo_utils):
 
         mu = self.mu_helbig_map(mnt, dx)
 
-        y_left = np.int32(idx_y-79//2)
-        y_right = np.int32(idx_y+79//2)
-        x_left = np.int32(idx_x-69//2)
-        x_right = np.int32(idx_x+69//2)
-
         if reduce_mnt:
-
-            small_idx_y = idx_y[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
-            small_idx_x = idx_x[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
+            small_idx_y = idx_y[nb_pixels_y:-nb_pixels_y, nb_pixels_x:-nb_pixels_x]
+            small_idx_x = idx_x[nb_pixels_y:-nb_pixels_y, nb_pixels_x:-nb_pixels_x]
             shape = small_idx_y.shape
             y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(small_idx_x, small_idx_y)
+        else:
+            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y, reshape=False)
 
         mu_flat = np.array([np.mean(mu[i1:j1, i2:j2]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
 
@@ -321,7 +396,6 @@ class Sgp_helbig(Topo_utils):
         x_sgp_topo = self.x_sgp_topo_helbig_idx(mnt_large, idx_x, idx_y, dx, L=L, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x, nb_pixels_y=nb_pixels_y)
 
         return (x_sgp_topo)
-
 
 
 class Dwnsc_helbig(Sgp_helbig):

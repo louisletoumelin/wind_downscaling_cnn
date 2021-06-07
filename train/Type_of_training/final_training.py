@@ -34,6 +34,27 @@ def load_data_all(prm):
     WIND_TRAIN = learning_utils.filenames_to_array(df_train, prm['output_dir'], 'wind_name')
     WIND_TRAIN = WIND_TRAIN.reshape(len(WIND_TRAIN), 79 * 69 * 3)
 
+    if prm["additional_flat_topo"]:
+
+        # Parameters
+        input_wind_speed = 3
+
+        # Training data
+        additional_topo_training = np.ones((15, 79, 69))
+        additional_wind_training = np.ones((15, 79, 69, 3))
+        additional_wind_training[:, :, :, :2] = additional_wind_training[:, :, :, :2] * input_wind_speed
+        additional_wind_training[:, :, :, 2] = additional_wind_training[:, :, :, 2] * 0
+
+        for index, elevation in enumerate(range(0, 3750, 250)):
+            additional_topo_training[index, :, :] = elevation * additional_topo_training[index, :, :]
+
+        additional_topo_training.reshape((15, 79*69))
+        additional_wind_training = additional_wind_training.reshape((15, 79 * 69 * 3))
+        TOPO_TRAIN = np.concatenate((TOPO_TRAIN, additional_topo_training), axis=0)
+        WIND_TRAIN = np.concatenate((WIND_TRAIN, additional_wind_training), axis=0)
+
+        print("Flat topo added to training data")
+
     print('DONE\n')
     return (TOPO_TRAIN, WIND_TRAIN)
 

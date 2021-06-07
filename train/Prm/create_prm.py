@@ -14,11 +14,11 @@ def create_prm_dict():
     """
     prms = {
         # Necessary
-        'date': ['20_05'],
+        'date': ['07_06'],
         # 'VCD' or 'UNet'
         'model': ['UNet'],
         # Specify only one name even if multiple prm are contained in prms
-        'name_simu': ['retrain_with_mean_each_sample'],
+        'name_simu': ['add_15_flat_topo'],
         # 'fold', 'class', 'degree', 'xi', 'all'
         'type_of_training': ['all'],
 
@@ -31,6 +31,7 @@ def create_prm_dict():
         'list_metrics': [['mae', 'root_mse']],
         'epochs': [300],  # 150
         'batch_size': [32],
+        'additional_flat_topo': [True],
 
         # Reduce on plateau
         'ROP_factor': [0.1],

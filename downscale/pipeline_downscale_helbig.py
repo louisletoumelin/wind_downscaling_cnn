@@ -25,6 +25,7 @@ AROME = NWP(prm["selected_path"],
             load_z0=prm["load_z0"],
             save=prm["save_z0"])
 
+"""
 AROME.data_xr = AROME.data_xr.assign_coords(x=("xx", AROME.data_xr.X_L93.data[0,:]))
 AROME.data_xr = AROME.data_xr.assign_coords(y=("yy", AROME.data_xr.Y_L93.data[:,0]))
 AROME.data_xr = AROME.data_xr.drop(("xx", "yy"), dim=None)
@@ -46,3 +47,4 @@ output_downscale = downscale.downscale_helbig(mnt, idx_x=None, idx_y=None, type=
 
 result = AROME_interpolated.data[:, 100:-100, 100:-100] * output_downscale.reshape((1, output_downscale.shape[0], output_downscale.shape[1]))
 print(result.shape)
+"""
