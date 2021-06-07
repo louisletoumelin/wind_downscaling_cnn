@@ -54,6 +54,13 @@ def change_dtype_if_required(variable, dtype):
     return (variable)
 
 
+def change_several_dtype_if_required(list_variable, dtypes):
+    result = []
+    for variable, dtype in zip(list_variable, dtypes):
+        result.append(change_dtype_if_required(variable, dtype))
+    return(result)
+
+
 def assert_equal_shapes(arrays, shape):
     assert arrays[0].shape == shape
     for k in range(len(arrays) - 1):

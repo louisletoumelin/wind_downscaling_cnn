@@ -9,7 +9,7 @@ import time
 import os
 import concurrent.futures
 
-from Utils import change_dtype_if_required
+from Utils import change_dtype_if_required, change_several_dtype_if_required
 
 try:
     from numba import jit, guvectorize, vectorize, prange, float64, float32, int32, int64
@@ -104,7 +104,6 @@ class Topo_utils:
         # Compute laplacian on indexes using an index for every grid point (meshgrid)
         laplacian = self.laplacian_idx(mnt_padded, xx[1:-1, 1:-1], yy[1:-1, 1:-1], dx, librairie=librairie, helbig=helbig)
 
-        laplacian = change_dtype_if_required(laplacian, np.float32)
         if verbose: print(f"__Laplacian map calculated. Shape: {laplacian.shape}")
 
         return(laplacian)
@@ -193,7 +192,6 @@ class Topo_utils:
             lapl_vect = jit([(float32[:, :], int32[:, :], int32[:, :], int64)], nopython=True)(laplacian_2D)
 
         result = lapl_vect(mnt, idx_x, idx_y, dx)
-        result = change_dtype_if_required(result, np.float32)
         return(result)
 
     def mu_helbig_map(self, mnt, dx, verbose=True):
@@ -213,31 +211,35 @@ class Topo_utils:
         if verbose: print("__Selecting indexes on mu")
         return(mu[idx_y, idx_x])
 
+    @staticmethod
+    def _get_window_idx_boundaries(idx_x, idx_y):
+        flat_shape = idx_y.shape[0] * idx_y.shape[1]
+        y_left = np.int32(idx_y - 79 // 2).reshape(flat_shape)
+        y_right = np.int32(idx_y + 79 // 2).reshape(flat_shape)
+        x_left = np.int32(idx_x - 69 // 2).reshape(flat_shape)
+        x_right = np.int32(idx_x + 69 // 2).reshape(flat_shape)
+        return(y_left, y_right, x_left, x_right)
 
 class Sgp_helbig(Topo_utils):
 
     def __init__(self):
         super().__init__()
-
+    
     def mu_helbig_average(self, mnt, dx, idx_x, idx_y, reduce_mnt=True, nb_pixels_x=100, nb_pixels_y=100, verbose=True):
 
         mu = self.mu_helbig_map(mnt, dx)
 
-        y_left = np.intp(idx_y-79//2)
-        y_right = np.intp(idx_y+79//2)
-        x_left = np.intp(idx_x-69//2)
-        x_right = np.intp(idx_x+69//2)
+        y_left = np.int32(idx_y-79//2)
+        y_right = np.int32(idx_y+79//2)
+        x_left = np.int32(idx_x-69//2)
+        x_right = np.int32(idx_x+69//2)
 
         if reduce_mnt:
 
             small_idx_y = idx_y[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
             small_idx_x = idx_x[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
-
-            y_left = np.intp(small_idx_y - 79 // 2).reshape(small_idx_y.shape[0] * small_idx_y.shape[1])
-            y_right = np.intp(small_idx_y + 79 // 2).reshape(small_idx_y.shape[0] * small_idx_y.shape[1])
-            x_left = np.intp(small_idx_x - 69 // 2).reshape(small_idx_x.shape[0] * small_idx_x.shape[1])
-            x_right = np.intp(small_idx_x + 69 // 2).reshape(small_idx_x.shape[0] * small_idx_x.shape[1])
             shape = small_idx_y.shape
+            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(small_idx_x, small_idx_y)
 
         mu_flat = np.array([np.mean(mu[i1:j1, i2:j2]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
 
@@ -267,30 +269,22 @@ class Sgp_helbig(Topo_utils):
 
             small_idx_y = idx_y[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
             small_idx_x = idx_x[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
-
-            y_left = np.intp(small_idx_y - 79 // 2).reshape(small_idx_y.shape[0] * small_idx_y.shape[1])
-            y_right = np.intp(small_idx_y + 79 // 2).reshape(small_idx_y.shape[0] * small_idx_y.shape[1])
-            x_left = np.intp(small_idx_x - 69 // 2).reshape(small_idx_x.shape[0] * small_idx_x.shape[1])
-            x_right = np.intp(small_idx_x + 69 // 2).reshape(small_idx_x.shape[0] * small_idx_x.shape[1])
+            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(small_idx_x, small_idx_y)
+            small_shape = small_idx_y.shape
 
         if librairie == "numba" and _numba:
-
-            mnt = change_dtype_if_required(mnt, np.float32)
-            y_left = change_dtype_if_required(y_left, np.int32)
-            y_right = change_dtype_if_required(y_right, np.int32)
-            x_left = change_dtype_if_required(x_left, np.int32)
-            x_right = change_dtype_if_required(x_right, np.int32)
-
+            change_several_dtype_if_required([mnt, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
             std_flat = self.std_slicing_numba(mnt, y_left, y_right, x_left, x_right)
             librairie = "numba"
         else:
             std_flat = np.array([np.std(mnt[i1:j1, i2:j2]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
             librairie = "numpy"
 
-        std = std_flat.reshape((small_idx_y.shape[0], small_idx_y.shape[1])) if reduce_mnt else std_flat
+        std = std_flat.reshape((small_shape[0], small_shape[1])) if reduce_mnt else std_flat
         if verbose: print(f"__Subgrid: computed average std. Output shape: {std.shape}. Librairie: {librairie}")
 
         xsi = np.sqrt(2) * std / mu
+
         xsi = change_dtype_if_required(xsi, np.float32)
         if verbose: print(f"__Subgrid: computed average xsi. Output shape: {xsi.shape}")
         return(xsi)
@@ -318,16 +312,13 @@ class Sgp_helbig(Topo_utils):
             shape_large = mnt_large.shape
             if verbose: print(f"Large mnt shape: {shape_large}. Size reduction on x: 2 * {nb_pixels_x}. Size reduction on x: 2 * {nb_pixels_y} ")
 
-            x = list(range(shape_large[1]))
-            y = list(range(shape_large[0]))
-            idx_x, idx_y = np.array(np.meshgrid(x, y)).astype(np.int32)
+            all_x_idx = list(range(shape_large[1]))
+            all_y_idx = list(range(shape_large[0]))
+            idx_x, idx_y = np.array(np.meshgrid(all_x_idx, all_y_idx)).astype(np.int32)
 
-        idx_x = change_dtype_if_required(idx_x, np.int32)
-        idx_y = change_dtype_if_required(idx_y, np.int32)
         reduce_mnt = False if type == "indexes" else reduce_mnt
 
         x_sgp_topo = self.x_sgp_topo_helbig_idx(mnt_large, idx_x, idx_y, dx, L=L, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x, nb_pixels_y=nb_pixels_y)
-        x_sgp_topo = change_dtype_if_required(x_sgp_topo, np.float32)
 
         return (x_sgp_topo)
 
