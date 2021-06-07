@@ -100,6 +100,7 @@ class Observation:
             self.path_Muzelle_Lac_Blanc = path_Muzelle_Lac_Blanc
             self.path_Col_de_Porte = path_Col_de_Porte
             self.path_Col_du_Lautaret = path_Col_du_Lautaret
+
     @staticmethod
     def import_delayed_dask(use_dask=False):
 

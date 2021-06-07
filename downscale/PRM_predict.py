@@ -4,7 +4,7 @@ import datetime
 from Utils import check_save_and_load
 
 
-def create_prm(GPU=None, Z0=None, end=None, month_prediction=True):
+def create_prm(month_prediction=True):
 
     prm = {}
 
@@ -54,7 +54,6 @@ def create_prm(GPU=None, Z0=None, end=None, month_prediction=True):
     prm["begin_after"] = str(prm["year_begin"]) + "-" + str(prm["month_begin"]) + "-" + str(prm["day_begin"] + 1)
     prm["end"] = str(prm["year_end"]) + "-" + str(prm["month_end"]) + "-" + str(prm["day_end"])
 
-
     # Please modify te paths
     if not(prm["GPU"]):
         # Parent directory
@@ -82,7 +81,6 @@ def create_prm(GPU=None, Z0=None, end=None, month_prediction=True):
         prm["AROME_path_3"] = prm["data_path"] + "AROME/FORCING_alp_2019060107_2019070106_32bits.nc"
         prm["AROME_path_4"] = prm["data_path"] + "AROME/FORCING_alp_2019060106_2020060206_32bits.nc"
         prm["AROME_path"] = [prm["AROME_path_1"], prm["AROME_path_2"], prm["AROME_path_3"], prm["AROME_path_4"]]
-
 
     if prm["GPU"]:
         # Data
