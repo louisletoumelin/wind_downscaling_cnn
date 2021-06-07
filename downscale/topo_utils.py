@@ -326,8 +326,7 @@ class Sgp_helbig(Topo_utils):
         return(mu)
 
     @staticmethod
-    @jit([float32[:](float32[:, :], int32[:], int32[:], int32[:], int32[:])], cache=True, nopython=True)
-    def std_slicing_numba(array, y_left, y_right, x_left, x_right):
+    def std_slicing_numpy(array, y_left, y_right, x_left, x_right):
         result = np.empty(y_left.shape)
         for index, (i1, j1, i2, j2) in enumerate(zip(y_left, y_right, x_left, x_right)):
             result[index] = np.std(array[i1:j1, i2:j2])
@@ -349,6 +348,7 @@ class Sgp_helbig(Topo_utils):
 
         if librairie == "numba" and _numba:
             change_several_dtype_if_required([mnt, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
+            std_slicing_numba = jit([float32[:](float32[:, :], int32[:], int32[:], int32[:], int32[:])], cache=True, nopython=True)(self.std_slicing_numpy)
             std_flat = self.std_slicing_numba(mnt, y_left, y_right, x_left, x_right)
             librairie = "numba"
         else:

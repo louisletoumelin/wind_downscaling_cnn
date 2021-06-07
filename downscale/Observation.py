@@ -1875,8 +1875,12 @@ class Observation:
             criteria_low = (coeff_variation_rolling < 0.22 / correct_factor_coeff_var)
             criteria_coeff_var = (criteria_high | criteria_low)
 
+            # Criteria number of nans during rolling mean
+            condition_nb_nans = wind.rolling('15D').count() < 7
+
             # Result
             result[criteria_mean | criteria_std | criteria_coeff_var] = 0
+            result[condition_nb_nans] = 1
             result = result.resample('1H').pad()
 
             if self._qc_init:
