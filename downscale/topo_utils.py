@@ -6,6 +6,7 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
 import datetime
 import time
+from time import time as t
 import os
 import concurrent.futures
 
@@ -104,7 +105,7 @@ class Topo_utils:
         # Compute laplacian on indexes using an index for every grid point (meshgrid)
         laplacian = self.laplacian_idx(mnt_padded, xx[1:-1, 1:-1], yy[1:-1, 1:-1], dx, librairie=librairie, helbig=helbig)
 
-        if verbose: print(f"__Laplacian map calculated. Shape: {laplacian.shape}")
+        if verbose: print(f"__Laplacian map calculated. Shape: {laplacian.shape}. Librairie: {librairie}")
 
         return(laplacian)
 
@@ -127,7 +128,7 @@ class Topo_utils:
             librairie = "numpy"
 
         laplacian = change_dtype_if_required(laplacian, np.float32)
-        if verbose: print(f"__Laplacian calculation using {librairie}")
+        if verbose: print(f"__Laplacian calculated. Librarie: {librairie}")
         return(laplacian)
 
     @staticmethod
@@ -301,9 +302,7 @@ class Sgp_helbig(Topo_utils):
     def __init__(self):
         super().__init__()
     
-    def mu_helbig_average(self, mnt, dx, idx_x, idx_y, reduce_mnt=True, type="map", nb_pixels_x=100, nb_pixels_y=100, verbose=True):
-
-        mu = self.mu_helbig_map(mnt, dx)
+    def mu_helbig_average(self, mnt, dx, idx_x, idx_y, reduce_mnt=True, type="map", nb_pixels_x=100, nb_pixels_y=100, librairie="numba", verbose=True):
 
         if reduce_mnt:
             small_idx_y = idx_y[nb_pixels_y:-nb_pixels_y, nb_pixels_x:-nb_pixels_x]
@@ -314,16 +313,37 @@ class Sgp_helbig(Topo_utils):
             y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y, reshape=False)
 
         if type == "map":
-            mu_flat = np.array([np.mean(mu[i1:j1, i2:j2]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
+            mu = self.mu_helbig_map(mnt, dx)
+
+            if librairie == 'numba' and _numba:
+                mu, y_left, y_right, x_left, x_right = change_several_dtype_if_required(
+                    [mnt, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
+                jit_mean = jit([float32[:](float32[:, :], int32[:], int32[:], int32[:], int32[:])], nopython=True, cache=True)(self.mean_slicing_numpy)
+                mu_flat = jit_mean(mu, y_left, y_right, x_left, x_right)
+                librairie = "numba"
+            else:
+                mu_flat = np.array([np.mean(mu[i1:j1, i2:j2]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
+                librairie = "numpy"
         elif type == "indexes":
+            boundaries_mnt = [mnt.shape[0], mnt.shape[0], mnt.shape[1], mnt.shape[1]]
+            y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
+                                                                            min_idx=[0, 0, 0, 0],
+                                                                            max_idx=boundaries_mnt)
             mu_flat = np.array([np.mean(self.mu_helbig_map(mnt[i1:j1, i2:j2], dx)) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
 
         mu = mu_flat.reshape((shape[0], shape[1])) if reduce_mnt else mu_flat
 
         mu = change_dtype_if_required(mu, np.float32)
-        if verbose: print(f"__Subgrid: computed average mu. Output shape: {mu.shape}")
+        if verbose: print(f"__Subgrid: computed average mu. Output shape: {mu.shape}. Librairie: {librairie}")
 
         return(mu)
+
+    @staticmethod
+    def mean_slicing_numpy(array, y_left, y_right, x_left, x_right):
+        result = np.empty(y_left.shape)
+        for index, (i1, j1, i2, j2) in enumerate(zip(y_left, y_right, x_left, x_right)):
+            result[index] = np.mean(array[i1:j1, i2:j2])
+        return (result.astype(np.float32))
 
     @staticmethod
     def std_slicing_numpy(array, y_left, y_right, x_left, x_right):
@@ -344,6 +364,10 @@ class Sgp_helbig(Topo_utils):
 
         if librairie == "numba" and _numba:
             mnt, y_left, y_right, x_left, x_right = change_several_dtype_if_required([mnt, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
+            boundaries_mnt = [mnt.shape[0], mnt.shape[0], mnt.shape[1], mnt.shape[1]]
+            y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
+                                                                            min_idx=[0, 0, 0, 0],
+                                                                            max_idx=boundaries_mnt)
             std_slicing_numba = jit([float32[:](float32[:, :], int32[:], int32[:], int32[:], int32[:])], cache=True, nopython=True)(self.std_slicing_numpy)
             std_flat = std_slicing_numba(mnt, y_left, y_right, x_left, x_right)
             librairie = "numba"
@@ -360,14 +384,14 @@ class Sgp_helbig(Topo_utils):
         if verbose: print(f"__Subgrid: computed average xsi. Output shape: {xsi.shape}")
         return(xsi)
 
-    def x_sgp_topo_helbig_idx(self, mnt, idx_x, idx_y, dx, L=2_000, reduce_mnt=True, nb_pixels_x=100, nb_pixels_y=100, verbose=True):
+    def x_sgp_topo_helbig_idx(self, mnt, idx_x, idx_y, dx, L=2_000, type="map", reduce_mnt=True, nb_pixels_x=100, nb_pixels_y=100, verbose=True):
 
         a = 3.354688
         b = 1.998767
         c = 0.20286
         d = 5.951
 
-        mu = self.mu_helbig_average(mnt, dx, idx_x, idx_y, type="map", reduce_mnt=False)
+        mu = self.mu_helbig_average(mnt, dx, idx_x, idx_y, type=type, reduce_mnt=reduce_mnt)
         xsi = self.xsi_helbig_map(mnt, mu, idx_x, idx_y, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x, nb_pixels_y=nb_pixels_y, librairie="numba")
 
         x = 1 - (1 - (1/(1+a*mu**b))**c)*np.exp(-d*(L/xsi)**(-2))
@@ -387,8 +411,12 @@ class Sgp_helbig(Topo_utils):
             if verbose: print(f"Large mnt shape: {shape}. Size reduction on x: 2 * {nb_pixels_x}. Size reduction on x: 2 * {nb_pixels_y} ")
 
         reduce_mnt = False if type == "indexes" else reduce_mnt
-
-        x_sgp_topo = self.x_sgp_topo_helbig_idx(mnt_large, idx_x, idx_y, dx, L=L, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x, nb_pixels_y=nb_pixels_y)
+        x_sgp_topo = self.x_sgp_topo_helbig_idx(mnt_large, idx_x, idx_y, dx,
+                                                L=L,
+                                                type=type,
+                                                reduce_mnt=reduce_mnt,
+                                                nb_pixels_x=nb_pixels_x,
+                                                nb_pixels_y=nb_pixels_y)
 
         return (x_sgp_topo)
 
@@ -398,7 +426,8 @@ class Dwnsc_helbig(Sgp_helbig):
     def __init__(self):
         super().__init__()
 
-    def x_dsc_topo_helbig(self, mnt, dx=25, idx_x=None, idx_y=None, type="map", verbose=True):
+    def x_dsc_topo_helbig(self, mnt, dx=25, idx_x=None, idx_y=None, type="map", librairie="numba", verbose=True):
+
         a = 17.0393
         b = 0.737
         c = 1.0234
@@ -406,11 +435,11 @@ class Dwnsc_helbig(Sgp_helbig):
         e = 1.9821
 
         if type == "map":
-            laplacian = self.laplacian_map(mnt, dx, helbig=True)
+            laplacian = self.laplacian_map(mnt, dx, librairie=librairie, helbig=True)
             mu = self.mu_helbig_map(mnt, dx)
         elif type == "indexes":
             idx_x, idx_y = change_several_dtype_if_required([idx_x, idx_y], [np.int32, np.int32])
-            laplacian = self.laplacian_idx(mnt, idx_x, idx_y, dx, helbig=True)
+            laplacian = self.laplacian_idx(mnt, idx_x, idx_y, dx, librairie=librairie, helbig=True)
             mu = self.mu_helbig_idx(mnt, dx, idx_x, idx_y)
 
         term_1 = 1 - a*laplacian/(1 + a*np.abs(laplacian)**b)
@@ -424,15 +453,15 @@ class Dwnsc_helbig(Sgp_helbig):
         x = change_dtype_if_required(x, np.float32)
         return(x)
 
-    def downscale_helbig(self, mnt_large, dx=25, idx_x=None, idx_y=None, type="map", reduce_mnt=True,
-                         nb_pixels_x=100, nb_pixels_y=100, verbose=True):
+    def downscale_helbig(self, mnt_large, dx=25, L=2_000, idx_x=None, idx_y=None, type="map", reduce_mnt=True,
+                         librairie="numba", nb_pixels_x=100, nb_pixels_y=100, verbose=True):
 
         if verbose: print(f"\nBegin subgrid parameterization from Helbig et al. 2017")
         x_sgp_topo = self.subgrid(mnt_large,
                                   idx_x=idx_x,
                                   idx_y=idx_y,
-                                  dx=25,
-                                  L=2_000,
+                                  dx=dx,
+                                  L=L,
                                   type=type,
                                   reduce_mnt=reduce_mnt,
                                   nb_pixels_x=nb_pixels_x,
@@ -442,6 +471,6 @@ class Dwnsc_helbig(Sgp_helbig):
         mnt_small = mnt_large[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
 
         if verbose: print(f"\nBegin downscaling from Helbig et al. 2017")
-        x_dsc_topo = self.x_dsc_topo_helbig(mnt_small, dx=dx, idx_x=idx_x, idx_y=idx_y, type=type, verbose=verbose)
+        x_dsc_topo = self.x_dsc_topo_helbig(mnt_small, dx=dx, idx_x=idx_x, idx_y=idx_y, type=type, verbose=verbose, librairie=librairie)
 
         return(x_sgp_topo*x_dsc_topo)

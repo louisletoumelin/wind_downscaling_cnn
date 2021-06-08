@@ -12,13 +12,13 @@ def create_prm(month_prediction=True):
     Simulation parameters
     """
 
-    prm["GPU"] = True
-    prm["horovod"] = True
+    prm["GPU"] = False
+    prm["horovod"] = False
     prm["Z0"] = True
     prm["load_z0"] = True
     prm["save_z0"] = False
     prm["peak_valley"] = True
-    prm["select_date_time_serie"] = False
+    prm["select_date_time_serie"] = True
     prm["verbose"] = True
     prm["line_profile"] = False
     prm["memory_profile"] = False

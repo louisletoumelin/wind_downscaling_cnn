@@ -44,7 +44,7 @@ def check_save_and_load(load_z0, save_z0):
 def print_current_line(time_step, nb_sim, division):
     nb_sim_divided = nb_sim // division
     for k in range(1, division + 1):
-        print(f" {k}/{division}") if (time_step == k * nb_sim_divided) else pass
+        print(f" {k}/{division}") if (time_step == k * nb_sim_divided) else True
 
 
 
