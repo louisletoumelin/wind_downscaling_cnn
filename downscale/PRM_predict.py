@@ -14,16 +14,16 @@ def create_prm(month_prediction=True):
 
     prm["GPU"] = False
     prm["horovod"] = False
-    prm["Z0"] = True
+    prm["Z0"] = False
     prm["load_z0"] = True
     prm["save_z0"] = False
     prm["peak_valley"] = True
-    prm["select_date_time_serie"] = True
+    prm["select_date_time_serie"] = False
     prm["verbose"] = True
     prm["line_profile"] = False
     prm["memory_profile"] = False
     prm["add_additionnal_stations"] = False
-    prm["launch_predictions"] = True
+    prm["launch_predictions"] = False
 
     # For predictions at stations
     prm["stations_to_predict"] = ['Col du Lac Blanc']
@@ -107,7 +107,7 @@ def create_prm(month_prediction=True):
     prm["save_path"] = prm["data_path"] + "AROME/Z0/" if prm["Z0"] else None
 
     # QC
-    prm["QC_pkl"] = prm["data_path"] + "BDclim/QC/qc_53.pkl"
+    prm["QC_pkl"] = prm["data_path"] + "BDclim/QC/qc_56.pkl"
 
     # Observation
     prm["path_vallot"] = prm["data_path"] + "BDclim/Vallot/"

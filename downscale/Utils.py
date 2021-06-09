@@ -1,3 +1,6 @@
+import numpy as np
+from time import time as t
+
 def connect_GPU_to_horovod():
     import horovod.tensorflow.keras as hvd
     import tensorflow as tf
@@ -61,15 +64,45 @@ def change_several_dtype_if_required(list_variable, dtypes):
     return(result)
 
 
-def change_dtype_decorator(func, dtype):
+def change_dtype_decorator(dtype):
     """Timer decorator"""
-    def wrapper(*args, **kwargs):
-        rv = func(*args, **kwargs)
-        rv = change_dtype_if_required(rv, dtype)
-        return(rv)
-    return(wrapper)
+    def decorator(function):
+        def wrapper(*args, **kwargs):
+            result = function(*args, **kwargs)
+            result = change_dtype_if_required(result, dtype)
+            return result
+        return wrapper
+    return decorator
 
 
 def assert_equal_shapes(arrays, shape):
     for k in range(len(arrays) - 1):
         assert arrays[k].shape == shape
+
+
+def print_func_executed_decorator(argument):
+    def decorator(function):
+        def wrapper(*args, **kwargs):
+            print(f"Begin {argument}")
+            result = function(*args, **kwargs)
+            print(f"End {argument}\n")
+            return result
+        return wrapper
+    return decorator
+
+def timer_decorator(argument, unit='minute', level="__"):
+    def decorator(function):
+        def wrapper(*args, **kwargs):
+            t0 = t()
+            result = function(*args, **kwargs)
+            t1 = t()
+            if unit == "hour":
+                time_execution = np.round((t1 - t0) / (3600), 2)
+            elif unit == "minute":
+                time_execution = np.round((t1-t0) / 60, 2)
+            elif unit == "second":
+                time_execution = np.round((t1 - t0), 2)
+            print(f"{level}Time to calculate {argument}: {time_execution} {unit}s")
+            return result
+        return wrapper
+    return decorator

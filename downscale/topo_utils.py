@@ -4,6 +4,7 @@ import xarray as xr
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
+import matplotlib.pyplot as plt
 import datetime
 import time
 from time import time as t
@@ -468,9 +469,25 @@ class Dwnsc_helbig(Sgp_helbig):
                                   nb_pixels_y=nb_pixels_y,
                                   verbose=verbose)
 
+        plt.figure()
+        plt.imshow(x_sgp_topo)
+        plt.title("Subgrid Helbig et al. 2017")
+
         mnt_small = mnt_large[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
+
+        plt.figure()
+        plt.imshow(mnt_large)
+        plt.title("MNT")
 
         if verbose: print(f"\nBegin downscaling from Helbig et al. 2017")
         x_dsc_topo = self.x_dsc_topo_helbig(mnt_small, dx=dx, idx_x=idx_x, idx_y=idx_y, type=type, verbose=verbose, librairie=librairie)
+
+        plt.figure()
+        plt.imshow(x_dsc_topo)
+        plt.title("x_dsc_topo Helbig et al. 2017")
+
+        plt.figure()
+        plt.imshow(x_sgp_topo*x_dsc_topo)
+        plt.title("Downscaling Helbig et al. 2017")
 
         return(x_sgp_topo*x_dsc_topo)
