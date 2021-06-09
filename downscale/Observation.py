@@ -1913,56 +1913,42 @@ class Observation:
         pd.options.mode.chained_assignment = None  # default='warn'
 
         self.qc_initialization()
-        self.print_nb_nans()
 
         self.qc_check_duplicates_in_index()
-        self.print_nb_nans()
 
         self.qc_resample_index()
-        self.print_nb_nans()
 
         self.qc_check_duplicates_in_index()
-        self.print_nb_nans()
 
         self.qc_calm_criteria()
-        self.print_nb_nans()
 
         self.qc_true_north()
-        self.print_nb_nans()
 
         self.qc_removal_unphysical_values()
-        self.print_nb_nans()
 
         self.qc_get_wind_speed_resolution()
-        self.print_nb_nans()
 
         self.qc_get_wind_direction_resolution()
-        self.print_nb_nans()
 
         dict_constant_sequence = self.qc_constant_sequences()
-        self.print_nb_nans()
 
         self.qc_excessive_MISS(dict_constant_sequence)
-        self.print_nb_nans()
 
         dict_all_stations = self.qc_get_stats_cst_seq(dict_constant_sequence,
                                                       amplification_factor_speed=1.5,
                                                       amplification_factor_direction=1.5)
-        self.print_nb_nans()
 
         self.qc_apply_stats_cst_seq(dict_constant_sequence, dict_all_stations)
-        self.print_nb_nans()
 
         if compare_calm_long_sequences_to_neighbors:
+            
             self.qc_get_nearest_neigbhors()
 
             self.qc_ra(dict_constant_sequence, dict_all_stations)
 
         self.qc_high_variability()
-        self.print_nb_nans()
 
         self.qc_bias()
-        self.print_nb_nans()
 
         self._qc = True
 
