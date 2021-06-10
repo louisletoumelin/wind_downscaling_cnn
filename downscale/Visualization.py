@@ -755,8 +755,8 @@ class Visualization:
             fig = plt.figure()
             if "speed" in fig_to_plot:
                 fig.add_subplot(nb_subplots, 1, 1)
-                nb_categories = len(time_serie_station['last_flagged_speed'].unique())
-                index_0 = np.argwhere(time_serie_station['last_flagged_speed'].unique() == 0)[0][0]
+                nb_categories = len(time_serie_station['last_flagged_speed'].dropna().unique())
+                index_0 = np.argwhere(time_serie_station['last_flagged_speed'].dropna().unique() == 0)[0][0]
                 list_marker_size = [markersize_large for i in range(nb_categories)]
                 list_marker_size[index_0] = markersize_small
                 sns.scatterplot(x=time_serie_station.index, y=wind_speed, data=time_serie_station, hue='last_flagged_speed',
@@ -764,8 +764,8 @@ class Visualization:
 
             if "direction_1" in fig_to_plot:
                 fig.add_subplot(nb_subplots, 1, 2)
-                nb_categories = len(time_serie_station['last_flagged_direction'].unique())
-                index_0 = np.argwhere(time_serie_station['last_flagged_direction'].unique() == 0)[0][0]
+                nb_categories = len(time_serie_station['last_flagged_direction'].dropna().unique())
+                index_0 = np.argwhere(time_serie_station['last_flagged_direction'].dropna().unique() == 0)[0][0]
                 list_marker_size = [markersize_large for i in range(nb_categories)]
                 list_marker_size[index_0] = markersize_small
                 sns.scatterplot(x=time_serie_station.index, y=wind_direction, data=time_serie_station,
@@ -773,8 +773,8 @@ class Visualization:
 
             if "direction_2" in fig_to_plot:
                 fig.add_subplot(nb_subplots, 1, 3)
-                nb_categories = len(time_serie_station['last_unflagged_direction'].unique())
-                index_0 = np.argwhere(time_serie_station['last_unflagged_direction'].unique() == 0)[0][0]
+                nb_categories = len(time_serie_station['last_unflagged_direction'].dropna().unique())
+                index_0 = np.argwhere(time_serie_station['last_unflagged_direction'].dropna().unique() == 0)[0][0]
                 list_marker_size = [markersize_large for i in range(nb_categories)]
                 list_marker_size[index_0] = markersize_small
                 sns.scatterplot(x=time_serie_station.index, y=wind_direction, data=time_serie_station,

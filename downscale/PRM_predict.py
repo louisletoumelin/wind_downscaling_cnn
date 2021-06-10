@@ -107,7 +107,7 @@ def create_prm(month_prediction=True):
     prm["save_path"] = prm["data_path"] + "AROME/Z0/" if prm["Z0"] else None
 
     # QC
-    prm["QC_pkl"] = prm["data_path"] + "BDclim/QC/qc_56.pkl"
+    prm["QC_pkl"] = prm["data_path"] + "BDclim/QC/qc_57.pkl"
 
     # Observation
     prm["path_vallot"] = prm["data_path"] + "BDclim/Vallot/"

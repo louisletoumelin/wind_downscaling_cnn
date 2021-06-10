@@ -653,7 +653,8 @@ class Observation:
         time_series["qc_6_speed"] = 1
 
         # Bias
-        time_series["qc_7_isolated_records"] = 1
+        time_series["qc_7_isolated_records_speed"] = 1
+        time_series["qc_7_isolated_records_direction"] = 1
 
         # N, NNE, NE etc
         time_series["cardinal"] = [self._degToCompass(direction) for direction in time_series[wind_direction].values]
@@ -739,10 +740,14 @@ class Observation:
 
         # Check that high resolution are not mistaken as low resolution
         resolution = 5
-        nb_obs = time_series_station['resolution_speed'].count()
+        nb_obs = len(time_series_station['resolution_speed'])
+
         while resolution >= 0:
-            if time_series_station['resolution_speed'][
-                time_series_station['resolution_speed'] == resolution].count() > 0.8 * nb_obs:
+
+            filter = time_series_station['resolution_speed'] == resolution
+            nb_not_nans = time_series_station['resolution_speed'][filter].count()
+
+            if nb_not_nans > 0.8 * nb_obs:
                 time_series_station['resolution_speed'] = resolution
                 resolution = -1
             else:
@@ -750,14 +755,9 @@ class Observation:
 
         return(time_series_station)
 
-    def print_nb_nans(self, wind_speed='vw10m(m/s)'):
-        time_series= self.time_series
-        time_series_station = time_series[time_series["name"] == "Dome Lac Blanc"]
-        print(time_series_station[wind_speed][(time_series_station.index.year == 2014) & (time_series_station.index.month == 7)].shape[0])
-
     @print_func_executed_decorator("get_wind_speed_resolution")
     @timer_decorator("get_wind_speed_resolution", unit="minute")
-    def qc_get_wind_speed_resolution(self, wind_speed='vw10m(m/s)', use_dask=False):
+    def qc_get_wind_speed_resolution(self, wind_speed='vw10m(m/s)', use_dask=False, verbose=True):
         """
         Quality control
 
@@ -772,8 +772,9 @@ class Observation:
 
             # Add station to list of dataframe
             list_dataframe.append(time_series_station)
-            if _dask and use_dask: list_dataframe = dask.compute(*list_dataframe)
-
+        if verbose:
+            print("__Speed resolution found")
+            print("__Looked for outliers in speed resolution")
         self.time_series = pd.concat(list_dataframe)
 
     @print_func_executed_decorator("get_wind_direction_resolution")
@@ -821,13 +822,14 @@ class Observation:
             # that other resolution detected is a misdetection. Consequently, we discard such cases
             resolutions = [10, 5, 1, 0.1]
             index = 0
-            nb_obs = time_series_station['resolution_direction'].count()
+            nb_obs = len(time_series_station['resolution_direction'])
             while index <= 3:
                 resolution = resolutions[index]
                 filter = time_series_station['resolution_direction'] == resolution
+                nb_not_nans = time_series_station['resolution_direction'][filter].count()
                 # todo to improve: check that other resolution are unique or not. If they are uniqe (e.g. if main resolution is 10°
                 # check that secondary resolution is indeed fixes). If so look if it is concentrated on a signle period. If so, keep it
-                if time_series_station['resolution_direction'][filter].count() > 0.8 * nb_obs:
+                if nb_not_nans > 0.8 * nb_obs:
                     time_series_station['resolution_direction'] = resolution
                     index = 100
                 else:
@@ -849,6 +851,7 @@ class Observation:
         This function apply calm criteria
         UV = 0m/s => UV_DIR = 0°
         """
+
         # Calm criteria: UV = 0m/s => UV_DIR = 0°
         self.time_series["UV_DIR"][self.time_series[wind_speed] == 0] = 0
 
@@ -1852,7 +1855,61 @@ class Observation:
         else:
             return (time_serie_station)
 
-    def qc_isolated_records(self, wind_speed='vw10m(m/s)'):
+    def _qc_isolated_records(self, time_series_station, variable, max_time=24, min_time=12, type="speed", verbose=True):
+
+        # to detect isolated records after he qc process, we need to apply the result of the qc to the time series
+        wind = time_series_station.copy()
+        filter_last_flagged = wind["last_flagged_speed"] != 0
+        wind[variable][filter_last_flagged] = np.nan
+        wind = pd.DataFrame(wind[variable].values, columns=[variable])
+        wind.index = time_series_station.index
+
+        is_na = wind[variable].isna()
+        wind["group"] = is_na.diff().ne(0).cumsum()
+        wind["is_nan"] = is_na * wind["group"]
+
+        groups = [group for _, group in wind.groupby("group")]
+
+        groups_to_discard = []
+        for index in range(1, len(groups) - 1):
+
+            previous_nan = (groups[index - 1].is_nan.mean() != 0)
+            next_nan = (groups[index + 1].is_nan.mean() != 0)
+            current_not_nan = (groups[index].is_nan.mean() == 0)
+
+            previous_len = len(groups[index - 1]) >= 12
+            next_len = len(groups[index + 1]) >= 12
+            current_len = len(groups[index]) <= 24
+
+
+            if previous_nan & next_nan & previous_len & next_len & current_not_nan & current_len:
+                groups_to_discard.append(index + 1)
+
+        filter = wind["group"].isin(groups_to_discard)
+        if type == "speed":
+
+            time_series_station["qc_7_isolated_records_speed"][filter] = 0
+            time_series_station["validity_speed"][filter] = 0
+            time_series_station["last_flagged_speed"][filter] = "Isolated records"
+
+
+        if type == "direction":
+
+            time_series_station["qc_7_isolated_records_direction"][filter] = 0
+            time_series_station["validity_direction"][filter] = 0
+            time_series_station["last_flagged_direction"][filter] = "Isolated records"
+
+        if verbose:
+            if type == "speed": print("__Isolated records speed calculated")
+            if type == "direction": print("__Isolated records direction calculated")
+            print(f"__Isolated record max  duration: {max_time} hours")
+            print(f"__Nan periods before isolated records: min {min_time} hours")
+
+        return(time_series_station)
+
+    @print_func_executed_decorator("isolated records")
+    @timer_decorator("isolated_records", unit="minute")
+    def qc_isolated_records(self, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)', verbose=True):
 
         time_series = self.time_series
         list_stations = time_series["name"].unique()
@@ -1865,35 +1922,8 @@ class Observation:
             filter = time_series["name"] == station
             time_series_station = time_series[filter]
 
-            wind = pd.DataFrame(time_series_station[wind_speed].values, columns=[wind_speed])
-            wind.index = time_series_station.index
-            is_na = wind[wind_speed].isna()
-            wind["group"] = is_na.diff().ne(0).cumsum()
-            wind["is_nan"] = is_na * wind["group"]
-
-            groups = [group for _, group in wind.groupby("group")]
-
-            groups_to_discard = []
-            for index in range(1, len(groups)-1):
-
-                previous_nan = (groups[index-1].is_nan.mean() != 0)
-                next_nan = (groups[index+1].is_nan.mean() != 0)
-                current_not_nan = (groups[index].is_nan.mean() == 0)
-
-                previous_len = len(groups[index-1]) >= 24
-                next_len = len(groups[index+1]) >= 24
-                current_len = len(groups[index]) <= 24
-
-                if previous_nan & next_nan & previous_len & next_len & current_not_nan & current_len:
-                    groups_to_discard.append(index+1)
-
-            filter = wind["group"].isin(groups_to_discard)
-            time_series_station["qc_7_isolated_records"][filter] = 0
-            time_series_station["validity_speed"][filter] = 0
-            time_series_station["last_flagged_speed"][filter] = 0
-
-            print(groups_to_discard)
-
+            time_series_station = self._qc_isolated_records(time_series_station, wind_speed, type="speed", verbose=verbose)
+            time_series_station = self._qc_isolated_records(time_series_station, wind_direction, type="direction", verbose=verbose)
             list_dataframe.append(time_series_station)
 
         self.time_series = pd.concat(list_dataframe)
@@ -1941,7 +1971,7 @@ class Observation:
         self.qc_apply_stats_cst_seq(dict_constant_sequence, dict_all_stations)
 
         if compare_calm_long_sequences_to_neighbors:
-            
+
             self.qc_get_nearest_neigbhors()
 
             self.qc_ra(dict_constant_sequence, dict_all_stations)
@@ -1949,6 +1979,8 @@ class Observation:
         self.qc_high_variability()
 
         self.qc_bias()
+
+        self.qc_isolated_records()
 
         self._qc = True
 
