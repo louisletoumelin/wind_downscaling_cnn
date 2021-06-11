@@ -717,25 +717,26 @@ class Observation:
         # Select station
         filter = time_series["name"] == station
         time_series_station = time_series[filter]
-        for wind_per_day in time_series_station[wind_speed].groupby(pd.Grouper(freq='D')):
+        for _, wind_per_day in time_series_station[wind_speed].groupby(pd.Grouper(freq='D')):
 
             # Check for resolution
-            wind = wind_per_day[1]
             resolution_found = False
             decimal = 0
             while not (resolution_found):
 
-                wind_array = wind.values
-                wind_round_array = wind.round(decimal).values
+                wind_array = wind_per_day.values
+                wind_round_array = wind_per_day.round(decimal).values
 
                 if np.allclose(wind_array, wind_round_array, equal_nan=True):
-                    time_series_station['resolution_speed'][time_series_station.index.isin(wind_per_day[1].index)] = decimal
+                    in_day = time_series_station.index.isin(wind_per_day.index)
+                    time_series_station['resolution_speed'][in_day] = decimal
                     resolution_found = True
                 else:
                     decimal += 1
 
                 if decimal >= 4:
-                    time_series_station['resolution_speed'][time_series_station.index.isin(wind_per_day[1].index)] = decimal
+                    in_day = time_series_station.index.isin(wind_per_day.index)
+                    time_series_station['resolution_speed'][in_day] = decimal
                     resolution_found = True
 
         # Check that high resolution are not mistaken as low resolution
