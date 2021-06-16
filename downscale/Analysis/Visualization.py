@@ -40,7 +40,7 @@ try:
 except ModuleNotFoundError:
     _cartopy = False
 
-from MidpointNormalize import MidpointNormalize
+from Analysis.MidpointNormalize import MidpointNormalize
 
 
 class Visualization:

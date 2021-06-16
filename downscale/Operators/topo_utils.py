@@ -11,7 +11,7 @@ from time import time as t
 import os
 import concurrent.futures
 
-from Utils import change_dtype_if_required, change_several_dtype_if_required
+from downscale.Utils.Utils import change_dtype_if_required, change_several_dtype_if_required
 
 try:
     from numba import jit, guvectorize, vectorize, prange, float64, float32, int32, int64
@@ -40,7 +40,7 @@ class Topo_utils:
     def __init__(self):
         pass
 
-    def normalize_topo(self, topo_HD, mean, std, dtype=np.float32, librairie='num', verbose=True):
+    def normalize_topo(self, topo_HD, mean, std, dtype=np.float32, librairie="numexpr", verbose=True):
         """
         Normalize a topography with mean and std.
 
@@ -57,7 +57,7 @@ class Topo_utils:
         -------
         Standardized topography : array
         """
-        if verbose: print(f"__Normalize done with mean {len(mean)} means and std")
+        print(f"__Normalize done with mean {len(mean)} means and std") if verbose else None
 
         if librairie == 'tensorflow':
             topo_HD = tf.constant(topo_HD, dtype=tf.float32)
@@ -66,10 +66,9 @@ class Topo_utils:
             result = tf.subtract(topo_HD, mean)
             result = tf.divide(result, result)
             return (result)
-
-        if librairie == 'num':
+        else:
             topo_HD = np.array(topo_HD, dtype=dtype)
-            if self._numexpr:
+            if librairie == 'numexpr' and self._numexpr:
                 return (ne.evaluate("(topo_HD - mean) / std"))
             else:
                 return ((topo_HD - mean) / std)
@@ -91,7 +90,7 @@ class Topo_utils:
             Mean peak valley height
         """
         peak_valley_height = 2 * np.nanstd(topo)
-        if verbose: print("__Mean peak valley computed")
+        print("__Mean peak valley computed") if verbose else None
         return(peak_valley_height.astype(np.float32))
 
     def laplacian_map(self, mnt, dx, librairie="numpy", helbig=True, verbose=True):

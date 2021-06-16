@@ -1,9 +1,8 @@
 import numpy as np
-import pandas as pd
 import xarray as xr
 from time import time as t
 
-from Data_2D import Data_2D
+from downscale.Data_family.Data_2D import Data_2D
 
 try:
     import dask
@@ -22,7 +21,7 @@ class MNT(Data_2D):
     _dask = _dask
     _rasterio = _rasterio
 
-    def __init__(self, path_to_file, name=None, resolution_x=25, resolution_y=25):
+    def __init__(self, path_to_file=None, name=None, resolution_x=25, resolution_y=25):
         print("\nBegin MNT creation")
         t0 = t()
 
@@ -30,10 +29,12 @@ class MNT(Data_2D):
         super().__init__(path_to_file, name)
 
         # Load MNT with xr.open_rasterio or xr.open_dataset
-        self.load_mnt_files(path_to_file, chunks=None)
+        _mnt_loaded = False
+        self.load_mnt_files(path_to_file, chunks=None) if path_to_file is not None else None
 
         # Corners of MNT
-        self.get_mnt_caracteristics(resolution_x=resolution_x, resolution_y=resolution_y, name=name)
+        if _mnt_loaded:
+            self.get_mnt_caracteristics(resolution_x=resolution_x, resolution_y=resolution_y, name=name)
 
         t1 = t()
         print(f"MNT created in {np.round(t1-t0, 2)} seconds\n")
@@ -52,10 +53,12 @@ class MNT(Data_2D):
             self.data_xr = xr.open_rasterio(path_to_file, chunks=chunks).astype(np.float32, copy=False)
             self.data = self.data_xr.values[0, :, :]
             if verbose: print(f"__Used xr.open_rasterio to open MNT and {chunks} chunks")
+            _mnt_loaded = True
         else:
             self.data_xr = xr.open_dataset(path_to_file).astype(np.float32, copy=False)
             self.data = self.data_xr.__xarray_dataarray_variable__.data[0, :, :]
             if verbose: print("__Used xr.open_dataset to open MNT")
+            _mnt_loaded = True
 
     def find_nearest_MNT_index(self, x, y,
                                look_for_corners=True, xmin_MNT=None, ymax_MNT=None,

@@ -16,10 +16,13 @@ import os
 import concurrent.futures
 
 # Local imports
-from Utils import print_current_line, environment_GPU, change_dtype_if_required, assert_equal_shapes
-from Rotation import Rotation
-from wind_utils import Wind_utils
-from topo_utils import Topo_utils
+from downscale.Utils.GPU import environment_GPU
+from downscale.Utils.Utils import print_current_line, change_dtype_if_required, assert_equal_shapes
+from downscale.Operators.Rotation import Rotation
+from downscale.Operators.wind_utils import Wind_utils
+from downscale.Operators.topo_utils import Topo_utils
+from downscale.Analysis.MidpointNormalize import MidpointNormalize
+
 
 # try importing optional modules
 try:
@@ -52,9 +55,6 @@ try:
 except ModuleNotFoundError:
     _dask = False
 
-from MidpointNormalize import MidpointNormalize
-
-
 # Custom Metrics : NRMSE
 def nrmse(y_true, y_pred):
     return K.sqrt(K.mean(K.square(y_true - y_pred))) / (K.max(y_pred) - K.min(y_pred))
@@ -73,7 +73,11 @@ class Processing:
     _dask = _dask
     _shapely_geometry = _shapely_geometry
 
-    def __init__(self, obs=None, mnt=None, nwp=None, model_path=None, GPU=False, data_path=None):
+    def __init__(self, obs=None, mnt=None, nwp=None, model_path=None, prm=None):
+
+        GPU = prm["GPU"]
+        data_path = prm['data_path']
+
         self.observation = obs
         self.mnt = mnt
         self.nwp = nwp
@@ -301,12 +305,18 @@ class Processing:
             list_return = list_arrays_1 + list_arrays_2
         return(list_return)
 
-    def predict_at_stations(self, stations_name, fast=False, verbose=True, plot=False, Z0_cond=True, peak_valley=True,
+    def predict_at_stations(self, stations_name, fast=False, plot=False,
                             log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
-                            ideal_case=False, input_speed=3, input_dir=270, line_profile=False):
+                            input_speed=3, input_dir=270, prm=None):
         """
         This function is used to select predictions at stations, the line profiled version or the memory profiled version
         """
+        Z0_cond = prm["Z0"]
+        peak_valley = prm["peak_valley"]
+        ideal_case = prm["ideal_case"]
+        line_profile = prm["line_profile"]
+        verbose=prm["verbose"]
+
         if line_profile:
             from line_profiler import LineProfiler
             lp = LineProfiler()
@@ -1203,13 +1213,24 @@ class Processing:
 
         return (wind_map, acceleration_all, coord, nwp_data_initial, nwp_data, mnt_data)
 
-    def predict_maps(self, station_name='Col du Lac Blanc', x_0=None, y_0=None, dx=10_000, dy=10_000, interp=3,
+    def predict_maps(self, station_name='Col du Lac Blanc', x_0=None, y_0=None,
                      year_0=None, month_0=None, day_0=None, hour_0=None,
-                     year_1=None, month_1=None, day_1=None, hour_1=None,
-                     Z0_cond=False, verbose=True, peak_valley=True, method='linear', type_rotation='indexes',
+                     year_1=None, month_1=None, day_1=None, hour_1=None, method='linear',
                      log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
-                     line_profile=False, nb_pixels=15,  interpolate_final_map=True, memory_profile=False,
-                     extract_stations_only=False):
+                     prm=None):
+        dx = prm["dx"]
+        dy = prm["dy"]
+        peak_valley = prm["peak_valley"]
+        Z0_cond = prm["Z0"]
+        type_rotation = prm["type_rotation"]
+        line_profile = prm["line_profile"]
+        memory_profile = prm["memory_profile"]
+        interp = prm["interp"]
+        nb_pixels = prm["nb_pixels"]
+        interpolate_final_map = prm["interpolate_final_map"]
+        extract_stations_only = prm["extract_stations_only"]
+        verbose=prm["verbose"]
+
         """
         This function is used to select map predictions, the line profiled version or the memory profiled version
         """

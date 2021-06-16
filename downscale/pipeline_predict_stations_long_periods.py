@@ -15,25 +15,21 @@ GPU = 4 min
 13 min
 """
 import numpy as np
-import pandas as pd
-import tensorflow as tf
-import datetime
 #from line_profiler import LineProfiler
 from PRM_predict import create_prm, update_selected_path, select_path_to_file_npy
-from Utils import connect_GPU_to_horovod, select_range
+
 
 def round(t1, t2):  return (np.round(t2 - t1, 2))
 
 
-from Processing import Processing
-from Visualization import Visualization
-from MNT import MNT
-from NWP import NWP
-from Observation import Observation
-from Data_2D import Data_2D
-from MidpointNormalize import MidpointNormalize
-from Evaluation import Evaluation
-from Utils import connect_GPU_to_horovod, select_range
+from downscale.Operators.Processing import Processing
+from downscale.Analysis.Visualization import Visualization
+from downscale.Data_family.MNT import MNT
+from downscale.Data_family.NWP import NWP
+from downscale.Data_family.Observation import Observation
+from downscale.Analysis.Evaluation import Evaluation
+from downscale.Utils.Utils import select_range
+from downscale.Utils.GPU import connect_GPU_to_horovod
 
 
 # Create prm
@@ -129,36 +125,19 @@ for index, (day, month, year) in enumerate(iterator):
             results["obs"][station] = []
 
     # AROME
-    AROME = NWP(prm["selected_path"],
-                name="AROME",
-                begin=begin,
-                end=end,
-                save_path=prm["save_path"],
-                path_Z0_2018=prm["path_Z0_2018"],
-                path_Z0_2019=prm["path_Z0_2019"],
-                path_to_file_npy=prm["path_to_file_npy"],
-                verbose=prm["verbose"],
-                load_z0=prm["load_z0"],
-                save=prm["save_z0"])
+    AROME = NWP(path_to_file=prm["selected_path"], name="AROME", begin=begin, end=end, prm=prm)
 
     # Processing
-    p = Processing(obs=BDclim,
-                   mnt=IGN,
-                   nwp=AROME,
-                   model_path=prm['model_path'],
-                   GPU=prm["GPU"],
-                   data_path=prm['data_path'])
+    p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
 
 
     # Predictions
-    array_xr = p.predict_at_stations(prm["stations_to_predict"],
-                                     verbose=True,
-                                     Z0_cond=prm["Z0"],
-                                     peak_valley=prm["peak_valley"])
+    array_xr = p.predict_at_stations(prm["stations_to_predict"], prm=prm)
+
     # Visualization
     v = Visualization(p)
 
-    # Evaluation
+    # Analysis
     e = Evaluation(v, array_xr)
 
     # Store nwp, cnn predictions and observations

@@ -3,7 +3,7 @@ import numpy as np
 
 class Data_2D:
 
-    def __init__(self, path_to_file, name):
+    def __init__(self, path_to_file=None, name=None):
         self.path_to_file = path_to_file
         self.name = name
 

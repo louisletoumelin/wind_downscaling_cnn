@@ -110,8 +110,8 @@ v = Visualization(p)
 # v.plot_predictions_3D(array_xr, ['Col du Lac Blanc'])
 # v.plot_comparison_topography_MNT_NWP(station_name='Col du Lac Blanc', new_figure=False)
 
-# Evaluation
-#e = Evaluation(v, array_xr)
+# Analysis
+#e = Analysis(v, array_xr)
 t8 = t()
 print(f"\n{round(t0, t8) / 60} minutes")
 #e.plot_time_serie(array_xr, 'Col du Lac Blanc', year=year_begin)

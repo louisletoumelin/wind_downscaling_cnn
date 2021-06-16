@@ -1,12 +1,9 @@
 import numpy as np
 import pandas as pd
-#import modin.pandas as pd
-import xarray as xr
 from scipy.spatial import cKDTree
 from time import time as t
 from datetime import datetime
 from collections import defaultdict
-from Utils import print_func_executed_decorator, timer_decorator
 
 
 try:
@@ -34,7 +31,8 @@ try:
 except ModuleNotFoundError:
     _dask = False
 
-from Data_2D import Data_2D
+from downscale.Data_family.Data_2D import Data_2D
+from downscale.Utils.Decorators import print_func_executed_decorator, timer_decorator
 
 
 class Observation:
@@ -43,13 +41,25 @@ class Observation:
     _concurrent = _concurrent
     geopandas = _geopandas
 
-    def __init__(self, path_to_list_stations, path_to_time_series, path_vallot=None, path_saint_sorlin=None,
-                 path_argentiere=None, begin=None, end=None, select_date_time_serie=True,
-                 path_Dome_Lac_Blanc=None, path_Col_du_Lac_Blanc=None, path_Muzelle_Lac_Blanc=None,
-                 path_Col_de_Porte=None, path_Col_du_Lautaret=None, GPU=False):
+    def __init__(self, path_to_list_stations, path_to_time_series, prm=None):
 
-        print("\nBegin Observation creation")
-        t0 = t()
+        begin = prm["begin"]
+        end = prm["end"]
+        select_date_time_serie = prm["select_date_time_serie"]
+        GPU = prm["GPU"]
+        path_vallot = prm["path_vallot"]
+        path_saint_sorlin = prm["path_saint_sorlin"]
+        path_argentiere = prm["path_argentiere"]
+        path_Dome_Lac_Blanc = prm["path_Dome_Lac_Blanc"]
+        path_Col_du_Lac_Blanc = prm["path_Col_du_Lac_Blanc"]
+        path_Muzelle_Lac_Blanc = prm["path_Muzelle_Lac_Blanc"]
+        path_Col_de_Porte = prm["path_Col_de_Porte"]
+        path_Col_du_Lautaret = prm["path_Col_du_Lautaret"]
+        verbose = prm["verbose"]
+
+        if verbose:
+            print("\nBegin Observation creation")
+            t0 = t()
 
         # Dates
         self.begin = begin

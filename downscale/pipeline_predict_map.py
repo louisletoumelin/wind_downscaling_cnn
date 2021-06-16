@@ -13,22 +13,17 @@ By rule of three, this give 2 days and 2h for downscaling one year at 1h and 25m
 """
 
 import numpy as np
-import tensorflow as tf
 
 
-def round(t1, t2):  return (np.round(t2 - t1, 2))
-
-
-from Processing import Processing
-from Visualization import Visualization
-from MNT import MNT
-from NWP import NWP
-from Observation import Observation
-from Data_2D import Data_2D
-from MidpointNormalize import MidpointNormalize
-from Evaluation import Evaluation
-from PRM_predict import create_prm, update_selected_path
-from Utils import connect_GPU_to_horovod, select_range
+from downscale.Operators.Processing import Processing
+from downscale.Analysis.Visualization import Visualization
+from downscale.Data_family.MNT import MNT
+from downscale.Data_family.NWP import NWP
+from downscale.Data_family.Observation import Observation
+from downscale.Analysis.Evaluation import Evaluation
+from PRM_predict import create_prm
+from downscale.Utils.GPU import connect_GPU_to_horovod
+from downscale.Utils.Utils import round
 
 """
 Stations
@@ -58,36 +53,16 @@ Stations
 prm = create_prm(month_prediction=True)
 
 # Initialize horovod and GPU
-if prm["GPU"]: connect_GPU_to_horovod()
+connect_GPU_to_horovod() if prm["GPU"] else None
 
 """
 MNT, NWP and observations
 """
 
 
-# IGN
 IGN = MNT(prm["topo_path"], name="IGN")
-
-# AROME
-AROME = NWP(prm["selected_path"],
-            name="AROME",
-            begin=prm["begin"],
-            end=prm["end"],
-            save_path=prm["save_path"],
-            path_Z0_2018=prm["path_Z0_2018"],
-            path_Z0_2019=prm["path_Z0_2019"],
-            path_to_file_npy=prm["path_to_file_npy"],
-            verbose=prm["verbose"],
-            load_z0=prm["load_z0"],
-            save=prm["save_z0"])
-
-# BDclim
-BDclim = Observation(prm["BDclim_stations_path"],
-                     prm["BDclim_data_path"],
-                     begin=prm["begin"],
-                     end=prm["end"],
-                     select_date_time_serie=prm["select_date_time_serie"],
-                     GPU=prm["GPU"])
+AROME = NWP(prm["selected_path"], name="AROME", begin=prm["begin"], end=prm["end"], prm=prm)
+BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 
 if not(prm["GPU"]):
     number_of_neighbors = 4
@@ -100,12 +75,8 @@ Processing, visualization and evaluation
 
 
 # Processing
-p = Processing(obs=BDclim,
-               mnt=IGN,
-               nwp=AROME,
-               model_path=prm['model_path'],
-               GPU=prm["GPU"],
-               data_path=prm['data_path'])
+p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
+
 t1 = t()
 if prm["launch_predictions"]:
 
@@ -119,32 +90,19 @@ if prm["launch_predictions"]:
                                                                                        month_1=prm["month_end"],
                                                                                        day_1=prm["day_end"],
                                                                                        hour_1=prm["hour_end"],
-                                                                                       dx=prm["dx"],
-                                                                                       dy=prm["dy"],
-                                                                                       peak_valley=prm["peak_valley"],
-                                                                                       Z0_cond=prm["Z0"],
-                                                                                       type_rotation = prm["type_rotation"],
-                                                                                       line_profile=prm["line_profile"],
-                                                                                       memory_profile=prm["memory_profile"],
-                                                                                       interp=prm["interp"],
-                                                                                       nb_pixels=prm["nb_pixels"],
-                                                                                       interpolate_final_map=prm["interpolate_final_map"],
-                                                                                       extract_stations_only=prm["extract_stations_only"])
+                                                                                       prm=prm)
 
-    ttest1=t()
-    print(f'\nDownscaling scipy in {round(ttest, ttest1)} seconds')
+    print(f'\nDownscaling scipy in {round(ttest, t())} seconds')
 
-t2 = t()
-print(f'\nPredictions in {round(t1, t2)} seconds')
+print(f'\nPredictions in {round(t1, t())} seconds')
 
 # Visualization
 v = Visualization(p)
 
-# Evaluation
-if prm["launch_predictions"]: e = Evaluation(v, array_xr=None)
+# Analysis
+e = Evaluation(v, array_xr=None) if prm["launch_predictions"] else None
 
-t_end = t()
-print(f"\n All prediction in  {round(t_init, t_end) / 60} minutes")
+print(f"\n All prediction in  {round(t_init, t()) / 60} minutes")
 
 """
 

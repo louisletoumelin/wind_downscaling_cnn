@@ -20,7 +20,7 @@ except ModuleNotFoundError:
     _shapely_geometry = False
 
 
-from Data_2D import Data_2D
+from downscale.Data_family.Data_2D import Data_2D
 
 
 class NWP(Data_2D):
@@ -29,9 +29,17 @@ class NWP(Data_2D):
     _pyproj = _pyproj
     _shapely_geometry = _shapely_geometry
 
-    def __init__(self, path_to_file, name=None, begin=None, end=None, save_path=None, path_Z0_2018=None, path_Z0_2019=None,
-                 variables_of_interest=['Wind', 'Wind_DIR', 'LAT', 'LON', 'ZS'], verbose=True, path_to_file_npy=None,
-                 save=False, load_z0=False):
+    def __init__(self, path_to_file=None, name=None, begin=None, end=None,
+                 variables_of_interest=['Wind', 'Wind_DIR', 'LAT', 'LON', 'ZS'], prm=None):
+
+        save_path = prm["save_path"]
+        path_Z0_2018 = prm["path_Z0_2018"]
+        path_Z0_2019 = prm["path_Z0_2019"]
+        path_to_file_npy = prm["path_to_file_npy"]
+        verbose = prm["verbose"]
+        load_z0 = prm["load_z0"]
+        save = prm["save_z0"]
+
         if verbose:
             print("\nBegin NWP creation")
             t0 = t()

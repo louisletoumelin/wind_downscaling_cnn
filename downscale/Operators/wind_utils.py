@@ -1,15 +1,6 @@
 import numpy as np
-import pandas as pd
-import xarray as xr
-import tensorflow as tf
-from tensorflow.keras.models import load_model
-from tensorflow.keras import backend as K
-import datetime
-import time
-import os
-import concurrent.futures
 
-from Utils import change_dtype_if_required
+from downscale.Utils.Utils import change_dtype_if_required
 
 try:
     from numba import jit, prange, float64, float32, int32, int64
@@ -266,11 +257,11 @@ class Wind_utils:
 
         Parameters
         ----------
-        scaling_wind : dnarray
+        scaling_wind : ndarray
             Scaling wind (ex: NWP wind)
         prediction : ndarray
             CNN ouptut
-        linear : boolean, optionnal
+        linear : boolean, optional
             Linear scaling (Default: True)
 
         Returns

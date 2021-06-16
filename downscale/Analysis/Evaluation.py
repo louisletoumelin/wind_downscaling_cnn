@@ -4,7 +4,7 @@ import xarray as xr
 import matplotlib.pyplot as plt
 from time import time as t
 
-from Visualization import Visualization
+from Analysis.Visualization import Visualization
 
 
 class Evaluation:
