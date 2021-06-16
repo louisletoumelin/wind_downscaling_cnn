@@ -213,10 +213,10 @@ class Topo_utils:
         return(mu[idx_y, idx_x])
 
     @staticmethod
-    def _get_window_idx_boundaries(idx_x, idx_y, x_win=69//2, y_wind=79//2, reshape=True):
+    def _get_window_idx_boundaries(idx_x, idx_y, x_win=69//2, y_win=79//2, reshape=True):
 
-        y_left = np.int32(idx_y - y_wind)
-        y_right = np.int32(idx_y + y_wind)
+        y_left = np.int32(idx_y - y_win)
+        y_right = np.int32(idx_y + y_win)
         x_left = np.int32(idx_x - x_win)
         x_right = np.int32(idx_x + x_win)
 
@@ -239,7 +239,7 @@ class Topo_utils:
             for y in range(yn):
                 ymin = max(0, y - y_win)
                 ymax = min(yn, y + y_win + 1)
-                out_arr[x, y] = np.mean(in_arr[xmin:xmax, ymin:ymax])
+                out_arr[y, x] = np.mean(in_arr[ymin:ymax, xmin:xmax])
         return out_arr
 
     def tpi_map(self, mnt, radius, resolution=25, librairie='numba'):
@@ -251,6 +251,7 @@ class Topo_utils:
         else:
             window_func = self.rolling_window_mean_numpy
 
+        mnt, x_win, y_win = change_several_dtype_if_required([mnt, x_win, y_win], [np.float32, np.int32, np.int32])
         output = np.empty_like(mnt).astype(np.float32)
         mean = window_func(mnt, output, x_win, y_win)
 
@@ -284,7 +285,7 @@ class Topo_utils:
         x_win, y_win = self.radius_to_square_window(radius, resolution)
 
         y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y,
-                                                                           x_win=x_win, y_wind=y_win,
+                                                                           x_win=x_win, y_win=y_win,
                                                                            reshape=False)
 
         boundaries_mnt = [mnt.shape[0], mnt.shape[0], mnt.shape[1], mnt.shape[1]]
@@ -292,46 +293,58 @@ class Topo_utils:
                                                                         min_idx=[0, 0, 0, 0],
                                                                         max_idx=boundaries_mnt)
 
-        mean_window = np.array([np.mean(mnt[i1:j1, i2:j2]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
-
-        return(mnt[idx_x, idx_y] - mean_window)
+        mean_window = np.array([np.mean(mnt[i1:j1+1, i2:j2+1]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
+        return(mnt[idx_y, idx_x] - mean_window)
 
 
 class Sgp_helbig(Topo_utils):
 
     def __init__(self):
         super().__init__()
-    
-    def mu_helbig_average(self, mnt, dx, idx_x, idx_y, reduce_mnt=True, type="map", nb_pixels_x=100, nb_pixels_y=100, librairie="numba", verbose=True):
+
+    def mu_helbig_average(self, mnt, dx, idx_x=None, idx_y=None, reduce_mnt=True, type="map", x_win=69//2, y_win=79//2, nb_pixels_x=100, nb_pixels_y=100, librairie="numba", verbose=True):
+
+        if idx_x is None and idx_y is None:
+            shape = mnt.shape
+            idx_x = range(shape[1])
+            idx_y = range(shape[0])
+            idx_x, idx_y = np.array(np.meshgrid(idx_x, idx_y)).astype(np.int32)
 
         if reduce_mnt:
             small_idx_y = idx_y[nb_pixels_y:-nb_pixels_y, nb_pixels_x:-nb_pixels_x]
             small_idx_x = idx_x[nb_pixels_y:-nb_pixels_y, nb_pixels_x:-nb_pixels_x]
             shape = small_idx_y.shape
-            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(small_idx_x, small_idx_y)
+            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(small_idx_x, small_idx_y, x_win=x_win, y_win=y_win)
         else:
-            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y, reshape=False)
+            reshape = True if type == "map" else False
+            shape = mnt.shape
+            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y, reshape=reshape, x_win=x_win, y_win=y_win)
+
+        boundaries_mnt = [shape[0], shape[0], shape[1], shape[1]]
+        y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
+                                                                        min_idx=[0, 0, 0, 0],
+                                                                        max_idx=boundaries_mnt)
 
         if type == "map":
             mu = self.mu_helbig_map(mnt, dx)
-
             if librairie == 'numba' and _numba:
                 mu, y_left, y_right, x_left, x_right = change_several_dtype_if_required(
-                    [mnt, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
-                jit_mean = jit([float32[:](float32[:, :], int32[:], int32[:], int32[:], int32[:])], nopython=True, cache=True)(self.mean_slicing_numpy)
+                    [mu, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
+                jit_mean = jit([float32[:](float32[:, :], int32[:], int32[:], int32[:], int32[:])], nopython=True)(self.mean_slicing_numpy)
                 mu_flat = jit_mean(mu, y_left, y_right, x_left, x_right)
                 librairie = "numba"
             else:
-                mu_flat = np.array([np.mean(mu[i1:j1, i2:j2]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
+                mu_flat = np.array([np.mean(mu[i1:j1+1, i2:j2+1]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
                 librairie = "numpy"
+
         elif type == "indexes":
             boundaries_mnt = [mnt.shape[0], mnt.shape[0], mnt.shape[1], mnt.shape[1]]
             y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
                                                                             min_idx=[0, 0, 0, 0],
                                                                             max_idx=boundaries_mnt)
-            mu_flat = np.array([np.mean(self.mu_helbig_map(mnt[i1:j1, i2:j2], dx)) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
+            mu_flat = np.array([np.mean(self.mu_helbig_map(mnt[i1:j1+1, i2:j2+1], dx)) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
 
-        mu = mu_flat.reshape((shape[0], shape[1])) if reduce_mnt else mu_flat
+        mu = mu_flat.reshape((shape[0], shape[1])) if (type == "map" or reduce_mnt) else mu_flat
 
         mu = change_dtype_if_required(mu, np.float32)
         if verbose: print(f"__Subgrid: computed average mu. Output shape: {mu.shape}. Librairie: {librairie}")
@@ -342,40 +355,48 @@ class Sgp_helbig(Topo_utils):
     def mean_slicing_numpy(array, y_left, y_right, x_left, x_right):
         result = np.empty(y_left.shape)
         for index, (i1, j1, i2, j2) in enumerate(zip(y_left, y_right, x_left, x_right)):
-            result[index] = np.mean(array[i1:j1, i2:j2])
+            result[index] = np.mean(array[i1:j1+1, i2:j2+1])
         return (result.astype(np.float32))
 
     @staticmethod
     def std_slicing_numpy(array, y_left, y_right, x_left, x_right):
         result = np.empty(y_left.shape)
         for index, (i1, j1, i2, j2) in enumerate(zip(y_left, y_right, x_left, x_right)):
-            result[index] = np.std(array[i1:j1, i2:j2])
+            result[index] = np.std(array[i1:j1+1, i2:j2+1])
         return (result.astype(np.float32))
 
-    def xsi_helbig_map(self, mnt, mu, idx_x, idx_y, reduce_mnt=True, nb_pixels_x=100, nb_pixels_y=100, librairie="numba", verbose=True):
+    def xsi_helbig_map(self, mnt, mu, idx_x=None, idx_y=None, reduce_mnt=True, x_win=69//2, y_win=79//2, nb_pixels_x=100, nb_pixels_y=100, librairie="numba", verbose=True):
 
-        y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y, x_win=69//2, y_wind=79//2, reshape=False)
+        if idx_x is None and idx_y is None:
+            shape = mnt.shape
+            idx_x = range(shape[1])
+            idx_y = range(shape[0])
+            idx_x, idx_y = np.array(np.meshgrid(idx_x, idx_y)).astype(np.int32)
 
         if reduce_mnt:
             small_idx_y = idx_y[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
             small_idx_x = idx_x[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
-            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(small_idx_x, small_idx_y)
-            small_shape = small_idx_y.shape
+            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(small_idx_x, small_idx_y, reshape=True, x_win=x_win, y_win=y_win)
+            shape = small_idx_y.shape
+        else:
+            shape = mnt.shape
+            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y, x_win=x_win, y_win=y_win,
+                                                                               reshape=True)
 
+        mnt, y_left, y_right, x_left, x_right = change_several_dtype_if_required([mnt, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
+        boundaries_mnt = [shape[0], shape[0], shape[1], shape[1]]
+        y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
+                                                                        min_idx=[0, 0, 0, 0],
+                                                                        max_idx=boundaries_mnt)
         if librairie == "numba" and _numba:
-            mnt, y_left, y_right, x_left, x_right = change_several_dtype_if_required([mnt, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
-            boundaries_mnt = [mnt.shape[0], mnt.shape[0], mnt.shape[1], mnt.shape[1]]
-            y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
-                                                                            min_idx=[0, 0, 0, 0],
-                                                                            max_idx=boundaries_mnt)
-            std_slicing_numba = jit([float32[:](float32[:, :], int32[:], int32[:], int32[:], int32[:])], cache=True, nopython=True)(self.std_slicing_numpy)
+            std_slicing_numba = jit([float32[:](float32[:, :], int32[:], int32[:], int32[:], int32[:])], nopython=True)(self.std_slicing_numpy)
             std_flat = std_slicing_numba(mnt, y_left, y_right, x_left, x_right)
             librairie = "numba"
         else:
-            std_flat = np.array([np.std(mnt[i1:j1, i2:j2]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
+            std_flat = np.array([np.std(mnt[i1:j1+1, i2:j2+1]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
             librairie = "numpy"
 
-        std = std_flat.reshape((small_shape[0], small_shape[1])) if reduce_mnt else std_flat
+        std = std_flat.reshape((shape[0], shape[1]))
         if verbose: print(f"__Subgrid: computed average std. Output shape: {std.shape}. Librairie: {librairie}")
 
         xsi = np.sqrt(2) * std / mu
@@ -384,15 +405,21 @@ class Sgp_helbig(Topo_utils):
         if verbose: print(f"__Subgrid: computed average xsi. Output shape: {xsi.shape}")
         return(xsi)
 
-    def x_sgp_topo_helbig_idx(self, mnt, idx_x, idx_y, dx, L=2_000, type="map", reduce_mnt=True, nb_pixels_x=100, nb_pixels_y=100, verbose=True):
+    def x_sgp_topo_helbig_idx(self, mnt, idx_x=None, idx_y=None, dx=25, L=2_000, type="map", reduce_mnt=True, nb_pixels_x=100, nb_pixels_y=100, x_win=69//2, y_win=79//2, verbose=True):
 
         a = 3.354688
         b = 1.998767
         c = 0.20286
         d = 5.951
 
-        mu = self.mu_helbig_average(mnt, dx, idx_x, idx_y, type=type, reduce_mnt=reduce_mnt)
-        xsi = self.xsi_helbig_map(mnt, mu, idx_x, idx_y, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x, nb_pixels_y=nb_pixels_y, librairie="numba")
+        if idx_x is None and idx_y is None:
+            shape = mnt.shape
+            idx_x = range(shape[1])
+            idx_y = range(shape[0])
+            idx_x, idx_y = np.array(np.meshgrid(idx_x, idx_y)).astype(np.int32)
+
+        mu = self.mu_helbig_average(mnt, dx, idx_x, idx_y, type=type, reduce_mnt=reduce_mnt, x_win=x_win, y_win=y_win)
+        xsi = self.xsi_helbig_map(mnt, mu, idx_x, idx_y, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x, nb_pixels_y=nb_pixels_y, x_win=x_win, y_win=y_win, librairie="numba")
 
         x = 1 - (1 - (1/(1+a*mu**b))**c)*np.exp(-d*(L/xsi)**(-2))
 
