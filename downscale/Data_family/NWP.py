@@ -60,7 +60,7 @@ class NWP(Data_2D):
                             preprocess_function=self._preprocess_ncfile)
 
         # Select timeframe
-        self.select_timeframe()
+        #self.select_timeframe()
 
         # Select variables of interest
         self._select_specific_variables()

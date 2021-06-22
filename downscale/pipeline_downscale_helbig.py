@@ -1,5 +1,12 @@
-from Data_family.MNT import MNT
-from Data_family.NWP import NWP
+import matplotlib as mpl
+mpl.rcParams['agg.path.chunksize'] = 2_000_000
+
+import numpy as np
+from time import time as t
+
+from downscale.Data_family.MNT import MNT
+from downscale.Data_family.NWP import NWP
+from downscale.Operators.topo_utils import Dwnsc_helbig, Sgp_helbig, Topo_utils
 from PRM_predict import create_prm
 
 # Create prm
@@ -10,7 +17,7 @@ IGN = MNT(prm["topo_path"], name="IGN")
 
 # AROME
 AROME = NWP(prm["selected_path"], name="AROME",begin=prm["begin"], end=prm["end"], prm=prm)
-"""
+
 AROME.data_xr = AROME.data_xr.assign_coords(x=("xx", AROME.data_xr.X_L93.data[0,:]))
 AROME.data_xr = AROME.data_xr.assign_coords(y=("yy", AROME.data_xr.Y_L93.data[:,0]))
 AROME.data_xr = AROME.data_xr.drop(("xx", "yy"), dim=None)
@@ -27,12 +34,12 @@ AROME_interpolated = AROME.data_xr.interp_like(IGN.data_xr, method="nearest")
 mnt = IGN.data_xr.data[0, :, :]
 
 downscale = Dwnsc_helbig()
+#mu_mnt = downscale.mu_helbig_map(mnt, dx=25)
+#laplacian_mnt = downscale.laplacian_map(mnt, dx=25)
 
 t0 = t()
-output_downscale = downscale.downscale_helbig(mnt, idx_x=None, idx_y=None, type="map", librairie="numba")
-t1 = t()
-print(t1-t0)
+output_downscale = downscale.downscale_helbig(mnt, idx_x=None, idx_y=None, type="map", library="numba")
+print(t()-t0)
 
-result = AROME_interpolated.data[:, 100:-100, 100:-100] * output_downscale.reshape((1, output_downscale.shape[0], output_downscale.shape[1]))
+result = AROME_interpolated.data * output_downscale.reshape((1, output_downscale.shape[0], output_downscale.shape[1]))
 print(result.shape)
-"""

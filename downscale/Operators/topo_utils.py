@@ -40,7 +40,7 @@ class Topo_utils:
     def __init__(self):
         pass
 
-    def normalize_topo(self, topo_HD, mean, std, dtype=np.float32, librairie="numexpr", verbose=True):
+    def normalize_topo(self, topo_HD, mean, std, dtype=np.float32, library="numexpr", verbose=True):
         """
         Normalize a topography with mean and std.
 
@@ -59,7 +59,7 @@ class Topo_utils:
         """
         print(f"__Normalize done with mean {len(mean)} means and std") if verbose else None
 
-        if librairie == 'tensorflow':
+        if library == 'tensorflow':
             topo_HD = tf.constant(topo_HD, dtype=tf.float32)
             mean = tf.constant(mean, dtype=tf.float32)
             std = tf.constant(std, dtype=tf.float32)
@@ -68,7 +68,7 @@ class Topo_utils:
             return (result)
         else:
             topo_HD = np.array(topo_HD, dtype=dtype)
-            if librairie == 'numexpr' and self._numexpr:
+            if library == 'numexpr' and self._numexpr:
                 return (ne.evaluate("(topo_HD - mean) / std"))
             else:
                 return ((topo_HD - mean) / std)
@@ -93,42 +93,43 @@ class Topo_utils:
         print("__Mean peak valley computed") if verbose else None
         return(peak_valley_height.astype(np.float32))
 
-    def laplacian_map(self, mnt, dx, librairie="numpy", helbig=True, verbose=True):
+    def laplacian_map(self, mnt, dx, library="numpy", helbig=True, verbose=True):
 
         # Pad mnt to compute laplacian on edges
         mnt_padded = np.pad(mnt, (1, 1), "edge").astype(np.float32)
+        if verbose: print("__MNT padded for laplacian computation")
         shape = mnt_padded.shape
 
         # Use meshgrid to create indexes with mnt size and use numpy broadcasting when selecting indexes
         xx, yy = np.array(np.meshgrid(list(range(shape[1])), list(range(shape[0])))).astype(np.int32)
 
         # Compute laplacian on indexes using an index for every grid point (meshgrid)
-        laplacian = self.laplacian_idx(mnt_padded, xx[1:-1, 1:-1], yy[1:-1, 1:-1], dx, librairie=librairie, helbig=helbig)
+        laplacian = self.laplacian_idx(mnt_padded, xx[1:-1, 1:-1], yy[1:-1, 1:-1], dx, library=library, helbig=helbig)
 
-        if verbose: print(f"__Laplacian map calculated. Shape: {laplacian.shape}. Librairie: {librairie}")
+        if verbose: print(f"__Laplacian map calculated. Shape: {laplacian.shape}. Library: {library}")
 
         return(laplacian)
 
-    def laplacian_idx(self, mnt, idx_x, idx_y, dx, verbose=True, librairie='numpy', helbig=True):
+    def laplacian_idx(self, mnt, idx_x, idx_y, dx, verbose=True, library='numpy', helbig=True):
         """
         Discrete laplacian on a regular grid
         """
 
-        if librairie == 'numba' and _numba:
+        if library == 'numba' and _numba:
 
             mnt = change_dtype_if_required(mnt, np.float32)
             idx_x = change_dtype_if_required(idx_x, np.int32)
             idx_y = change_dtype_if_required(idx_y, np.int32)
 
             laplacian = self._laplacian_numba_idx(mnt, idx_x, idx_y, dx, helbig=helbig)
-            librairie = librairie
+            library = library
 
         else:
             laplacian = self._laplacian_numpy_idx(mnt, idx_x, idx_y, dx, helbig=helbig)
-            librairie = "numpy"
+            library = "numpy"
 
         laplacian = change_dtype_if_required(laplacian, np.float32)
-        if verbose: print(f"__Laplacian calculated. Librarie: {librairie}")
+        if verbose: print(f"__Laplacian calculated. Librarie: {library}")
         return(laplacian)
 
     @staticmethod
@@ -242,11 +243,11 @@ class Topo_utils:
                 out_arr[y, x] = np.mean(in_arr[ymin:ymax, xmin:xmax])
         return out_arr
 
-    def tpi_map(self, mnt, radius, resolution=25, librairie='numba'):
+    def tpi_map(self, mnt, radius, resolution=25, library='numba'):
 
         x_win, y_win = self.radius_to_square_window(radius, resolution)
 
-        if librairie == 'numba' and _numba:
+        if library == 'numba' and _numba:
             window_func = jit("float32[:,:](float32[:,:],float32[:,:],int32, int32)", nopython=True, cache=True)(self.rolling_window_mean_numpy)
         else:
             window_func = self.rolling_window_mean_numpy
@@ -302,7 +303,7 @@ class Sgp_helbig(Topo_utils):
     def __init__(self):
         super().__init__()
 
-    def mu_helbig_average(self, mnt, dx, idx_x=None, idx_y=None, reduce_mnt=True, type="map", x_win=69//2, y_win=79//2, nb_pixels_x=100, nb_pixels_y=100, librairie="numba", verbose=True):
+    def mu_helbig_average(self, mnt, dx, idx_x=None, idx_y=None, reduce_mnt=True, type="map", x_win=69//2, y_win=79//2, nb_pixels_x=100, nb_pixels_y=100, library="numba", verbose=True):
 
         if idx_x is None and idx_y is None:
             shape = mnt.shape
@@ -327,15 +328,15 @@ class Sgp_helbig(Topo_utils):
 
         if type == "map":
             mu = self.mu_helbig_map(mnt, dx)
-            if librairie == 'numba' and _numba:
+            if library == 'numba' and _numba:
                 mu, y_left, y_right, x_left, x_right = change_several_dtype_if_required(
                     [mu, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
                 jit_mean = jit([float32[:](float32[:, :], int32[:], int32[:], int32[:], int32[:])], nopython=True)(self.mean_slicing_numpy)
                 mu_flat = jit_mean(mu, y_left, y_right, x_left, x_right)
-                librairie = "numba"
+                library = "numba"
             else:
                 mu_flat = np.array([np.mean(mu[i1:j1+1, i2:j2+1]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
-                librairie = "numpy"
+                library = "numpy"
 
         elif type == "indexes":
             boundaries_mnt = [mnt.shape[0], mnt.shape[0], mnt.shape[1], mnt.shape[1]]
@@ -347,7 +348,7 @@ class Sgp_helbig(Topo_utils):
         mu = mu_flat.reshape((shape[0], shape[1])) if (type == "map" or reduce_mnt) else mu_flat
 
         mu = change_dtype_if_required(mu, np.float32)
-        if verbose: print(f"__Subgrid: computed average mu. Output shape: {mu.shape}. Librairie: {librairie}")
+        if verbose: print(f"__Subgrid: computed average mu. Output shape: {mu.shape}. Library: {library}")
 
         return(mu)
 
@@ -365,7 +366,7 @@ class Sgp_helbig(Topo_utils):
             result[index] = np.std(array[i1:j1+1, i2:j2+1])
         return (result.astype(np.float32))
 
-    def xsi_helbig_map(self, mnt, mu, idx_x=None, idx_y=None, reduce_mnt=True, x_win=69//2, y_win=79//2, nb_pixels_x=100, nb_pixels_y=100, librairie="numba", verbose=True):
+    def xsi_helbig_map(self, mnt, mu, idx_x=None, idx_y=None, reduce_mnt=True, x_win=69//2, y_win=79//2, nb_pixels_x=100, nb_pixels_y=100, library="numba", verbose=True):
 
         if idx_x is None and idx_y is None:
             shape = mnt.shape
@@ -373,31 +374,33 @@ class Sgp_helbig(Topo_utils):
             idx_y = range(shape[0])
             idx_x, idx_y = np.array(np.meshgrid(idx_x, idx_y)).astype(np.int32)
 
+        reshape = True if idx_x.ndim > 1 else False
+
         if reduce_mnt:
             small_idx_y = idx_y[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
             small_idx_x = idx_x[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
-            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(small_idx_x, small_idx_y, reshape=True, x_win=x_win, y_win=y_win)
+            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(small_idx_x, small_idx_y, reshape=reshape, x_win=x_win, y_win=y_win)
             shape = small_idx_y.shape
         else:
             shape = mnt.shape
             y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y, x_win=x_win, y_win=y_win,
-                                                                               reshape=True)
+                                                                               reshape=reshape)
 
         mnt, y_left, y_right, x_left, x_right = change_several_dtype_if_required([mnt, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
         boundaries_mnt = [shape[0], shape[0], shape[1], shape[1]]
         y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
                                                                         min_idx=[0, 0, 0, 0],
                                                                         max_idx=boundaries_mnt)
-        if librairie == "numba" and _numba:
+        if library == "numba" and _numba:
             std_slicing_numba = jit([float32[:](float32[:, :], int32[:], int32[:], int32[:], int32[:])], nopython=True)(self.std_slicing_numpy)
             std_flat = std_slicing_numba(mnt, y_left, y_right, x_left, x_right)
-            librairie = "numba"
+            library = "numba"
         else:
             std_flat = np.array([np.std(mnt[i1:j1+1, i2:j2+1]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
-            librairie = "numpy"
+            library = "numpy"
 
-        std = std_flat.reshape((shape[0], shape[1]))
-        if verbose: print(f"__Subgrid: computed average std. Output shape: {std.shape}. Librairie: {librairie}")
+        std = std_flat.reshape((shape[0], shape[1])) if reshape else std_flat
+        if verbose: print(f"__Subgrid: computed average std. Output shape: {std.shape}. Library: {library}")
 
         xsi = np.sqrt(2) * std / mu
 
@@ -419,7 +422,7 @@ class Sgp_helbig(Topo_utils):
             idx_x, idx_y = np.array(np.meshgrid(idx_x, idx_y)).astype(np.int32)
 
         mu = self.mu_helbig_average(mnt, dx, idx_x, idx_y, type=type, reduce_mnt=reduce_mnt, x_win=x_win, y_win=y_win)
-        xsi = self.xsi_helbig_map(mnt, mu, idx_x, idx_y, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x, nb_pixels_y=nb_pixels_y, x_win=x_win, y_win=y_win, librairie="numba")
+        xsi = self.xsi_helbig_map(mnt, mu, idx_x, idx_y, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x, nb_pixels_y=nb_pixels_y, x_win=x_win, y_win=y_win, library="numba")
 
         x = 1 - (1 - (1/(1+a*mu**b))**c)*np.exp(-d*(L/xsi)**(-2))
 
@@ -428,7 +431,7 @@ class Sgp_helbig(Topo_utils):
 
         return(x)
 
-    def subgrid(self, mnt_large, dx=25, L=2_000, idx_x=None, idx_y=None, type="map", reduce_mnt=True, nb_pixels_x=100, nb_pixels_y=100, verbose=True):
+    def subgrid(self, mnt_large, dx=25, L=2_000, x_win=69//2, y_win=79//2, idx_x=None, idx_y=None, type="map", reduce_mnt=True, nb_pixels_x=100, nb_pixels_y=100, verbose=True):
 
         if type == "map":
             shape = mnt_large.shape
@@ -441,6 +444,8 @@ class Sgp_helbig(Topo_utils):
         x_sgp_topo = self.x_sgp_topo_helbig_idx(mnt_large, idx_x, idx_y, dx,
                                                 L=L,
                                                 type=type,
+                                                x_win=x_win,
+                                                y_win=y_win,
                                                 reduce_mnt=reduce_mnt,
                                                 nb_pixels_x=nb_pixels_x,
                                                 nb_pixels_y=nb_pixels_y)
@@ -453,7 +458,7 @@ class Dwnsc_helbig(Sgp_helbig):
     def __init__(self):
         super().__init__()
 
-    def x_dsc_topo_helbig(self, mnt, dx=25, idx_x=None, idx_y=None, type="map", librairie="numba", verbose=True):
+    def x_dsc_topo_helbig(self, mnt, dx=25, idx_x=None, idx_y=None, type="map", library="numba", verbose=True):
 
         a = 17.0393
         b = 0.737
@@ -462,11 +467,11 @@ class Dwnsc_helbig(Sgp_helbig):
         e = 1.9821
 
         if type == "map":
-            laplacian = self.laplacian_map(mnt, dx, librairie=librairie, helbig=True)
+            laplacian = self.laplacian_map(mnt, dx, library=library, helbig=True)
             mu = self.mu_helbig_map(mnt, dx)
         elif type == "indexes":
             idx_x, idx_y = change_several_dtype_if_required([idx_x, idx_y], [np.int32, np.int32])
-            laplacian = self.laplacian_idx(mnt, idx_x, idx_y, dx, librairie=librairie, helbig=True)
+            laplacian = self.laplacian_idx(mnt, idx_x, idx_y, dx, library=library, helbig=True)
             mu = self.mu_helbig_idx(mnt, dx, idx_x, idx_y)
 
         term_1 = 1 - a*laplacian/(1 + a*np.abs(laplacian)**b)
@@ -480,8 +485,8 @@ class Dwnsc_helbig(Sgp_helbig):
         x = change_dtype_if_required(x, np.float32)
         return(x)
 
-    def downscale_helbig(self, mnt_large, dx=25, L=2_000, idx_x=None, idx_y=None, type="map", reduce_mnt=True,
-                         librairie="numba", nb_pixels_x=100, nb_pixels_y=100, verbose=True):
+    def downscale_helbig(self, mnt_large, dx=25, L=2_000, idx_x=None, idx_y=None, type="map", reduce_mnt=False,
+                         library="numba", nb_pixels_x=100, nb_pixels_y=100, verbose=True):
 
         if verbose: print(f"\nBegin subgrid parameterization from Helbig et al. 2017")
         x_sgp_topo = self.subgrid(mnt_large,
@@ -497,23 +502,27 @@ class Dwnsc_helbig(Sgp_helbig):
 
         plt.figure()
         plt.imshow(x_sgp_topo)
-        plt.title("Subgrid Helbig et al. 2017")
+        plt.colorbar()
+        plt.title("x_sgp_topo Helbig et al. 2017")
 
-        mnt_small = mnt_large[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
+        mnt_small = mnt_large[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x] if reduce_mnt else mnt_large
 
         plt.figure()
         plt.imshow(mnt_large)
+        plt.colorbar()
         plt.title("MNT")
 
         if verbose: print(f"\nBegin downscaling from Helbig et al. 2017")
-        x_dsc_topo = self.x_dsc_topo_helbig(mnt_small, dx=dx, idx_x=idx_x, idx_y=idx_y, type=type, verbose=verbose, librairie=librairie)
+        x_dsc_topo = self.x_dsc_topo_helbig(mnt_small, dx=dx, idx_x=idx_x, idx_y=idx_y, type=type, verbose=verbose, library=library)
 
         plt.figure()
         plt.imshow(x_dsc_topo)
+        plt.colorbar()
         plt.title("x_dsc_topo Helbig et al. 2017")
 
         plt.figure()
         plt.imshow(x_sgp_topo*x_dsc_topo)
-        plt.title("Downscaling Helbig et al. 2017")
+        plt.colorbar()
+        plt.title("x_sgp_topo*x_dsc_topo Helbig et al. 2017")
 
         return(x_sgp_topo*x_dsc_topo)

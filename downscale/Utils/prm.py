@@ -20,7 +20,7 @@ def _update_selected_path(year, month, day, prm):
     elif d5 < current_date <= d6:
         prm["selected_path"] = prm["AROME_path_4"]
     else:
-        prm["selected_path"] = prm["AROME_path_4"]
+        prm["selected_path"] = prm["AROME_path"]
 
     return(prm)
 

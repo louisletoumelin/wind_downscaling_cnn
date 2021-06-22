@@ -55,3 +55,32 @@ def assert_equal_shapes(arrays, shape):
 
 def round(t1, t2):
     return (np.round(t2 - t1, 2))
+
+
+def reshape_list_array(list_array=None, shape=None):
+    """
+    Utility function that takes as input a list of arrays to reshape to the same shape
+
+    Parameters
+    ----------
+    list_array : list
+        List of arrays
+    shape : tuple
+        typle of shape
+
+    Returns
+    -------
+    result : list
+        List of reshaped arrays
+    """
+    result = []
+    for array in list_array:
+        result.append(np.reshape(array, shape))
+    return (result)
+
+
+def several_empty_like(array_like, nb_empty_arrays=None):
+    result = []
+    for array in range(nb_empty_arrays):
+        result.append(np.empty_like(array_like))
+    return (result)

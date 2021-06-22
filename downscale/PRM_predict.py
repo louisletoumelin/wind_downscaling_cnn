@@ -23,10 +23,10 @@ def create_prm(month_prediction=True):
     prm["line_profile"] = False
     prm["memory_profile"] = False
     prm["add_additionnal_stations"] = False
-    prm["launch_predictions"] = True
+    prm["launch_predictions"] = False
 
     # For predictions at stations
-    prm["stations_to_predict"] = ['Col du Lac Blanc']
+    prm["stations_to_predict"] = "all"
     prm["ideal_case"] = False
 
     # For predictions long periods
@@ -41,15 +41,15 @@ def create_prm(month_prediction=True):
     prm["dy"] = 2_500
     prm["extract_stations_only"] = True
 
-    prm["hour_begin"] = 1
-    prm["day_begin"] = 2
+    prm["hour_begin"] = 6
+    prm["day_begin"] = 1
     prm["month_begin"] = 6
-    prm["year_begin"] = 2019
+    prm["year_begin"] = 2017
 
-    prm["hour_end"] = 1
-    prm["day_end"] = 2
+    prm["hour_end"] = 5
+    prm["day_end"] = 1
     prm["month_end"] = 6
-    prm["year_end"] = 2019
+    prm["year_end"] = 2018
 
     prm["begin"] = str(prm["year_begin"]) + "-" + str(prm["month_begin"]) + "-" + str(prm["day_begin"])
     prm["begin_after"] = str(prm["year_begin"]) + "-" + str(prm["month_begin"]) + "-" + str(prm["day_begin"] + 1)

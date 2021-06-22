@@ -54,7 +54,7 @@ class Wind_utils:
         else:
             return ((wind_in * np.log(z_out / z0)) / np.log(z_in / z0))
         
-    def exposed_wind_speed(self, wind_speed=None, z_out=None, z0=None, z0_rel=None, apply_directly_to_nwp=False, verbose=True):
+    def exposed_wind_speed(self, wind_speed=None, z_out=None, z0=None, z0_rel=None, apply_directly_to_nwp=False, library="numexpr", verbose=True):
         """
         Expose wind speed (deoperate subgrid parameterization from NWP)
 
@@ -83,7 +83,7 @@ class Wind_utils:
 
         if not (apply_directly_to_nwp):
 
-            if self._numexpr:
+            if self._numexpr and library=="numexpr":
                 acceleration_factor = ne.evaluate(
                     "log((z_out) / z0) * (z0 / (z0_rel+z0))**0.0706 / (log((z_out) / (z0_rel+z0)))")
                 acceleration_factor = ne.evaluate("where(acceleration_factor > 0, acceleration_factor, 1)")
@@ -117,19 +117,19 @@ class Wind_utils:
         wind_direction : array
             Constant wind direction.
         """
-        wind_speed = wind_speed * 0 + input_speed
-        wind_dir = wind_dir * 0 + input_dir
+        wind_speed = np.full(wind_speed.shape, input_speed)
+        wind_dir = np.full(wind_dir.shape, input_dir)
         if verbose: print("__Wind speed scaled for ideal cases")
         return (wind_speed, wind_dir)
     
-    def wind_speed_ratio(self, num=None, den=None):
-        if self._numexpr:
+    def wind_speed_ratio(self, num=None, den=None, library="numexpr"):
+        if self._numexpr and library == "numexpr":
             a1 = ne.evaluate("where(den > 0, num / den, 1)")
         else:
             a1 = np.where(den > 0, num / den, 1)
         return (a1)
 
-    def _3D_wind_speed(self, U=None, V=None, W=None, out=None, verbose=True):
+    def _3D_wind_speed(self, U=None, V=None, W=None, out=None, library="numexpr", verbose=True):
         """
         UVW = np.sqrt(U**2 + V**2 + W**2)
 
@@ -151,7 +151,7 @@ class Wind_utils:
             Wind speed
         """
         if out is None:
-            if self._numexpr:
+            if self._numexpr and library == "numexpr":
                 wind_speed = ne.evaluate("sqrt(U**2 + V**2 + W**2)")
             else:
                 wind_speed = np.sqrt(U ** 2 + V ** 2 + W ** 2)
@@ -159,13 +159,13 @@ class Wind_utils:
             return (wind_speed)
 
         else:
-            if self._numexpr:
+            if self._numexpr and library == "numexpr":
                 ne.evaluate("sqrt(U**2 + V**2 + W**2)", out=out)
             else:
                 np.sqrt(U ** 2 + V ** 2 + W ** 2, out=out)
             if verbose: print("__UVW calculated")
 
-    def _2D_wind_speed(self, U=None, V=None, out=None, verbose=True):
+    def _2D_wind_speed(self, U=None, V=None, out=None, library="numexpr", verbose=True):
         """
         UV = np.sqrt(U**2 + V**2)
 
@@ -185,7 +185,7 @@ class Wind_utils:
             Wind speed
         """
         if out is None:
-            if self._numexpr:
+            if self._numexpr and library == "numexpr":
                 wind_speed = ne.evaluate("sqrt(U**2 + V**2)")
             else:
                 wind_speed = np.sqrt(U ** 2 + V ** 2)
@@ -193,7 +193,7 @@ class Wind_utils:
             return (wind_speed)
 
         else:
-            if self._numexpr:
+            if self._numexpr and library == "numexpr":
                 ne.evaluate("sqrt(U**2 + V**2)", out=out)
             else:
                 np.sqrt(U ** 2 + V ** 2, out=out)
@@ -251,7 +251,7 @@ class Wind_utils:
             if verbose: print("__Wind and Wind_DIR calculated on xarray")
             return (xarray_data)
 
-    def wind_speed_scaling(self, scaling_wind, prediction, linear=True, verbose=True):
+    def wind_speed_scaling(self, scaling_wind, prediction, linear=True, library="numexpr", verbose=True):
         """
         scaling_wind * prediction / 3
 
@@ -270,7 +270,7 @@ class Wind_utils:
             Scaled wind
         """
         if linear:
-            if self._numexpr:
+            if self._numexpr and library=="numexpr":
                 prediction = ne.evaluate("scaling_wind * prediction / 3")
             else:
                 prediction = scaling_wind * prediction / 3
@@ -278,7 +278,7 @@ class Wind_utils:
         if verbose: print('__Wind speed scaling done')
         return (prediction)
 
-    def angular_deviation(self, U, V, verbose=True):
+    def angular_deviation(self, U, V, library="numexpr", verbose=True):
         """
         Angular deviation from incoming flow.
 
@@ -297,7 +297,7 @@ class Wind_utils:
         alpha : ndarray
             Angular deviation [rad]
         """
-        if self._numexpr:
+        if self._numexpr and library=="numexpr":
             alpha = ne.evaluate("where(U == 0, where(V == 0, 0, V/abs(V) * 3.14159 / 2), arctan(V / U))")
         else:
             alpha = np.where(U == 0,
@@ -307,7 +307,7 @@ class Wind_utils:
         if verbose: print("__Angular deviation calculated")
         return (alpha)
 
-    def direction_from_alpha(self, wind_dir, alpha, input_dir_in_degree=True, verbose=True):
+    def direction_from_alpha(self, wind_dir, alpha, input_dir_in_degree=True, library="numexpr", verbose=True):
         """
         wind_dir - alpha
 
@@ -329,7 +329,7 @@ class Wind_utils:
             Modified wind direction
         """
         if input_dir_in_degree:
-            if self._numexpr:
+            if self._numexpr and library=="numexpr":
                 UV_DIR = ne.evaluate("(3.14159/180) * wind_dir - alpha")
             else:
                 UV_DIR = (np.pi / 180) * wind_dir - alpha
@@ -339,7 +339,7 @@ class Wind_utils:
 
     def horizontal_wind_component(self, UV=None, UV_DIR=None,
                                   working_with_xarray=False, xarray_data=None, wind_name="Wind",
-                                  wind_dir_name="Wind_DIR", verbose=True):
+                                  wind_dir_name="Wind_DIR", library="numexpr", verbose=True):
         """
         U = -np.sin(UV_DIR) * UV
         V = -np.cos(UV_DIR) * UV
@@ -365,7 +365,7 @@ class Wind_utils:
         """
         if not (working_with_xarray):
 
-            if self._numexpr:
+            if self._numexpr and library=="numexpr":
                 U = ne.evaluate("-sin(UV_DIR) * UV")
                 V = ne.evaluate("-cos(UV_DIR) * UV")
 
@@ -386,7 +386,7 @@ class Wind_utils:
             if verbose: print('__Horizontal wind component calculated on xarray')
             return (xarray_data)
 
-    def direction_from_u_and_v(self, U, V, output_in_degree=True, verbose=True):
+    def direction_from_u_and_v(self, U, V, output_in_degree=True, library="numexpr", verbose=True):
         """
         UV_DIR = 180 + (180/3.14159)*arctan2(U,V)) % 360
 
@@ -407,7 +407,7 @@ class Wind_utils:
             Wind direction
         """
         if output_in_degree:
-            if self._numexpr:
+            if self._numexpr and library=="numexpr":
                 UV_DIR = ne.evaluate("(180 + (180/3.14159)*arctan2(U,V)) % 360")
             else:
                 UV_DIR = np.mod(180 + np.rad2deg(np.arctan2(U, V)), 360)

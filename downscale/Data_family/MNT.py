@@ -29,11 +29,11 @@ class MNT(Data_2D):
         super().__init__(path_to_file, name)
 
         # Load MNT with xr.open_rasterio or xr.open_dataset
-        _mnt_loaded = False
+        self._mnt_loaded = False
         self.load_mnt_files(path_to_file, chunks=None) if path_to_file is not None else None
 
         # Corners of MNT
-        if _mnt_loaded:
+        if self._mnt_loaded:
             self.get_mnt_caracteristics(resolution_x=resolution_x, resolution_y=resolution_y, name=name)
 
         t1 = t()
@@ -53,12 +53,12 @@ class MNT(Data_2D):
             self.data_xr = xr.open_rasterio(path_to_file, chunks=chunks).astype(np.float32, copy=False)
             self.data = self.data_xr.values[0, :, :]
             if verbose: print(f"__Used xr.open_rasterio to open MNT and {chunks} chunks")
-            _mnt_loaded = True
+            self._mnt_loaded = True
         else:
             self.data_xr = xr.open_dataset(path_to_file).astype(np.float32, copy=False)
             self.data = self.data_xr.__xarray_dataarray_variable__.data[0, :, :]
             if verbose: print("__Used xr.open_dataset to open MNT")
-            _mnt_loaded = True
+            self._mnt_loaded = True
 
     def find_nearest_MNT_index(self, x, y,
                                look_for_corners=True, xmin_MNT=None, ymax_MNT=None,
@@ -75,6 +75,23 @@ class MNT(Data_2D):
         index_x_MNT = np.intp((x - xmin_MNT) // resolution_x)
         index_y_MNT = np.intp((ymax_MNT - y) // resolution_y)
         return (index_x_MNT, index_y_MNT)
+
+    def _get_mnt_data_and_shape(self, mnt_data):
+        """
+        This function takes as input a mnt and returns data, coordinates and shape
+        """
+
+        if self._dask:
+            shape_x_mnt, shape_y_mnt = mnt_data.data.shape[1:]
+            mnt_data_x = mnt_data.x.data.astype(np.float32)
+            mnt_data_y = mnt_data.y.data.astype(np.float32)
+            mnt_data = mnt_data.data.astype(np.float32)
+        else:
+            mnt_data_x = mnt_data.x.data.astype(np.float32)
+            mnt_data_y = mnt_data.y.data.astype(np.float32)
+            mnt_data = mnt_data.__xarray_dataarray_variable__.data.astype(np.float32)
+            shape_x_mnt, shape_y_mnt = mnt_data[0, :, :].shape
+        return (mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt)
 
     @property
     def shape(self):

@@ -11,17 +11,13 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import random  # Warning
 import datetime
-import time
-import os
-import concurrent.futures
 
 # Local imports
 from downscale.Utils.GPU import environment_GPU
-from downscale.Utils.Utils import print_current_line, change_dtype_if_required, assert_equal_shapes
+from downscale.Utils.Utils import print_current_line, change_dtype_if_required, assert_equal_shapes, reshape_list_array, several_empty_like
 from downscale.Operators.Rotation import Rotation
 from downscale.Operators.wind_utils import Wind_utils
 from downscale.Operators.topo_utils import Topo_utils
-from downscale.Analysis.MidpointNormalize import MidpointNormalize
 
 
 # try importing optional modules
@@ -54,6 +50,7 @@ try:
     _dask = True
 except ModuleNotFoundError:
     _dask = False
+
 
 # Custom Metrics : NRMSE
 def nrmse(y_true, y_pred):
@@ -88,7 +85,7 @@ class Processing:
         self.tu = Topo_utils()
         environment_GPU(GPU=GPU)
 
-    def _select_nwp_time_serie_at_pixel(self, station_name, Z0=False, verbose=False, time=True, all=False):
+    def _extract_variable_from_nwp_at_station(self, station_name, variable_to_extract=["time", "wind_speed", "wind_direction", "Z0", "Z0REL", "ZS"], verbose=False):
         """
         Extract a time serie from the nwp, for several variables, at a station location.
 
@@ -128,30 +125,35 @@ class Processing:
         # Select NWP data
         nwp_instance = self.nwp.data_xr
 
-        if time or all:
+        results = np.empty_like(variable_to_extract)
+        if "time" in variable_to_extract:
             time_index = nwp_instance.time.data
-            if time:
-                return(time_index)
+            results[variable_to_extract.index("time")] = time_index
 
-        wind_speed = nwp_instance.Wind.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
-        wind_dir = nwp_instance.Wind_DIR.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+        if "wind_speed" in variable_to_extract:
+            wind_speed = nwp_instance.Wind.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+            results[variable_to_extract.index("wind_speed")] = wind_speed
 
-        # Select Z0 informaiton
-        if Z0 == True:
+        if "wind_direction" in variable_to_extract:
+            wind_dir = nwp_instance.Wind_DIR.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+            results[variable_to_extract.index("wind_direction")] = wind_dir
+
+        if "Z0" in variable_to_extract:
             Z0 = nwp_instance.Z0.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+            results[variable_to_extract.index("Z0")] = Z0
+
+        if "Z0REL" in variable_to_extract:
             Z0REL = nwp_instance.Z0REL.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+            results[variable_to_extract.index("Z0REL")] = Z0REL
+
+        if "ZS" in variable_to_extract:
             ZS = nwp_instance.ZS.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
-        else:
-            Z0 = []
-            Z0REL = []
-            ZS = []
+            results[variable_to_extract.index("ZS")] = ZS
 
         if verbose: print(f"Selected time series for pixel at station: {station_name}")
-        if all:
-            return (wind_dir, wind_speed, time_index, Z0, Z0REL, ZS)
-        else:
-            return (wind_dir, wind_speed, Z0, Z0REL, ZS)
+        return (results)
 
+    @staticmethod
     def _select_time_serie_from_array_xr(self, array_xr, station_name='Col du Lac Blanc', variable='UV', center=True):
         """
         Extract a time serie from array_xr and returns a numpy array.
@@ -183,7 +185,7 @@ class Processing:
 
     def load_model(self, dependencies=False):
         """
-        Load a CNN, ans optionnaly its dependencies.
+        Load a CNN, and its dependencies.
 
         Parameters
         ----------
@@ -253,35 +255,6 @@ class Processing:
 
         if verbose: print("__NWP time window selected")
 
-    @staticmethod
-    def reshape_list_array(list_array=None, shape=None):
-        """
-        Utility function that takes as input a list of arrays to reshape to the same shape
-
-        Parameters
-        ----------
-        list_array : list
-            List of arrays
-        shape : tuple
-            typle of shape
-
-        Returns
-        -------
-        result : list
-            List of reshaped arrays
-        """
-        result = []
-        for array in list_array:
-            result.append(np.reshape(array, shape))
-        return (result)
-
-    @staticmethod
-    def several_empty_like(array_like, nb_empty_arrays=None):
-        result = []
-        for array in range(nb_empty_arrays):
-            result.append(np.empty_like(array_like))
-        return (result)
-
     def _initialize_arrays(self, predict='stations_month', nb_station=None, nb_sim=None):
         """
         Utility function used to initialize arrays in _predict_at_stations
@@ -334,12 +307,14 @@ class Processing:
                                       input_speed=input_speed, input_dir=input_dir)
             return(array_xr)
 
+    @staticmethod
     def select_height_for_exposed_wind_speed(self, height=None, zs=None, peak_valley=None):
         if peak_valley:
             return(height)
         else:
             return(zs)
 
+    @staticmethod
     def get_closer_from_learning_conditions(self, topo, mean_height, std, P95=530, P05=-527, axis=(1,2)):
 
         max_alt_deviation = np.nanmax(topo.squeeze() - mean_height, axis=axis)
@@ -404,7 +379,7 @@ class Processing:
         self._select_timeframe_nwp(ideal_case=ideal_case, verbose=True)
 
         # Simulation parameters
-        time_xr = self._select_nwp_time_serie_at_pixel(random.choice(stations_name), time=True)
+        time_xr = self._extract_variable_from_nwp_at_station(random.choice(stations_name), variable_to_extract=["time"])
         nb_sim = len(time_xr)
         nb_station = len(stations_name)
 
@@ -426,8 +401,9 @@ class Processing:
 
             # Select nwp pixel
             wind_dir_all[idx_station, :], wind_speed_all[idx_station, :], Z0_all[idx_station, :], \
-            Z0REL_all[idx_station, :], ZS_all[idx_station, :] = self._select_nwp_time_serie_at_pixel(single_station,
-                                                                                                Z0=Z0_cond, time=False)
+            Z0REL_all[idx_station, :], ZS_all[idx_station, :] = self._extract_variable_from_nwp_at_station(single_station,
+                                                                                                           variable_to_extract=["wind_direction", "wind_speed", "Z0", "Z0REL", "ZS"])
+
             # For ideal case, we define the input speed and direction
             if ideal_case:
                 wind_speed_all[idx_station, :], \
@@ -523,7 +499,7 @@ class Processing:
         # Reshape for broadcasting
         wind_speed_all = wind_speed_all.reshape((nb_station, nb_sim, 1, 1, 1))
         if Z0_cond:
-            exp_Wind, acceleration_factor, ten_m_array, three_m_array, Z0_all = self.reshape_list_array(
+            exp_Wind, acceleration_factor, ten_m_array, three_m_array, Z0_all = reshape_list_array(
                 list_array=[exp_Wind, acceleration_factor, ten_m_array, three_m_array, Z0_all],
                 shape=(nb_station, nb_sim, 1, 1, 1))
             peak_valley_height = peak_valley_height.reshape((nb_station, 1, 1, 1, 1))
@@ -592,13 +568,13 @@ class Processing:
             (nb_station, nb_sim, 1, 1))) if Z0_cond else np.full_like(UVW, np.nan)
 
         # Reshape after broadcasting
-        wind_speed_all, wind_dir_all, Z0_all = self.reshape_list_array(list_array=[wind_speed_all, wind_dir_all, Z0_all],
+        wind_speed_all, wind_dir_all, Z0_all = reshape_list_array(list_array=[wind_speed_all, wind_dir_all, Z0_all],
                                                                shape=(nb_station, nb_sim))
         if Z0_cond:
-            exp_Wind, acceleration_factor, a1, a2, a3 = self.reshape_list_array(
+            exp_Wind, acceleration_factor, a1, a2, a3 = reshape_list_array(
                 list_array=[exp_Wind, acceleration_factor, a1, a2, a3],
                 shape=(nb_station, nb_sim))
-            a4, acceleration_CNN = self.reshape_list_array(list_array=[np.max(a4, axis=4), acceleration_CNN],
+            a4, acceleration_CNN = reshape_list_array(list_array=[np.max(a4, axis=4), acceleration_CNN],
                                                            shape=(nb_station, nb_sim, self.n_rows, self.n_col))
             peak_valley_height = peak_valley_height.reshape((nb_station))
 
@@ -666,7 +642,7 @@ class Processing:
 
         return (array_xr)
 
-    def _select_large_domain_around_station(self, station_name, dx, dy, type="NWP", additionnal_dx_mnt=None):
+    def _select_large_domain_around_station(self, station_name, dx, dy, type="NWP", additional_dx_mnt=None):
         """
 
         This function operate on NWP or MNT and select and area around a station specified by its name
@@ -681,7 +657,7 @@ class Processing:
             The domain length is 2*dx
         type: str
             "NWP" or "MNT"
-        additionnal_dx_mnt: float
+        additional_dx_mnt: float
             Additional length to the side of the domain (Default: True)
 
             Usually used when extracting MNT data. As CNN predictions are performed on maps but the information is only
@@ -710,9 +686,9 @@ class Processing:
 
         elif type == "MNT":
             # MNT domain must be larger than NWP domain as we extract MNT data around NWP data
-            if additionnal_dx_mnt is not None:
-                dx = dx + additionnal_dx_mnt
-                dy = dy + additionnal_dx_mnt
+            if additional_dx_mnt is not None:
+                dx = dx + additional_dx_mnt
+                dy = dy + additional_dx_mnt
             mnt_name = self.mnt.name
             mnt_x, mnt_y = stations[f"{mnt_name}_NN_0_cKDTree"][stations["name"] == station_name].values[0]
 
@@ -726,23 +702,6 @@ class Processing:
             data_xr = data_xr.where(mask, drop=True)
 
         return (data_xr)
-
-    def _get_mnt_data_and_shape(self, mnt_data):
-        """
-        This function takes as input a mnt and returns data, coordinates and shape
-        """
-
-        if self._dask:
-            shape_x_mnt, shape_y_mnt = mnt_data.data.shape[1:]
-            mnt_data_x = mnt_data.x.data.astype(np.float32)
-            mnt_data_y = mnt_data.y.data.astype(np.float32)
-            mnt_data = mnt_data.data.astype(np.float32)
-        else:
-            mnt_data_x = mnt_data.x.data.astype(np.float32)
-            mnt_data_y = mnt_data.y.data.astype(np.float32)
-            mnt_data = mnt_data.__xarray_dataarray_variable__.data.astype(np.float32)
-            shape_x_mnt, shape_y_mnt = mnt_data[0, :, :].shape
-        return (mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt)
 
     @staticmethod
     def interpolate_xarray_grid(xarray_data=None, interp=None, name_x='xx', name_y='yy', method='linear'):
@@ -770,13 +729,13 @@ class Processing:
         return (xarray_data)
 
     def prepare_time_and_domain_nwp(self, year_0, month_0, day_0, hour_0,year_1, month_1, day_1, hour_1,
-                                    station_name=None, dx=None, dy=None, additionnal_dx_mnt=None, verbose=True):
+                                    station_name=None, dx=None, dy=None, additional_dx_mnt=None, verbose=True):
 
         begin = datetime.datetime(year_0, month_0, day_0, hour_0)
         end = datetime.datetime(year_1, month_1, day_1, hour_1)
         self._select_timeframe_nwp(begin=begin,end=end)
 
-        nwp_data = self._select_large_domain_around_station(station_name, dx, dy, type="NWP", additionnal_dx_mnt=additionnal_dx_mnt)
+        nwp_data = self._select_large_domain_around_station(station_name, dx, dy, type="NWP", additional_dx_mnt=additional_dx_mnt)
         if verbose: print("__Prepare time and domain NWP")
         return(nwp_data)
 
@@ -874,9 +833,7 @@ class Processing:
                     UV = self.wu.compute_wind_speed(wind[:,j,i,y_offset_left:y_offset_right,x_offset_left:x_offset_right, 0],
                                                  wind[:,j,i,y_offset_left:y_offset_right,x_offset_left:x_offset_right, 1],
                                                  verbose=False)
-                    #print(UV.shape)
-                    #print(wind_speed_nwp[:,j,i].shape)
-                    #print(acceleration_all[:,mnt_y_left:mnt_y_right,mnt_x_left:mnt_x_right].shape)
+
                     acceleration_all[:,mnt_y_left:mnt_y_right,mnt_x_left:mnt_x_right] = UV/wind_speed_nwp[:,j,i].reshape((wind_speed_nwp.shape[0], 1, 1))
             return(mnt_map, acceleration_all)
         else:
@@ -1018,9 +975,9 @@ class Processing:
             wind_speed_nwp, wind_DIR_nwp = self.extract_from_xarray_to_numpy(nwp_data, variables)
 
         # Select MNT data
-        mnt_data = self._select_large_domain_around_station(station_name, dx, dy, type="MNT", additionnal_dx_mnt=2_000)
+        mnt_data = self._select_large_domain_around_station(station_name, dx, dy, type="MNT", additional_dx_mnt=2_000)
         xmin_mnt, ymax_mnt, resolution_x, resolution_y = self.get_caracteristics_mnt(mnt_data)
-        mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt = self._get_mnt_data_and_shape(mnt_data)
+        mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt = self.mnt._get_mnt_data_and_shape(mnt_data)
         coord = [mnt_data_x, mnt_data_y]
 
         # Initialize wind map
