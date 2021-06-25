@@ -91,9 +91,6 @@ class Observation:
         # float32
         self._downcast_dtype(oldtype='float64', newtype='float32')
 
-        # Import delayed
-        self.delayed = self.import_delayed_dask(use_dask=False)
-
         t1 = t()
         print(f"Observation created in {np.round(t1-t0, 2)} seconds\n")
 
@@ -101,7 +98,7 @@ class Observation:
                           path_saint_sorlin, path_argentiere, path_Dome_Lac_Blanc,
                           path_Col_du_Lac_Blanc, path_Muzelle_Lac_Blanc,
                           path_Col_de_Porte, path_Col_du_Lautaret, GPU=False):
-        if not(GPU):
+        if not GPU:
             self.path_to_list_stations = path_to_list_stations
             self.path_to_time_series = path_to_time_series
             self.path_vallot = path_vallot
@@ -121,15 +118,15 @@ class Observation:
 
         else:
             def delayed(func):
-                return(func)
+                return func
 
-        return(delayed)
+        return delayed
 
     def _downcast_dtype(self, oldtype='float64', newtype='float32'):
         self.time_series.loc[:, self.time_series.dtypes == oldtype ] = self.time_series.loc[:, self.time_series.dtypes == oldtype].astype(newtype)
 
     def _add_all_stations(self, GPU=False):
-        if not(GPU):
+        if not GPU:
             if self.path_vallot is not None: self._add_station(name='Vallot')
             if self.path_saint_sorlin is not None: self._add_station(name='Saint-Sorlin')
             if self.path_argentiere is not None: self._add_station(name='Argentiere')
@@ -140,7 +137,7 @@ class Observation:
             if self.path_Col_du_Lautaret is not None: self._add_station(name='Col du Lautaret')
 
     def _add_all_time_series(self, GPU=False):
-        if not(GPU):
+        if not GPU:
             if self.path_vallot is not None: self._add_time_serie_vallot(log_profile=True)
             if self.path_saint_sorlin is not None: self._add_time_serie_glacier(name='Saint-Sorlin', log_profile=False)
             if self.path_argentiere is not None: self._add_time_serie_glacier(name='Argentiere', log_profile=False)
@@ -157,7 +154,6 @@ class Observation:
                 self.stations = pd.read_csv(path)
                 if verbose: print(f"__Stations loaded using pd.read_csv")
             else:
-                #self.stations = pd.read_pickle(path)
                 self.stations = pd.read_csv(path)
                 list_variables_str = ['AROME_NN_0', 'index_AROME_NN_0', 'AROME_NN_1','index_AROME_NN_1', 'AROME_NN_2',
                                'index_AROME_NN_2', 'AROME_NN_3', 'index_AROME_NN_3', 'index_IGN_NN_0_cKDTree',
@@ -525,7 +521,7 @@ class Observation:
 
         def K_N_N_point(point):
             distance, idx = tree.query(point, k=number_neighbor)
-            return (distance, idx)
+            return distance, idx
 
         # Reference stations
         list_coord_station = zip(self.stations['X'].values, self.stations['Y'].values)
@@ -608,17 +604,17 @@ class Observation:
         MNT_data = mnt.data[index_y - nb_pixel_y:index_y + nb_pixel_y, index_x - nb_pixel_x:index_x + nb_pixel_x]
         MNT_x = mnt.data_xr.x.data[index_x - nb_pixel_x:index_x + nb_pixel_x]
         MNT_y = mnt.data_xr.y.data[index_y - nb_pixel_y:index_y + nb_pixel_y]
-        return (MNT_data, MNT_x, MNT_y)
+        return MNT_data, MNT_x, MNT_y
 
     @staticmethod
     def _degToCompass(num):
         if np.isnan(num):
-            return(np.nan)
+            return np.nan
 
         else:
             val=int((num/22.5)+.5)
             arr=["N","NNE","NE","ENE","E","ESE", "SE", "SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"]
-            return(arr[(val % 16)])
+            return arr[(val % 16)]
 
     @print_func_executed_decorator("initialization")
     @timer_decorator("initialization", unit="minute")
@@ -704,7 +700,7 @@ class Observation:
         filter = time_series["name"] == station
         time_series_station = time_series[filter].asfreq(frequency)
         time_series_station["name"] = station
-        return(time_series_station)
+        return time_series_station
 
     @print_func_executed_decorator("resample_index")
     @timer_decorator("resample_index", unit="minute")
@@ -732,7 +728,7 @@ class Observation:
             # Check for resolution
             resolution_found = False
             decimal = 0
-            while not (resolution_found):
+            while not resolution_found:
 
                 wind_array = wind_per_day.values
                 wind_round_array = wind_per_day.round(decimal).values
@@ -764,7 +760,7 @@ class Observation:
             else:
                 resolution = resolution - 1
 
-        return(time_series_station)
+        return time_series_station
 
     @print_func_executed_decorator("get_wind_speed_resolution")
     @timer_decorator("get_wind_speed_resolution", unit="minute")
@@ -779,7 +775,7 @@ class Observation:
         list_stations = time_series["name"].unique()
         list_dataframe = []
         for station in list_stations:
-            time_series_station = self.delayed(self._qc_get_wind_speed_resolution(time_series, station, wind_speed))
+            time_series_station = self._qc_get_wind_speed_resolution(time_series, station, wind_speed)
 
             # Add station to list of dataframe
             list_dataframe.append(time_series_station)
@@ -812,7 +808,7 @@ class Observation:
                 resolution_found = False
                 resolutions = [10, 5, 1, 0.1]
                 index = 0
-                while not (resolution_found):
+                while not resolution_found:
                     resolution = resolutions[index]
                     wind_round_array = np.around(wind_array / resolution, decimals=0) * resolution
 
@@ -1113,7 +1109,7 @@ class Observation:
 
         self.time_series = pd.concat(list_dataframe)
 
-        return (dict_cst_seq)
+        return dict_cst_seq
 
     @print_func_executed_decorator("excessive_MISS")
     @timer_decorator("excessive_MISS", unit="minute")
@@ -1376,7 +1372,7 @@ class Observation:
             print(f"__Minimum length of suspect constant sequence: {criteria_min}")
             print(f"__Maximum length of suspect constant sequence: {criteria_max}")
             
-        return (dict_all_stations)
+        return dict_all_stations
 
     @print_func_executed_decorator("apply_stats_cst_seq")
     @timer_decorator("apply_stats_cst_seq", unit="minute")
@@ -1777,7 +1773,7 @@ class Observation:
             no_outliers[filter_1 | filter_2] = np.nan
 
             # Seasonal mean based on each day
-            seasonal = no_outliers.groupby([(no_outliers.index.month), (no_outliers.index.day)]).mean()
+            seasonal = no_outliers.groupby([no_outliers.index.month, no_outliers.index.day]).mean()
 
             # Arbitrary index
             try:
@@ -1864,7 +1860,7 @@ class Observation:
         if update_file:
             self.time_series = pd.concat(list_dataframe)
         else:
-            return (time_serie_station)
+            return time_serie_station
 
     def _qc_isolated_records(self, time_series_station, variable, max_time=24, min_time=12, type="speed", verbose=True):
 
@@ -1916,7 +1912,7 @@ class Observation:
             print(f"__Isolated record max  duration: {max_time} hours")
             print(f"__Nan periods before isolated records: min {min_time} hours")
 
-        return(time_series_station)
+        return time_series_station
 
     @print_func_executed_decorator("isolated records")
     @timer_decorator("isolated_records", unit="minute")
@@ -1995,7 +1991,7 @@ class Observation:
 
         self._qc = True
 
-        return (dict_constant_sequence, dict_all_stations)
+        return dict_constant_sequence, dict_all_stations
 
     # Multiprocessing
     def qc_bias_station(self, time_series=None, station=None, wind_speed=None,
@@ -2025,14 +2021,14 @@ class Observation:
         no_outliers[filter_1 | filter_2] = np.nan
 
         # Seasonal mean based on each day
-        seasonal = no_outliers.groupby([(no_outliers.index.month), (no_outliers.index.day)]).mean()
+        seasonal = no_outliers.groupby([no_outliers.index.month, no_outliers.index.day]).mean()
 
         # Arbitrary index
         try:
             seasonal.index = pd.date_range(start='1904-01-01', freq='D', periods=366)
         except ValueError:
             print(f"__qc_bias: Not enough data at {station} to perform bias analysis")
-            return (None)
+            return None
 
         # Rolling mean
         seasonal_rolling = seasonal.rolling('15D').mean()
@@ -2104,7 +2100,7 @@ class Observation:
             time_serie_station["last_flagged_speed"][result == 1] = "high variation"
 
         # Add station to list of dataframe
-        return (time_serie_station)
+        return time_serie_station
 
     def _qc_bias_station(self, args):
         return self.qc_bias_station(**args)

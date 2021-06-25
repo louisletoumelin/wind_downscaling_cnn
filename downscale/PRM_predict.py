@@ -23,10 +23,10 @@ def create_prm(month_prediction=True):
     prm["line_profile"] = False
     prm["memory_profile"] = False
     prm["add_additionnal_stations"] = False
-    prm["launch_predictions"] = False
+    prm["launch_predictions"] = True
 
     # For predictions at stations
-    prm["stations_to_predict"] = "all"
+    prm["stations_to_predict"] = ["Col du Lac Blanc"]
     prm["ideal_case"] = False
 
     # For predictions long periods
@@ -41,15 +41,15 @@ def create_prm(month_prediction=True):
     prm["dy"] = 2_500
     prm["extract_stations_only"] = True
 
-    prm["hour_begin"] = 6
-    prm["day_begin"] = 1
+    prm["hour_begin"] = 1
+    prm["day_begin"] = 10
     prm["month_begin"] = 6
-    prm["year_begin"] = 2017
+    prm["year_begin"] = 2019
 
-    prm["hour_end"] = 5
-    prm["day_end"] = 1
+    prm["hour_end"] = 1
+    prm["day_end"] = 10
     prm["month_end"] = 6
-    prm["year_end"] = 2018
+    prm["year_end"] = 2019
 
     prm["begin"] = str(prm["year_begin"]) + "-" + str(prm["month_begin"]) + "-" + str(prm["day_begin"])
     prm["begin_after"] = str(prm["year_begin"]) + "-" + str(prm["month_begin"]) + "-" + str(prm["day_begin"] + 1)
@@ -70,11 +70,11 @@ def create_prm(month_prediction=True):
         #prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/04_Mai_2021/liste_postes_Alpes_LLT.csv"
 
         # 2017-2019
-        #prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_BDClim_et_sta_alp_20171101_20190501.csv"
+        prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_BDClim_et_sta_alp_20171101_20190501.csv"
         # 2015-2021
         #prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_FF_T_RR1_alp_2015010100_2021013100.csv"
         # 2009-2021
-        prm["BDclim_data_path"] = prm["data_path"] + "BDclim/04_Mai_2021/extract_FF_T_RR1_alp_2009010100_2021013100.csv"
+        #prm["BDclim_data_path"] = prm["data_path"] + "BDclim/04_Mai_2021/extract_FF_T_RR1_alp_2009010100_2021013100.csv"
 
         # NWP
         prm["AROME_path_1"] = prm["data_path"] + "AROME/FORCING_alp_2017080106_2018080106_32bits.nc"
@@ -155,11 +155,12 @@ def create_prm(month_prediction=True):
     prm["list_additionnal"] = ['Vallot', 'Saint-Sorlin', 'Argentiere', 'Dome Lac Blanc', 'Col du Lac Blanc',
                                'La Muzelle Lac Blanc', 'Col de Porte']
 
-    return(prm)
+    return prm
 
 
 
 """
+# Détection des biais
 from sklearn.neighbors import KernelDensity
 from collections import defaultdict
 import matplotlib.pyplot as plt

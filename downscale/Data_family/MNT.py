@@ -48,7 +48,7 @@ class MNT(Data_2D):
 
     def load_mnt_files(self, path_to_file, verbose=True, chunks=None):
         if _rasterio:
-            if not(_dask):
+            if not _dask:
                 chunks = None
             self.data_xr = xr.open_rasterio(path_to_file, chunks=chunks).astype(np.float32, copy=False)
             self.data = self.data_xr.values[0, :, :]
@@ -74,7 +74,7 @@ class MNT(Data_2D):
 
         index_x_MNT = np.intp((x - xmin_MNT) // resolution_x)
         index_y_MNT = np.intp((ymax_MNT - y) // resolution_y)
-        return (index_x_MNT, index_y_MNT)
+        return index_x_MNT, index_y_MNT
 
     def _get_mnt_data_and_shape(self, mnt_data):
         """
@@ -91,9 +91,9 @@ class MNT(Data_2D):
             mnt_data_y = mnt_data.y.data.astype(np.float32)
             mnt_data = mnt_data.__xarray_dataarray_variable__.data.astype(np.float32)
             shape_x_mnt, shape_y_mnt = mnt_data[0, :, :].shape
-        return (mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt)
+        return mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt
 
     @property
     def shape(self):
-        return (self.data.shape)
+        return self.data.shape
 

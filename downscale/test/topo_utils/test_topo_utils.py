@@ -4,10 +4,11 @@ import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 from downscale.Operators.topo_utils import *
+from downscale.Operators.Helbig import *
 
 
 def test_std_slicing_numpy():
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
 
     array_test_1 = np.array([[1, 1, 1, 1],
                              [1, -2, 2, 1],
@@ -51,7 +52,7 @@ def test_std_slicing_numpy():
 
 
 def test_normalize_topo():
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
 
     array_test_1 = np.array([[100, -100, 100, -100],
                              [100, -100, 100, -100],
@@ -68,7 +69,7 @@ def test_normalize_topo():
 
 
 def test_normalize_topo_broadcast():
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
 
     array_test_1 = 100 * np.ones((10, 20, 30))
 
@@ -79,7 +80,7 @@ def test_normalize_topo_broadcast():
 
 
 def test_mean_peak_valley():
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
     test_array_1 = np.array([1, np.nan, 2])
     test_array_2 = np.array([1, 2, 2])
     assert_array_almost_equal(tu.mean_peak_valley(test_array_1), np.float32(2*np.nanstd(test_array_1)))
@@ -88,32 +89,32 @@ def test_mean_peak_valley():
 
 
 def test_laplacian_classic():
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
     array_test_1 = np.array([[1, 2], [3, 4]])
     expected_result_1 = np.array([[3, 1], [-1, -3]])
     array_test_2 = np.array([[12, 14, 28, 32], [15, 27, 42, 53], [41, 40, 21, 13], [18, 12, 21, 42]])
     expected_result_2 = np.array([[5, 25, 4, 17], [35, 3, -39, -72], [-50, -59, 32, 77], [17, 43, 12, -50]])
 
-    result_1 = tu.laplacian_map(array_test_1, 1, librairie="numpy", helbig=False, verbose=False)
-    result_2 = tu.laplacian_map(array_test_2, 1, librairie="numpy", helbig=False, verbose=False)
+    result_1 = tu.laplacian_map(array_test_1, 1, library="numpy", helbig=False, verbose=False)
+    result_2 = tu.laplacian_map(array_test_2, 1, library="numpy", helbig=False, verbose=False)
     assert_array_almost_equal(result_1, expected_result_1)
     assert_array_almost_equal(result_2, expected_result_2)
 
 
 def test_laplacian_helbig():
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
     array_test_1 = np.array([[1, 2], [3, 4]])
     expected_result_1 = np.array([[3, 1], [-1, -3]])/4
     array_test_2 = np.array([[12, 14, 28, 32], [15, 27, 42, 53], [41, 40, 21, 13], [18, 12, 21, 42]])
     expected_result_2 = np.array([[5, 25, 4, 17], [35, 3, -39, -72], [-50, -59, 32, 77], [17, 43, 12, -50]])/4
-    result_1 = tu.laplacian_map(array_test_1, 1, librairie="numpy", helbig=True, verbose=False)
-    result_2 = tu.laplacian_map(array_test_2, 1, librairie="numpy", helbig=True, verbose=False)
+    result_1 = tu.laplacian_map(array_test_1, 1, library="numpy", helbig=True, verbose=False)
+    result_2 = tu.laplacian_map(array_test_2, 1, library="numpy", helbig=True, verbose=False)
     assert_array_almost_equal(result_1, expected_result_1)
     assert_array_almost_equal(result_2, expected_result_2)
 
 
 def test_mu_helbig_map():
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
 
     array_test_1 = np.array([[1, 2], [3, 4]])
     expected_result_1 = np.sqrt(np.array([[2.5, 2.5], [2.5, 2.5]]))
@@ -133,7 +134,7 @@ def test_mu_helbig_map():
 
 
 def test_mu_helbig_map_idx():
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
     array_test = np.array([[1, 2], [3, 10]])
     expected_result = np.sqrt(np.array((2.5)))
     result = tu.mu_helbig_idx(array_test, 1, [0], [0], verbose=False)
@@ -142,7 +143,7 @@ def test_mu_helbig_map_idx():
 
 def test_rolling_mean():
 
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
 
     array_test = np.array([[1,2,3,4],
                            [2,3,4,5],
@@ -179,7 +180,7 @@ def test_rolling_mean():
 
 def test_rolling_tpi():
 
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
 
     array_test = np.array([[1,2,3,4],
                            [2,3,4,5],
@@ -210,15 +211,15 @@ def test_rolling_tpi():
                                                [result_5, result_6, result_7, result_8],
                                                [result_9, result_10, result_11, result_12],
                                                [result_13, result_14, result_15, result_16]])
-    result_1 = tu.tpi_map(array_test, 1, 1, librairie="numba")
-    result_2 = tu.tpi_map(array_test, 1, 1, librairie="numpy")
+    result_1 = tu.tpi_map(array_test, 1, 1, library="numba")
+    result_2 = tu.tpi_map(array_test, 1, 1, library="numpy")
 
     assert_array_almost_equal(result_1, expected_result)
     assert_array_almost_equal(result_2, expected_result)
 
 
 def test_rolling_tpi_idx():
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
 
     array_test = np.array([[1, 2, 3, 4],
                            [2, 3, 4, 5],
@@ -258,7 +259,7 @@ def test_rolling_tpi_idx():
 
 def test_mu_helbig_average():
 
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
 
     array_test = np.array([[1, 2], [3, 4]])
     expected_result = np.sqrt(np.array([[2.5, 2.5], [2.5, 2.5]]))
@@ -268,10 +269,10 @@ def test_mu_helbig_average():
                                    [2.63231, 2.63231, 2.63231, 2.63231],
                                    [2.37170825, 2.37170825, 2.37170825, 2.37170825]], dtype=np.float32)
 
-    result_1 = tu.mu_helbig_average(array_test, 1, reduce_mnt=False, type="map", librairie="numba", verbose=False, x_win=1, y_win=1)
-    result_2 = tu.mu_helbig_average(array_test, 1, reduce_mnt=False, type="map", librairie="numpy", verbose=False, x_win=1, y_win=1)
-    result_3 = tu.mu_helbig_average(array_test, 1, idx_x=np.array([0, 1]), idx_y=np.array([1, 1]), reduce_mnt=False, type="indexes", verbose=False,  x_win=1, y_win=1)
-    result_4 = tu.mu_helbig_average(array_test_2, 1, reduce_mnt=False, type="map", verbose=False,  x_win=1, y_win=1)
+    result_1 = tu.mu_helbig_average(array_test, 1, reduce_mnt=False, type_input="map", library="numba", verbose=False, x_win=1, y_win=1)
+    result_2 = tu.mu_helbig_average(array_test, 1, reduce_mnt=False, type_input="map", library="numpy", verbose=False, x_win=1, y_win=1)
+    result_3 = tu.mu_helbig_average(array_test, 1, idx_x=np.array([0, 1]), idx_y=np.array([1, 1]), reduce_mnt=False, type_input="indexes", verbose=False,  x_win=1, y_win=1)
+    result_4 = tu.mu_helbig_average(array_test_2, 1, reduce_mnt=False, type_input="map", verbose=False,  x_win=1, y_win=1)
 
     assert_array_almost_equal(result_1, expected_result)
     assert_array_almost_equal(result_2, expected_result)
@@ -281,7 +282,7 @@ def test_mu_helbig_average():
 
 def test_xsi_helbig_map():
 
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
 
     array_test = np.array([[1, 2, 3, 4],
                            [2, 3, 4, 5],
@@ -313,9 +314,9 @@ def test_xsi_helbig_map():
                     [result_9, result_10, result_11, result_12],
                     [result_13, result_14, result_15, result_16]])
 
-    mu = tu.mu_helbig_average(array_test, 1, reduce_mnt=False, type="map", x_win=1, y_win=1, librairie="numba", verbose=False)
+    mu = tu.mu_helbig_average(array_test, 1, reduce_mnt=False, type_input="map", x_win=1, y_win=1, library="numba", verbose=False)
     expected_result = np.sqrt(2) * std / mu
-    result = tu.xsi_helbig_map(array_test, mu, reduce_mnt=False, x_win=1, y_win=1, librairie="numba", verbose=False)
+    result = tu.xsi_helbig_map(array_test, mu, reduce_mnt=False, x_win=1, y_win=1, library="numba", verbose=False)
 
     array_test_2 = np.array([[1, 3, 5, 7],
                              [2, 4, 6, 8],
@@ -333,8 +334,8 @@ def test_xsi_helbig_map():
                             [2.37170825, 2.37170825, 2.37170825, 2.37170825]], dtype=np.float32)
 
     result_expected_2 = np.sqrt(2) * std_expected / mu_expected
-    mu = tu.mu_helbig_average(array_test_2, 1, reduce_mnt=False, type="map", librairie="numba", x_win=1, y_win=1,verbose=False)
-    result_2 = tu.xsi_helbig_map(array_test_2, mu, reduce_mnt=False, x_win=1, y_win=1, librairie="numba", verbose=False)
+    mu = tu.mu_helbig_average(array_test_2, 1, reduce_mnt=False, type_input="map", library="numba", x_win=1, y_win=1,verbose=False)
+    result_2 = tu.xsi_helbig_map(array_test_2, mu, reduce_mnt=False, x_win=1, y_win=1, library="numba", verbose=False)
 
     assert_array_almost_equal(result, expected_result)
     assert_allclose(result_2, result_expected_2, rtol=1e-03, atol=0.001)
@@ -342,20 +343,20 @@ def test_xsi_helbig_map():
 
 def test_x_sgp_topo_helbig_idx_shape():
 
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
 
     array_test = np.array([[1, 2, 3, 4],
                            [2, 3, 8, 5],
                            [3, 90, 5, 6],
                            [4, 5, 6, 7]])
 
-    result = tu.x_sgp_topo_helbig_idx(array_test, dx=1, L=4, type="map", x_win=1, y_win=1, reduce_mnt=False, verbose=False)
+    result = tu.x_sgp_topo_helbig_idx(array_test, dx=1, L=4, type_input="map", x_win=1, y_win=1, reduce_mnt=False, verbose=False)
     assert array_test.shape == result.shape
 
 
 def test_x_sgp_topo_helbig_idx():
 
-    tu = Sgp_helbig()
+    tu = SgpHelbig()
 
     expected_result_1 = np.array([[0.61468752, 0.69090553, 0.69090553, 0.61468752],
                                 [0.89021647, 0.90820263, 0.90820263, 0.89021647],
@@ -367,8 +368,8 @@ def test_x_sgp_topo_helbig_idx():
                              [9, 11, 13, 15],
                              [10, 12, 14, 16]])
 
-    result_1 = tu.x_sgp_topo_helbig_idx(array_test_2, dx=1, L=4, type="map", reduce_mnt=False, x_win=1, y_win=1, verbose=False)
-    result_2 = tu.x_sgp_topo_helbig_idx(array_test_2, dx=2, L=4, idx_x=np.array([1,2]), idx_y=np.array([2,3]), type="indexes", reduce_mnt=False, x_win=1, y_win=1, verbose=False)
+    result_1 = tu.x_sgp_topo_helbig_idx(array_test_2, dx=1, L=4, type_input="map", reduce_mnt=False, x_win=1, y_win=1, verbose=False)
+    result_2 = tu.x_sgp_topo_helbig_idx(array_test_2, dx=2, L=4, idx_x=np.array([1,2]), idx_y=np.array([2,3]), type_input="indexes", reduce_mnt=False, x_win=1, y_win=1, verbose=False)
 
     assert_allclose(result_1, expected_result_1, rtol=1e-03, atol=0.001)
     assert result_2.shape == expected_result_1[[2,3], [1,2]].shape

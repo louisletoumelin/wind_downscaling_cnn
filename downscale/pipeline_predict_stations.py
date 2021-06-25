@@ -88,7 +88,7 @@ if prm["launch_predictions"]:
     if prm["stations_to_predict"] == 'all':
         prm["stations_to_predict"] = BDclim.stations["name"].values
 
-    array_xr = p.predict_at_stations(prm["stations_to_predict"])
+    array_xr = p.predict_at_stations(prm["stations_to_predict"], prm=prm)
 
 print(f'\nPredictions in {round(t1, t())} seconds')
 

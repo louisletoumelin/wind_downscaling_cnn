@@ -1,15 +1,7 @@
 import numpy as np
-import pandas as pd
-import xarray as xr
 import tensorflow as tf
-from tensorflow.keras.models import load_model
-from tensorflow.keras import backend as K
 import matplotlib.pyplot as plt
-import datetime
-import time
-from time import time as t
-import os
-import concurrent.futures
+
 
 from downscale.Utils.Utils import change_dtype_if_required, change_several_dtype_if_required
 
@@ -49,9 +41,9 @@ class Topo_utils:
         topo_HD : array
         mean : array
         std : array
-        dtype: numpy dtype, optional
-        tensorflow: boolean, optional
-            Use tensorflow array (Default: False)
+        dtype: numpy dtype
+        library: str
+        verbose: boolean
 
         Returns
         -------
@@ -65,15 +57,16 @@ class Topo_utils:
             std = tf.constant(std, dtype=tf.float32)
             result = tf.subtract(topo_HD, mean)
             result = tf.divide(result, result)
-            return (result)
+            return result
         else:
             topo_HD = np.array(topo_HD, dtype=dtype)
             if library == 'numexpr' and self._numexpr:
-                return (ne.evaluate("(topo_HD - mean) / std"))
+                return ne.evaluate("(topo_HD - mean) / std")
             else:
-                return ((topo_HD - mean) / std)
+                return (topo_HD - mean) / std
 
-    def mean_peak_valley(self, topo, verbose=True):
+    @staticmethod
+    def mean_peak_valley(topo, verbose=True):
         """
         2 * std(topography)
 
@@ -84,6 +77,9 @@ class Topo_utils:
         topo : ndarray
             topography
 
+        verbose : boolean
+            verbose
+
         Returns
         -------
         peak_valley_height : ndarray
@@ -91,13 +87,13 @@ class Topo_utils:
         """
         peak_valley_height = 2 * np.nanstd(topo)
         print("__Mean peak valley computed") if verbose else None
-        return(peak_valley_height.astype(np.float32))
+        return peak_valley_height.astype(np.float32)
 
     def laplacian_map(self, mnt, dx, library="numpy", helbig=True, verbose=True):
 
         # Pad mnt to compute laplacian on edges
         mnt_padded = np.pad(mnt, (1, 1), "edge").astype(np.float32)
-        if verbose: print("__MNT padded for laplacian computation")
+        print("__MNT padded for laplacian computation") if verbose else None
         shape = mnt_padded.shape
 
         # Use meshgrid to create indexes with mnt size and use numpy broadcasting when selecting indexes
@@ -106,9 +102,9 @@ class Topo_utils:
         # Compute laplacian on indexes using an index for every grid point (meshgrid)
         laplacian = self.laplacian_idx(mnt_padded, xx[1:-1, 1:-1], yy[1:-1, 1:-1], dx, library=library, helbig=helbig)
 
-        if verbose: print(f"__Laplacian map calculated. Shape: {laplacian.shape}. Library: {library}")
+        print(f"__Laplacian map calculated. Shape: {laplacian.shape}. Library: {library}") if verbose else None
 
-        return(laplacian)
+        return laplacian
 
     def laplacian_idx(self, mnt, idx_x, idx_y, dx, verbose=True, library='numpy', helbig=True):
         """
@@ -129,14 +125,14 @@ class Topo_utils:
             library = "numpy"
 
         laplacian = change_dtype_if_required(laplacian, np.float32)
-        if verbose: print(f"__Laplacian calculated. Librarie: {library}")
-        return(laplacian)
+        print(f"__Laplacian calculated. Librarie: {library}") if verbose else None
+        return laplacian
 
     @staticmethod
     def _laplacian_numpy_idx(mnt, idx_x, idx_y, dx, helbig=True):
         a = np.float32((mnt[idx_y-1, idx_x] + mnt[idx_y+1, idx_x] + mnt[idx_y, idx_x-1] + mnt[idx_y, idx_x+1] - 4*mnt[idx_y, idx_x])/dx**2)
         c = np.float32(dx/4) if helbig else 1
-        return (a * c)
+        return a * c
 
     @staticmethod
     def _laplacian_loop_numpy_1D_helbig(mnt, idx_x, idx_y, dx):
@@ -146,7 +142,7 @@ class Topo_utils:
                 idx_x[i], idx_y[i] + 1] - 4 * mnt[idx_x[i], idx_y[i]]) / dx ** 2
             c = dx / 4
             laplacian[i] = a * c
-        return (laplacian)
+        return laplacian
 
     @staticmethod
     def _laplacian_loop_numpy_1D(mnt, idx_x, idx_y, dx):
@@ -155,7 +151,7 @@ class Topo_utils:
             a = (mnt[idx_x[i] - 1, idx_y[i]] + mnt[idx_x[i] + 1, idx_y[i]] + mnt[idx_x[i], idx_y[i] - 1] + mnt[
                 idx_x[i], idx_y[i] + 1] - 4 * mnt[idx_x[i], idx_y[i]]) / dx ** 2
             laplacian[i] = a
-        return (laplacian)
+        return laplacian
 
     @staticmethod
     def _laplacian_loop_numpy_2D_helbig(mnt, idx_x, idx_y, dx):
@@ -166,7 +162,7 @@ class Topo_utils:
                     idx_y[j, i], idx_x[j, i] + 1] - 4 * mnt[idx_y[j, i], idx_x[j, i]]) / dx ** 2
                 c = dx / 4
                 laplacian[j, i] = a * c
-        return (laplacian)
+        return laplacian
 
     @staticmethod
     def _laplacian_loop_numpy_2D(mnt, idx_x, idx_y, dx):
@@ -176,7 +172,7 @@ class Topo_utils:
                 a = (mnt[idx_y[j, i] - 1, idx_x[j, i]] + mnt[idx_y[j, i] + 1, idx_x[j, i]] + mnt[idx_y[j, i], idx_x[j, i] - 1] + mnt[
                     idx_y[j, i], idx_x[j, i] + 1] - 4 * mnt[idx_y[j, i], idx_x[j, i]]) / dx ** 2
                 laplacian[j, i] = a
-        return (laplacian)
+        return laplacian
 
     def _laplacian_numba_idx(self, mnt, idx_x, idx_y, dx, helbig=True):
 
@@ -194,24 +190,7 @@ class Topo_utils:
             lapl_vect = jit([(float32[:, :], int32[:, :], int32[:, :], int64)], nopython=True)(laplacian_2D)
 
         result = lapl_vect(mnt, idx_x, idx_y, dx)
-        return(result)
-
-    def mu_helbig_map(self, mnt, dx, verbose=True):
-        """
-        Adapted from I. Gouttevin
-
-        From Helbig et al. 2017
-        """
-        mu = np.sqrt(np.sum(np.array(np.gradient(mnt, dx))**2, axis=0)/2)
-        mu = change_dtype_if_required(mu, np.float32)
-        if verbose: print("__mu calculation using numpy")
-        return(mu)
-
-    def mu_helbig_idx(self, mnt, dx, idx_x, idx_y, verbose=True):
-        mu = self.mu_helbig_map(mnt, dx)
-        mu = change_dtype_if_required(mu, np.float32)
-        if verbose: print("__Selecting indexes on mu")
-        return(mu[idx_y, idx_x])
+        return result
 
     @staticmethod
     def _get_window_idx_boundaries(idx_x, idx_y, x_win=69//2, y_win=79//2, reshape=True):
@@ -223,9 +202,9 @@ class Topo_utils:
 
         if reshape:
             flat_shape = idx_y.shape[0] * idx_y.shape[1]
-            return (y_left.reshape(flat_shape), y_right.reshape(flat_shape), x_left.reshape(flat_shape), x_right.reshape(flat_shape))
+            return y_left.reshape(flat_shape), y_right.reshape(flat_shape), x_left.reshape(flat_shape), x_right.reshape(flat_shape)
 
-        return(y_left, y_right, x_left, x_right)
+        return y_left, y_right, x_left, x_right
 
     @staticmethod
     def rolling_window_mean_numpy(in_arr, out_arr, x_win, y_win):
@@ -256,7 +235,7 @@ class Topo_utils:
         output = np.empty_like(mnt).astype(np.float32)
         mean = window_func(mnt, output, x_win, y_win)
 
-        return(mnt-mean)
+        return mnt - mean
 
     @staticmethod
     def _control_idx_boundaries(idx, min_idx=0, max_idx=None):
@@ -266,20 +245,20 @@ class Topo_utils:
                 x = np.where(x < min_idx[index], 0, x)
                 x = np.where(x > max_idx[index], max_idx[index], x)
                 result.append(x)
-            return(result)
+            return result
         else:
             idx = np.where(idx < min_idx, 0, idx)
             idx = np.where(idx > max_idx, max_idx, idx)
-            return(idx)
+            return idx
 
     @staticmethod
     def radius_to_square_window(radius, resolution):
         if radius % resolution == 0:
             dx = np.int32(radius / resolution)
-            return(dx, dx)
+            return dx, dx
         else:
             dx = np.int32(radius // resolution + 1)
-            return(dx, dx)
+            return dx, dx
 
     def tpi_idx(self, mnt, idx_x, idx_y, radius, resolution=25):
 
@@ -295,234 +274,63 @@ class Topo_utils:
                                                                         max_idx=boundaries_mnt)
 
         mean_window = np.array([np.mean(mnt[i1:j1+1, i2:j2+1]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
-        return(mnt[idx_y, idx_x] - mean_window)
-
-
-class Sgp_helbig(Topo_utils):
-
-    def __init__(self):
-        super().__init__()
-
-    def mu_helbig_average(self, mnt, dx, idx_x=None, idx_y=None, reduce_mnt=True, type="map", x_win=69//2, y_win=79//2, nb_pixels_x=100, nb_pixels_y=100, library="numba", verbose=True):
-
-        if idx_x is None and idx_y is None:
-            shape = mnt.shape
-            idx_x = range(shape[1])
-            idx_y = range(shape[0])
-            idx_x, idx_y = np.array(np.meshgrid(idx_x, idx_y)).astype(np.int32)
-
-        if reduce_mnt:
-            small_idx_y = idx_y[nb_pixels_y:-nb_pixels_y, nb_pixels_x:-nb_pixels_x]
-            small_idx_x = idx_x[nb_pixels_y:-nb_pixels_y, nb_pixels_x:-nb_pixels_x]
-            shape = small_idx_y.shape
-            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(small_idx_x, small_idx_y, x_win=x_win, y_win=y_win)
-        else:
-            reshape = True if type == "map" else False
-            shape = mnt.shape
-            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y, reshape=reshape, x_win=x_win, y_win=y_win)
-
-        boundaries_mnt = [shape[0], shape[0], shape[1], shape[1]]
-        y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
-                                                                        min_idx=[0, 0, 0, 0],
-                                                                        max_idx=boundaries_mnt)
-
-        if type == "map":
-            mu = self.mu_helbig_map(mnt, dx)
-            if library == 'numba' and _numba:
-                mu, y_left, y_right, x_left, x_right = change_several_dtype_if_required(
-                    [mu, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
-                jit_mean = jit([float32[:](float32[:, :], int32[:], int32[:], int32[:], int32[:])], nopython=True)(self.mean_slicing_numpy)
-                mu_flat = jit_mean(mu, y_left, y_right, x_left, x_right)
-                library = "numba"
-            else:
-                mu_flat = np.array([np.mean(mu[i1:j1+1, i2:j2+1]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
-                library = "numpy"
-
-        elif type == "indexes":
-            boundaries_mnt = [mnt.shape[0], mnt.shape[0], mnt.shape[1], mnt.shape[1]]
-            y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
-                                                                            min_idx=[0, 0, 0, 0],
-                                                                            max_idx=boundaries_mnt)
-            mu_flat = np.array([np.mean(self.mu_helbig_map(mnt[i1:j1+1, i2:j2+1], dx)) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
-
-        mu = mu_flat.reshape((shape[0], shape[1])) if (type == "map" or reduce_mnt) else mu_flat
-
-        mu = change_dtype_if_required(mu, np.float32)
-        if verbose: print(f"__Subgrid: computed average mu. Output shape: {mu.shape}. Library: {library}")
-
-        return(mu)
+        return mnt[idx_y, idx_x] - mean_window
 
     @staticmethod
-    def mean_slicing_numpy(array, y_left, y_right, x_left, x_right):
-        result = np.empty(y_left.shape)
-        for index, (i1, j1, i2, j2) in enumerate(zip(y_left, y_right, x_left, x_right)):
-            result[index] = np.mean(array[i1:j1+1, i2:j2+1])
-        return (result.astype(np.float32))
+    def sx_idx(dem_padded, y, x, y_offsets, x_offsets, distances):
+        # compute the difference in altitude for all cells along all angles
+        altitude_diff = dem_padded[y + y_offsets, x + x_offsets] - dem_padded[y, x]
 
-    @staticmethod
-    def std_slicing_numpy(array, y_left, y_right, x_left, x_right):
-        result = np.empty(y_left.shape)
-        for index, (i1, j1, i2, j2) in enumerate(zip(y_left, y_right, x_left, x_right)):
-            result[index] = np.std(array[i1:j1+1, i2:j2+1])
-        return (result.astype(np.float32))
+        # directions are in the first dimension, cells in the last
+        slope = altitude_diff / distances
+        amax = np.nanmax(slope, -1)
 
-    def xsi_helbig_map(self, mnt, mu, idx_x=None, idx_y=None, reduce_mnt=True, x_win=69//2, y_win=79//2, nb_pixels_x=100, nb_pixels_y=100, library="numba", verbose=True):
+        # Pas sur qu'il faut calculer le minimum ici
+        amin = np.nanmin(slope, -1)
+        result = np.where(-amin > amax, amin, amax)
 
-        if idx_x is None and idx_y is None:
-            shape = mnt.shape
-            idx_x = range(shape[1])
-            idx_y = range(shape[0])
-            idx_x, idx_y = np.array(np.meshgrid(idx_x, idx_y)).astype(np.int32)
+        # maybe nanmean would be more correct, but we reproduce the
+        # exisiting implementation for now
+        result = np.nanmean(np.arctan(result))
 
-        reshape = True if idx_x.ndim > 1 else False
+        return result
 
-        if reduce_mnt:
-            small_idx_y = idx_y[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
-            small_idx_x = idx_x[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
-            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(small_idx_x, small_idx_y, reshape=reshape, x_win=x_win, y_win=y_win)
-            shape = small_idx_y.shape
-        else:
-            shape = mnt.shape
-            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y, x_win=x_win, y_win=y_win,
-                                                                               reshape=reshape)
+    def sx(self, dem, cellsize, dmax, in_wind, wind_inc=5, wind_width=30, type_input="map", x=None, y=None):
 
-        mnt, y_left, y_right, x_left, x_right = change_several_dtype_if_required([mnt, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
-        boundaries_mnt = [shape[0], shape[0], shape[1], shape[1]]
-        y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
-                                                                        min_idx=[0, 0, 0, 0],
-                                                                        max_idx=boundaries_mnt)
-        if library == "numba" and _numba:
-            std_slicing_numba = jit([float32[:](float32[:, :], int32[:], int32[:], int32[:], int32[:])], nopython=True)(self.std_slicing_numpy)
-            std_flat = std_slicing_numba(mnt, y_left, y_right, x_left, x_right)
-            library = "numba"
-        else:
-            std_flat = np.array([np.std(mnt[i1:j1+1, i2:j2+1]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
-            library = "numpy"
+        grid = np.full(dem.shape, np.nan)
 
-        std = std_flat.reshape((shape[0], shape[1])) if reshape else std_flat
-        if verbose: print(f"__Subgrid: computed average std. Output shape: {std.shape}. Library: {library}")
+        # Pad the input edges with np.nan
+        nb_cells = np.ceil(dmax / cellsize).astype(np.int32)
+        pad_shape = ((nb_cells, nb_cells),) * 2
+        dem_padded = np.pad(dem, pad_shape, 'constant', constant_values=np.nan)
 
-        xsi = np.sqrt(2) * std / mu
+        # Define wind sectors in degrees
+        wind_left = in_wind - wind_width / 2
+        wind_right = in_wind + wind_width / 2
+        winds = np.arange(wind_left, wind_right, wind_inc)
 
-        xsi = change_dtype_if_required(xsi, np.float32)
-        if verbose: print(f"__Subgrid: computed average xsi. Output shape: {xsi.shape}")
-        return(xsi)
+        # The angles we check. Add last dimension so we can broadcast the direction
+        # samples
+        alpha_rad = np.expand_dims(np.deg2rad(winds), -1)
 
-    def x_sgp_topo_helbig_idx(self, mnt, idx_x=None, idx_y=None, dx=25, L=2_000, type="map", reduce_mnt=True, nb_pixels_x=100, nb_pixels_y=100, x_win=69//2, y_win=79//2, verbose=True):
+        # pre-compute the cell indices that are sampled for each direction
+        # Je n'aurais pas mis le moins ici
+        #y_offsets = -np.round(np.arange(1, nb_cells) * np.cos(alpha_rad)).astype(np.int32)
+        y_offsets = np.round(np.arange(1, nb_cells) * np.cos(alpha_rad)).astype(np.int32)
+        x_offsets = np.round(np.arange(1, nb_cells) * np.sin(alpha_rad)).astype(np.int32)
 
-        a = 3.354688
-        b = 1.998767
-        c = 0.20286
-        d = 5.951
+        # pre-compute the distances for each sampled cell
+        distances = cellsize*np.sqrt(x_offsets ** 2 + y_offsets ** 2).astype(np.float32)
 
-        if idx_x is None and idx_y is None:
-            shape = mnt.shape
-            idx_x = range(shape[1])
-            idx_y = range(shape[0])
-            idx_x, idx_y = np.array(np.meshgrid(idx_x, idx_y)).astype(np.int32)
+        # set distances that are too large to np.nan so they're not considered
+        distances[(distances == 0.) | (distances > dmax)] = np.nan
 
-        mu = self.mu_helbig_average(mnt, dx, idx_x, idx_y, type=type, reduce_mnt=reduce_mnt, x_win=x_win, y_win=y_win)
-        xsi = self.xsi_helbig_map(mnt, mu, idx_x, idx_y, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x, nb_pixels_y=nb_pixels_y, x_win=x_win, y_win=y_win, library="numba")
+        if type_input == "map":
+            for y in range(nb_cells, nb_cells + dem.shape[0]):
+                for x in range(nb_cells, nb_cells + dem.shape[1]):
+                    # result = np.nansum(np.arctan(result)) / len(winds)
+                    grid[y - nb_cells, x - nb_cells] = self.sx_idx(dem_padded, y, x, y_offsets, x_offsets, distances)
+            return grid
 
-        x = 1 - (1 - (1/(1+a*mu**b))**c)*np.exp(-d*(L/xsi)**(-2))
-
-        x = change_dtype_if_required(x, np.float32)
-        if verbose: print(f"__Subgrid: computed x_sgp_topo. Output shape: {x.shape}")
-
-        return(x)
-
-    def subgrid(self, mnt_large, dx=25, L=2_000, x_win=69//2, y_win=79//2, idx_x=None, idx_y=None, type="map", reduce_mnt=True, nb_pixels_x=100, nb_pixels_y=100, verbose=True):
-
-        if type == "map":
-            shape = mnt_large.shape
-            all_x_idx = range(shape[1])
-            all_y_idx = range(shape[0])
-            idx_x, idx_y = np.array(np.meshgrid(all_x_idx, all_y_idx)).astype(np.int32)
-            if verbose: print(f"Large mnt shape: {shape}. Size reduction on x: 2 * {nb_pixels_x}. Size reduction on x: 2 * {nb_pixels_y} ")
-
-        reduce_mnt = False if type == "indexes" else reduce_mnt
-        x_sgp_topo = self.x_sgp_topo_helbig_idx(mnt_large, idx_x, idx_y, dx,
-                                                L=L,
-                                                type=type,
-                                                x_win=x_win,
-                                                y_win=y_win,
-                                                reduce_mnt=reduce_mnt,
-                                                nb_pixels_x=nb_pixels_x,
-                                                nb_pixels_y=nb_pixels_y)
-
-        return (x_sgp_topo)
-
-
-class Dwnsc_helbig(Sgp_helbig):
-
-    def __init__(self):
-        super().__init__()
-
-    def x_dsc_topo_helbig(self, mnt, dx=25, idx_x=None, idx_y=None, type="map", library="numba", verbose=True):
-
-        a = 17.0393
-        b = 0.737
-        c = 1.0234
-        d = 0.3794
-        e = 1.9821
-
-        if type == "map":
-            laplacian = self.laplacian_map(mnt, dx, library=library, helbig=True)
-            mu = self.mu_helbig_map(mnt, dx)
-        elif type == "indexes":
-            idx_x, idx_y = change_several_dtype_if_required([idx_x, idx_y], [np.int32, np.int32])
-            laplacian = self.laplacian_idx(mnt, idx_x, idx_y, dx, library=library, helbig=True)
-            mu = self.mu_helbig_idx(mnt, dx, idx_x, idx_y)
-
-        term_1 = 1 - a*laplacian/(1 + a*np.abs(laplacian)**b)
-        term_2 = c / (1 + d*mu**e)
-        x = term_1*term_2
-
-        if verbose:
-            print(f"__MNT shape: {mnt.shape}")
-            print(f"__x_dsc_topo computed. x shape: {x.shape}")
-
-        x = change_dtype_if_required(x, np.float32)
-        return(x)
-
-    def downscale_helbig(self, mnt_large, dx=25, L=2_000, idx_x=None, idx_y=None, type="map", reduce_mnt=False,
-                         library="numba", nb_pixels_x=100, nb_pixels_y=100, verbose=True):
-
-        if verbose: print(f"\nBegin subgrid parameterization from Helbig et al. 2017")
-        x_sgp_topo = self.subgrid(mnt_large,
-                                  idx_x=idx_x,
-                                  idx_y=idx_y,
-                                  dx=dx,
-                                  L=L,
-                                  type=type,
-                                  reduce_mnt=reduce_mnt,
-                                  nb_pixels_x=nb_pixels_x,
-                                  nb_pixels_y=nb_pixels_y,
-                                  verbose=verbose)
-
-        plt.figure()
-        plt.imshow(x_sgp_topo)
-        plt.colorbar()
-        plt.title("x_sgp_topo Helbig et al. 2017")
-
-        mnt_small = mnt_large[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x] if reduce_mnt else mnt_large
-
-        plt.figure()
-        plt.imshow(mnt_large)
-        plt.colorbar()
-        plt.title("MNT")
-
-        if verbose: print(f"\nBegin downscaling from Helbig et al. 2017")
-        x_dsc_topo = self.x_dsc_topo_helbig(mnt_small, dx=dx, idx_x=idx_x, idx_y=idx_y, type=type, verbose=verbose, library=library)
-
-        plt.figure()
-        plt.imshow(x_dsc_topo)
-        plt.colorbar()
-        plt.title("x_dsc_topo Helbig et al. 2017")
-
-        plt.figure()
-        plt.imshow(x_sgp_topo*x_dsc_topo)
-        plt.colorbar()
-        plt.title("x_sgp_topo*x_dsc_topo Helbig et al. 2017")
-
-        return(x_sgp_topo*x_dsc_topo)
+        elif type_input == "indexes":
+            return self.sx_idx(dem_padded, y, x, y_offsets, x_offsets, distances)
