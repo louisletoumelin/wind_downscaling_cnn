@@ -37,13 +37,13 @@ class SgpHelbig(Topo_utils):
         """
         mu = np.sqrt(np.sum(np.array(np.gradient(mnt, dx)) ** 2, axis=0) / 2)
         mu = change_dtype_if_required(mu, np.float32)
-        if verbose: print("__mu calculation using numpy")
+        print("__mu calculation using numpy") if verbose else None
         return mu
 
     def mu_helbig_idx(self, mnt, dx, idx_x, idx_y, verbose=True):
         mu = self.mu_helbig_map(mnt, dx)
         mu = change_dtype_if_required(mu, np.float32)
-        if verbose: print("__Selecting indexes on mu")
+        print("__Selecting indexes on mu") if verbose else None
         return mu[idx_y, idx_x]
 
     def mu_helbig_average(self, mnt, dx, idx_x=None, idx_y=None, reduce_mnt=True, type_input="map", x_win=69 // 2,
@@ -97,7 +97,7 @@ class SgpHelbig(Topo_utils):
         mu = mu_flat.reshape((shape[0], shape[1])) if (type_input == "map" or reduce_mnt) else mu_flat
 
         mu = change_dtype_if_required(mu, np.float32)
-        if verbose: print(f"__Subgrid: computed average mu. Output shape: {mu.shape}. Library: {library}")
+        print(f"__Subgrid: computed average mu. Output shape: {mu.shape}. Library: {library}") if verbose else None
 
         return mu
 
@@ -177,7 +177,8 @@ class SgpHelbig(Topo_utils):
             idx_y = range(shape[0])
             idx_x, idx_y = np.array(np.meshgrid(idx_x, idx_y)).astype(np.int32)
 
-        mu = self.mu_helbig_average(mnt, dx, idx_x, idx_y, type_input=type_input, reduce_mnt=reduce_mnt, x_win=x_win, y_win=y_win)
+        mu = self.mu_helbig_average(mnt, dx, idx_x, idx_y,
+                                    type_input=type_input, reduce_mnt=reduce_mnt, x_win=x_win, y_win=y_win)
         xsi = self.xsi_helbig_map(mnt, mu, idx_x, idx_y, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x,
                                   nb_pixels_y=nb_pixels_y, x_win=x_win, y_win=y_win, library="numba")
 
@@ -196,8 +197,10 @@ class SgpHelbig(Topo_utils):
             all_x_idx = range(shape[1])
             all_y_idx = range(shape[0])
             idx_x, idx_y = np.array(np.meshgrid(all_x_idx, all_y_idx)).astype(np.int32)
-            if verbose: print(
-                f"Large mnt shape: {shape}. Size reduction on x: 2 * {nb_pixels_x}. Size reduction on x: 2 * {nb_pixels_y} ")
+            if verbose:
+                print(f"Large mnt shape: {shape}. "
+                      f"Size reduction on x: 2 * {nb_pixels_x}. "
+                      f"Size reduction on x: 2 * {nb_pixels_y} ")
 
         reduce_mnt = False if type_input == "indexes" else reduce_mnt
         x_sgp_topo = self.x_sgp_topo_helbig_idx(mnt_large, idx_x, idx_y, dx,

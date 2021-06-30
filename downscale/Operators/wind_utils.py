@@ -369,6 +369,10 @@ class Wind_utils:
             Horizontal wind speed component U
         V : string, optional
             Horizontal wind speed component V
+
+        References
+        ----------
+        Liston, G. E., & Elder, K. (2006). A meteorological distribution system for high-resolution terrestrial modeling (MicroMet). Journal of Hydrometeorology, 7(2), 217-234.
         """
         if not working_with_xarray:
 
