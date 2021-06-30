@@ -2,7 +2,7 @@
 __pycache__
 predict_real_topo/__pycache__/
 git
-*.pdf
-*.png
-*.PNG
-*.jpg
+**/*.pdf
+**/*.png
+**/*.PNG
+**/*.jpg
