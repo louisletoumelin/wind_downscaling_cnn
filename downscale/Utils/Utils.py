@@ -83,4 +83,18 @@ def several_empty_like(array_like, nb_empty_arrays=None):
     result = []
     for array in range(nb_empty_arrays):
         result.append(np.empty_like(array_like))
-    return (result)
+    return result
+
+
+def _list_to_array_if_required(list_or_array):
+    if isinstance(list_or_array, list):
+        return np.array(list_or_array)
+    else:
+        return list_or_array
+
+
+def lists_to_arrays_if_required(lists_or_arrays):
+    if np.ndim(lists_or_arrays) > 1:
+        return (_list_to_array_if_required(list_or_array) for list_or_array in lists_or_arrays)
+    else:
+        return _list_to_array_if_required(lists_or_arrays)

@@ -1,15 +1,11 @@
 import matplotlib as mpl
 #mpl.use('Agg')
 mpl.rcParams['agg.path.chunksize'] = 2_000_000
-import numpy as np
 from time import time as t
 
 from downscale.Data_family.MNT import MNT
 from downscale.Data_family.NWP import NWP
 from downscale.Data_family.Observation import Observation
-from downscale.Operators.topo_utils import Topo_utils
-from downscale.Operators.Helbig import DwnscHelbig, SgpHelbig
-from downscale.Operators.Micro_Met import MicroMet
 from PRM_predict import create_prm
 
 # Create prm

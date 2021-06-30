@@ -7,28 +7,7 @@ Journal of Hydrometeorology, 7(2), 217-234.
 import numpy as np
 import matplotlib.pyplot as plt
 from downscale.Operators.topo_utils import Topo_utils
-from downscale.Utils.Utils import change_dtype_if_required, change_several_dtype_if_required
-
-try:
-    from numba import jit, guvectorize, vectorize, prange, float64, float32, int32, int64
-
-    _numba = True
-except ModuleNotFoundError:
-    _numba = False
-
-try:
-    import numexpr as ne
-
-    _numexpr = True
-except ModuleNotFoundError:
-    _numexpr = False
-
-try:
-    import dask
-
-    _dask = True
-except ModuleNotFoundError:
-    _dask = False
+from downscale.Utils.Utils import change_dtype_if_required, lists_to_arrays_if_required
 
 
 class MicroMet(Topo_utils):
@@ -39,38 +18,72 @@ class MicroMet(Topo_utils):
     @staticmethod
     def terrain_slope_map(mnt, dx, verbose=True):
         """Terrain slope following Liston and Elder (2006)"""
+        #todo
+        """
+        Test 3. Good result 
+        """
         beta = np.arctan(np.sqrt(np.sum(np.array(np.gradient(mnt, dx)) ** 2, axis=0)))
+
         beta = change_dtype_if_required(beta, np.float32)
-        print("__Terrain slope calculation using numpy") if verbose else None
+        print("__Terrain slope calculation. Library: numpy") if verbose else None
+
         return beta
 
     def terrain_slope_idx(self, mnt, dx, idx_x, idx_y, verbose=True):
-        beta = self.terrain_slope_map(mnt, dx)
-        print("__Selecting indexes on terrain slope") if verbose else None
-        return beta[idx_y, idx_x]
+        """
+        Test 3. Good result
+        """
+        idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
+
+        beta = [self.terrain_slope_azimuth_map(mnt[y - 2:y + 2, x - 2:x + 2], dx, verbose=False)[3, 3] for (x, y) in
+              zip(idx_x, idx_y)]
+        beta = np.array(beta)
+
+        print("__Terrain slope indexes selected") if verbose else None
+        print("__INFO: do not have to scale Terrain slope")
+
+        return beta
 
     @staticmethod
     def terrain_slope_azimuth_map(mnt, dx, verbose=True):
+        """
+        Test 3. Good result
+        """
         gradient_y, gradient_x = np.gradient(mnt, dx)
         arctan_value = np.where(gradient_x != 0, np.arctan(gradient_y / gradient_x), np.where(gradient_y>0, np.pi/2, np.where(gradient_y < 0, gradient_y, -np.pi/2)))
         xi = 3 * np.pi / 2 - arctan_value
 
         xi = change_dtype_if_required(xi, np.float32)
-        print("__Terrain slope azimuth calculation using numpy") if verbose else None
+        print("__Terrain slope azimuth calculation. Library: numpy") if verbose else None
 
         return xi
 
     def terrain_slope_azimuth_idx(self, mnt, dx, idx_x, idx_y, verbose=True):
-        xi = self.terrain_slope_azimuth_map(mnt, dx)
+        """
+        Test 1. no nans OK
+        Test 2. good shape OK
+        Test 3. Good result
+        Test 4. Good data format
+        """
+        idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
+        xi = [self.terrain_slope_azimuth_map(mnt[y - 2:y + 2, x - 2:x + 2], dx, verbose=False)[3, 3] for (x, y) in
+                     zip(idx_x, idx_y)]
+        xi = np.array(xi)
 
         print("__Terrain slope azimuth indexes selected") if verbose else None
+        print("__INFO: do not have to scale Terrain slope azimuth")
 
-        return xi[idx_y, idx_x]
+        return xi
 
     @staticmethod
-    def curvature_map(mnt, length_scale=None, scale=False, verbose=True):
+    def curvature_map(mnt, length_scale=None, scaling_factor=None, scale=False, verbose=True):
+        """
+        Test 3. Good result
+        Test 4. Scale = True and scale = False
+        """
         if length_scale is None:
-            length_scale = 2 * np.nanstd(mnt)
+            std_mnt = np.nanstd(mnt)
+            length_scale = 2 * std_mnt if std_mnt != 0 else 1
 
         s = np.roll(mnt, -1, axis=0)
         n = np.roll(mnt, 1, axis=0)
@@ -90,30 +103,79 @@ class MicroMet(Topo_utils):
         curvature = change_dtype_if_required(curvature, np.float32)
 
         if scale:
-            scaling_factor = np.nanmax(np.abs(curvature[1:-1, 1:-1]))
+            scaling_factor = np.nanmax(np.abs(curvature[1:-1, 1:-1])) if scaling_factor is None else scaling_factor
             curvature = curvature / (2 * scaling_factor)
             assert np.all(-0.5 <= curvature[1:-1, 1:-1])
             assert np.all(curvature[1:-1, 1:-1] <= 0.5)
 
-        print("__Curvature calculation using numpy") if verbose else None
+        print("__Curvature calculation. Library: numpy") if verbose else None
         return curvature
 
-    def curvature_idx(self, mnt, idx_x, idx_y, scale=False, verbose=True):
-        curvature = [self.curvature_map(mnt[y-2:y+2, x-2:x+2], scale=False, verbose=False)[3] for (x, y) in zip(idx_x, idx_y)]
-        curvature = np.array(curvature)
+    def curvature_idx(self, mnt, idx_x, idx_y, method="safe", scale=False, length_scale=None, scaling_factor=None, verbose=True):
+        """
+        Test 3. Good result
+        Test 5. method safe and other and scale True and False
+        """
+        """
+        Curvature following Liston and Elder (2006)
 
-        if scale and (np.any(curvature < -0.5) or not np.any(curvature > 0.5)):
-            scaling_factor = np.nanmax(np.abs(curvature[1:-1, 1:-1]))
-            curvature = curvature / (2 * scaling_factor)
-            assert np.all(-0.5 <= curvature[1:-1, 1:-1])
-            assert np.all(curvature[1:-1, 1:-1] <= 0.5)
-            print("__Used scaling in omega_s_idx")
+        Parameters
+        ----------
+        mnt : dnarray
+            Digital elevation model (topography)
+        idx_x : dnarray
+            Indexes along the x axis
+        idx_y : ndarray
+            Indexes along the y axis
+        method : string
+            "safe" or anything else. If safe, first compute curvature on a map and the select indexes.
+            This allows for clean scaling of curvature if abs(curvatur) > 0.5 (Liston and Elder (2006))
+            If an other string is passed, the computation will be faster but the scaling might be unadequate.
+        scale : boolean
+            If True, scale the output such as -0.5<curvature<0.5
+        length_scale : float
+            Length used in curvature computation
+        scaling_factor : float
+            Length used to scale outputs
+        verbose : boolean
+            Print verbose
 
-        print("__Curvature indexes selected") if verbose else None
+        Returns
+        -------
+        curvature : ndarray
+            Curvature
+        """
+        idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
+        if method == "safe":
+            curvature_map = self.curvature_map(mnt, scale=scale, length_scale=length_scale, scaling_factor=scaling_factor, verbose=verbose)
 
-        return curvature
+            print("__Curvature indexes selected. Method: Safe") if verbose else None
+            return curvature_map[idx_y, idx_x]
 
-    def omega_s_map(self, mnt, dx, wind_dir, scale=False, verbose=True):
+        else:
+            curvature = [self.curvature_map(mnt[y-2:y+2, x-2:x+2], scale=False, verbose=False)[3, 3] for (x, y) in zip(idx_x, idx_y)]
+            curvature = np.array(curvature)
+
+            if scale and (np.any(curvature < -0.5) or np.any(curvature > 0.5)):
+                scaling_factor = np.nanmax(np.abs(curvature[1:-1, 1:-1])) if scaling_factor is None else scaling_factor
+                curvature = curvature / (2 * scaling_factor)
+                assert np.all(-0.5 <= curvature[1:-1, 1:-1])
+                assert np.all(curvature[1:-1, 1:-1] <= 0.5)
+                print("__Used scaling in curvature_idx. Method: NOT safe")
+            else:
+                print("__WARNING: Did not scale curvature")
+
+            print("__Curvature indexes selected. Method: NOT safe") if verbose else None
+
+            return curvature
+
+    def omega_s_map(self, mnt, dx, wind_dir, scale=False, scaling_factor=None, verbose=True):
+        """
+        Test 1. no nans OK
+        Test 2. good shape OK
+        Test 3. Good result
+        Test 4. Good data format
+        """
         """The slope in the direction of the wind"""
         beta = self.terrain_slope_map(mnt, dx)
         xi = self.terrain_slope_azimuth_map(mnt, dx)
@@ -121,49 +183,146 @@ class MicroMet(Topo_utils):
         omega_s = change_dtype_if_required(omega_s, np.float32)
 
         if scale:
-            scaling_factor = np.nanmax(np.abs(omega_s[1:-1, 1:-1]))
+            scaling_factor = np.nanmax(np.abs(omega_s[1:-1, 1:-1])) if scaling_factor is None else scaling_factor
             omega_s = omega_s / (2 * scaling_factor)
             assert np.all(-0.5 <= omega_s[-1:1, -1:1])
             assert np.all(-0.5 <= omega_s[-1:1, -1:1])
 
-        print("__Omega_s calculation using numpy") if verbose else None
+        print("__Omega_s calculation. Library: numpy") if verbose else None
 
         return omega_s
 
-    def omega_s_idx(self, mnt, dx, wind_dir, idx_x, idx_y, scale=False, verbose=True):
+    def omega_s_idx(self, mnt, dx, wind_dir, idx_x, idx_y, method="safe", scale=False, scaling_factor=None, verbose=True):
+        """
+        Test 1. no nans OK
+        Test 2. good shape OK
+        Test 3. Good result
+        Test 4. Good data format
+        """
+        """
+        Omega_s following Liston and Elder (2006)
 
-        omega_s = [self.omega_s_map(mnt[y-2:y+2, x-2:x+2], dx, wind_dir, verbose=False, scale=False)[3] for (x, y) in zip(idx_x, idx_y)]
-        omega_s = np.array(omega_s)
+        Parameters
+        ----------
+        mnt : dnarray
+            Digital elevation model (topography)
+        dx : float
+            Digital elevation model resolution (distance between grid points)
+        idx_x : dnarray
+            Indexes along the x axis
+        idx_y : ndarray
+            Indexes along the y axis
+        method : string
+            "safe" or anything else. If safe, first compute omega_s on a map and the select indexes.
+            This allows for clean scaling of omega_s if abs(omega_s) > 0.5 (Liston and Elder (2006))
+            If an other string is passed, the computation will be faster but the scaling might be unadequate.
+        scale : boolean
+            If True, scale the output such as -0.5<omega_s<0.5
+        scaling_factor : float
+            Length used to scale outputs
+        verbose : boolean
+            Print verbose
 
-        if scale and (np.any(omega_s < -0.5) or not np.any(omega_s > 0.5)):
-            scaling_factor = np.nanmax(np.abs(omega_s[1:-1, 1:-1]))
-            omega_s = omega_s / (2 * scaling_factor)
-            assert np.all(-0.5 <= omega_s[1:-1, 1:-1])
-            assert np.all(omega_s[1:-1, 1:-1] <= 0.5)
-            print("__Used scaling in omega_s_idx")
+        Returns
+        -------
+        omega_s : ndarray
+            Omega_s
+        """
+        idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
+        if method == "safe":
+            omega_s_map_ = self.omega_s_map(mnt, dx, wind_dir, scale=scale, scaling_factor=scaling_factor, verbose=verbose)
 
-        print("__Omega_s indexes selected") if verbose else None
+            print("__Omega_s indexes selected. Method: Safe") if verbose else None
+            return omega_s_map_[idx_y, idx_x]
 
-        return omega_s
+        else:
+            omega_s_idx_ = [self.omega_s_idx(mnt[y - 2:y + 2, x - 2:x + 2], dx, wind_dir, scale=False, verbose=False)[3, 3] for (x, y) in
+                         zip(idx_x, idx_y)]
+            omega_s_idx_ = np.array(omega_s_idx_)
+
+            if scale and (np.any(omega_s_idx_ < -0.5) or np.any(omega_s_idx_ > 0.5)):
+                scaling_factor = np.nanmax(np.abs(omega_s_idx_[1:-1, 1:-1])) if scaling_factor is None else scaling_factor
+                omega_s_idx_ = omega_s_idx_ / (2 * scaling_factor)
+                assert np.all(-0.5 <= omega_s_idx_[1:-1, 1:-1])
+                assert np.all(omega_s_idx_[1:-1, 1:-1] <= 0.5)
+                print("__Used scaling in omega_s_idx. Method: NOT safe")
+            else:
+                print("__WARNING: Did not scale omega_s")
+
+            print("__Omega_s indexes selected. Method: NOT safe") if verbose else None
+
+            return omega_s_idx_
 
     def wind_weighting_factor_map(self, mnt, dx, wind_dir, gamma_s=0.58, gamma_c=0.42, verbose=True):
+        """
+        Test 1. no nans OK
+        Test 2. good shape OK
+        Test 3. Good result
+        Test 4. Good data format
+        """
         """gamma_s = 0.58 and gamma_c = 0.42"""
         omega_c = self.curvature_map(mnt, length_scale=None, scale=True)
         omega_s = self.omega_s_map(mnt, dx, wind_dir, scale=True)
         w = 1 + gamma_s * omega_s + gamma_c * omega_c
 
         w = change_dtype_if_required(w, np.float32)
-        print("__Wind weighting factor calculation using numpy") if verbose else None
+        print("__Wind weighting factor calculation. Library: numpy") if verbose else None
+
+        return w
+
+    def wind_weighting_factor_idx(self, mnt, dx, wind_dir, idx_x, idx_y, gamma_s=0.58, gamma_c=0.42, method="safe",
+                                  scale=True, length_scale=None, scaling_factor=None, verbose=True):
+        """
+        Test 1. no nans OK
+        Test 2. good shape OK
+        Test 3. Good result
+        Test 4. Good data format
+        """
+        """gamma_s = 0.58 and gamma_c = 0.42"""
+        idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
+        omega_c = self.curvature_idx(mnt, idx_x, idx_y,
+                                     length_scale=length_scale, scaling_factor=scaling_factor, method=method,
+                                     scale=scale, verbose=verbose)
+        omega_s = self.omega_s_idx(mnt, dx, wind_dir, idx_x, idx_y,
+                                   method=method, scale=scale, scaling_factor=scaling_factor, verbose=verbose)
+        w = 1 + gamma_s * omega_s + gamma_c * omega_c
+
+        w = change_dtype_if_required(w, np.float32)
+        print("__Wind weighting factor calculation. Library: numpy") if verbose else None
 
         return w
 
     def diverting_factor_map(self, mnt, dx, wind_dir, verbose=True):
+        """
+        Test 1. no nans OK
+        Test 2. good shape OK
+        Test 3. Good result
+        Test 4. Good data format
+        """
 
         term1 = -0.5 * self.omega_s_map(mnt, dx, wind_dir, scale=True)
         azimuth = self.terrain_slope_azimuth_map(mnt, dx)
         theta_d = term1 * np.sin(2 * (azimuth - wind_dir))
 
         theta_d = change_dtype_if_required(theta_d, np.float32)
-        print("__Wind weighting factor calculation using numpy") if verbose else None
+        print("__Wind weighting factor calculation. Library: numpy") if verbose else None
+
+        return theta_d
+
+    def diverting_factor_idx(self, mnt, dx, wind_dir, idx_x, idx_y, method="safe", scale=False, scaling_factor=None, verbose=True):
+        """
+        Test 1. no nans OK
+        Test 2. good shape OK
+        Test 3. Good result
+        Test 4. Good data format
+        """
+        idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
+        term1 = -0.5 * self.omega_s_idx(mnt, dx, wind_dir, idx_x, idx_y,
+                                        method=method, scale=scale, scaling_factor=scaling_factor, verbose=verbose)
+        azimuth = self.terrain_slope_azimuth_idx(mnt, dx, idx_x, idx_y, verbose=verbose)
+        theta_d = term1 * np.sin(2 * (azimuth - wind_dir))
+
+        theta_d = change_dtype_if_required(theta_d, np.float32)
+        print("__Wind weighting factor calculation. Library: numpy.") if verbose else None
 
         return theta_d
