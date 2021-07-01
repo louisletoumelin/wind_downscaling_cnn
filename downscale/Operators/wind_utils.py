@@ -51,7 +51,7 @@ class Wind_utils:
         wind_out: Output wind, after logarithmic profile
         """
 
-        if verbose: print(f"Applied log profile: {z_in_verbose} => {z_out_verbose}")
+        print(f"Applied log profile: {z_in_verbose} => {z_out_verbose}") if verbose else None
 
         if _numexpr:
             return ne.evaluate("(wind_in * log(z_out / z0)) / log(z_in / z0)")

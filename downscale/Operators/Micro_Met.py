@@ -225,9 +225,6 @@ class MicroMet(Topo_utils):
 
     def omega_s_idx(self, mnt, dx, wind_dir, idx_x, idx_y, method="safe", scale=False, scaling_factor=None, verbose=True):
         """
-        Test 3. Good result
-        """
-        """
         Omega_s following Liston and Elder (2006)
 
         Parameters
@@ -282,9 +279,7 @@ class MicroMet(Topo_utils):
             return omega_s_idx_
 
     def wind_weighting_factor_map(self, mnt, dx, wind_dir, gamma_s=0.58, gamma_c=0.42, scale=True, verbose=True):
-        """
-        Test 3. Good result
-        """
+        """Need test map and idx"""
         """gamma_s = 0.58 and gamma_c = 0.42"""
         omega_c = self.curvature_map(mnt, length_scale=None, scale=scale, verbose=verbose)
         omega_s = self.omega_s_map(mnt, dx, wind_dir, scale=scale, verbose=verbose)
@@ -297,9 +292,7 @@ class MicroMet(Topo_utils):
 
     def wind_weighting_factor_idx(self, mnt, dx, wind_dir, idx_x, idx_y, gamma_s=0.58, gamma_c=0.42, method="safe",
                                   scale=True, length_scale=None, scaling_factor=None, verbose=True):
-        """
-        Test 3. Good result
-        """
+        """Need test map and idx"""
         """gamma_s = 0.58 and gamma_c = 0.42"""
         idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
         omega_c = self.curvature_idx(mnt, idx_x, idx_y,
@@ -315,10 +308,7 @@ class MicroMet(Topo_utils):
         return w
 
     def diverting_factor_map(self, mnt, dx, wind_dir, scale=True, verbose=True):
-        """
-        Test 3. Good result
-        """
-
+        """Need test map and idx"""
         term1 = -0.5 * self.omega_s_map(mnt, dx, wind_dir, scale=scale, verbose=verbose)
         azimuth = self.terrain_slope_azimuth_map(mnt, dx, verbose=verbose)
         theta_d = term1 * np.sin(2 * (azimuth - wind_dir))
@@ -330,12 +320,7 @@ class MicroMet(Topo_utils):
 
     def diverting_factor_idx(self, mnt, dx, wind_dir, idx_x, idx_y,
                              method="safe", scale=False, scaling_factor=None, verbose=True):
-        """
-        Test 1. no nans OK
-        Test 2. good shape OK
-        Test 3. Good result
-        Test 4. Good data format
-        """
+        """Need test map and idx"""
         idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
         term1 = -0.5 * self.omega_s_idx(mnt, dx, wind_dir, idx_x, idx_y,
                                         method=method, scale=scale, scaling_factor=scaling_factor, verbose=verbose)

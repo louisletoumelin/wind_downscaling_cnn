@@ -541,3 +541,54 @@ def test_curvature_idx_good_result():
 
     assert_almost_equal(result_map_1, expected_results_1)
     assert_almost_equal(result_map_2, expected_results_2)
+
+
+def test_omega_s_map_good_result():
+    m = MicroMet()
+
+    array_test = np.array([[13, 24, 32, 50],
+                           [12, 11, 41, 51],
+                           [50, 13, 28, 48],
+                           [7, 32, 41, 53]])
+
+    result_map_1 = np.round(m.omega_s_map(array_test, 1, 270, verbose=False), 2)
+    result_map_2 = np.round(m.omega_s_map(array_test, 1, 270, scale=True, scaling_factor=10, verbose=False), 2)
+
+    result_1 = np.array([[1.48050674, 1.50876899, 1.5076349, 1.51538309],
+                         [1.51687339, 1.50640289, 1.52108546, 1.47161907],
+                         [1.54383732, 1.50513128, 1.51371554, 1.52090016],
+                         [1.55069422, 1.5315932, 1.51102598, 1.49402444]])
+
+    result_2 = np.array([[4.80304887, 5.65210592, 4.10684432, 4.65689048],
+                         [6.22918381, 5.07493322, 4.81205763, 4.81205763],
+                         [4.64492396, 5.47453552, 4.71238898, 4.66243058],
+                         [5.75655804, 3.87149231, 3.82100646, 4.31759786]])
+
+    expected_results = np.round(result_1 * np.cos(270 - result_2), 2)
+
+    assert_allclose(result_map_1, expected_results)
+    assert_allclose(result_map_2, np.round(expected_results / (2 * 10), 2))
+
+
+def test_omega_s_map_and_idx_consistent():
+    m = MicroMet()
+
+    array_test = np.array([[13, 24, 32, 50, 36, 28, 28],
+                           [12, 11, 41, 51, 38, 10, 20],
+                           [50, 13, 28, 48, 28, 5, 18],
+                           [7, 32, 41, 53, 59, 28, 8],
+                           [18, 19, 48, 20, 29, 24, 93],
+                           [19, 29, 30, 28, 18, 49, 50]])
+
+    result_map_1 = m.omega_s_map(array_test, 1, 270, verbose=False)
+    result_map_1 = result_map_1[3, 4]
+    result_idx_1 = m.omega_s_idx(array_test, 1, 270, [4], [3], verbose=False)
+
+    result_map_2 = m.omega_s_map(array_test, 1, 270, scale=True, scaling_factor=10, verbose=False)
+    result_map_2 = result_map_2[3, 4]
+    result_idx_2 = m.omega_s_idx(array_test, 1, 270, [4], [3], scale=True, scaling_factor=10, verbose=False)
+
+    assert_allclose(result_map_1, result_idx_1)
+    assert_allclose(result_map_2, result_idx_2)
+
+
