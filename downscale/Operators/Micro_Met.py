@@ -327,7 +327,7 @@ class MicroMet(Topo_utils):
         print("__Wind weighting factor calculation. Library: numpy") if verbose else None
 
         return theta_d
-
+    #1
     def diverting_factor_idx(self, mnt, dx, wind_dir, idx_x, idx_y,
                              method="safe", scale=False, scaling_factor=None, verbose=True):
         """
