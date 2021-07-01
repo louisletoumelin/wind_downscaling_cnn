@@ -64,7 +64,7 @@ def test_normalize_topo():
                                   [1, -1, 1, -1],
                                   [1, -1, 1, -1]])
 
-    result_1 = tu.normalize_topo(array_test_1, np.array([0]), np.array([100]))
+    result_1 = tu.normalize_topo(array_test_1, np.array([0]), np.array([100]), verbose=False)
     assert_array_almost_equal(result_1, expected_result_1)
 
 
@@ -75,7 +75,7 @@ def test_normalize_topo_broadcast():
 
     expected_result_1 = 25 * np.ones((10, 20, 30))
 
-    result_1 = tu.normalize_topo(array_test_1, np.array([50]), np.array([2]))
+    result_1 = tu.normalize_topo(array_test_1, np.array([50]), np.array([2]), verbose=False)
     assert_array_almost_equal(result_1, expected_result_1)
 
 
@@ -83,9 +83,9 @@ def test_mean_peak_valley():
     tu = SgpHelbig()
     test_array_1 = np.array([1, np.nan, 2])
     test_array_2 = np.array([1, 2, 2])
-    assert_array_almost_equal(tu.mean_peak_valley(test_array_1), np.float32(2*np.nanstd(test_array_1)))
-    assert_array_almost_equal(tu.mean_peak_valley(test_array_2), np.float32(2*np.nanstd(test_array_2)))
-    assert not np.array_equal(tu.mean_peak_valley(test_array_1), np.float32(2*np.std(test_array_1)))
+    assert_array_almost_equal(tu.mean_peak_valley(test_array_1, verbose=False), np.float32(2*np.nanstd(test_array_1)))
+    assert_array_almost_equal(tu.mean_peak_valley(test_array_2, verbose=False), np.float32(2*np.nanstd(test_array_2)))
+    assert not np.array_equal(tu.mean_peak_valley(test_array_1, verbose=False), np.float32(2*np.std(test_array_1)))
 
 
 def test_laplacian_classic():
@@ -314,7 +314,9 @@ def test_xsi_helbig_map():
                     [result_9, result_10, result_11, result_12],
                     [result_13, result_14, result_15, result_16]])
 
-    mu = tu.mu_helbig_average(array_test, 1, reduce_mnt=False, type_input="map", x_win=1, y_win=1, library="numba", verbose=False)
+    mu = tu.mu_helbig_average(array_test, 1,
+                              reduce_mnt=False, type_input="map", x_win=1, y_win=1, library="numba", verbose=False)
+
     expected_result = np.sqrt(2) * std / mu
     result = tu.xsi_helbig_map(array_test, mu, reduce_mnt=False, x_win=1, y_win=1, library="numba", verbose=False)
 

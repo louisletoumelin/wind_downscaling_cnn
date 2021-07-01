@@ -17,10 +17,10 @@ class MicroMet(Topo_utils):
 
     @staticmethod
     def terrain_slope_map(mnt, dx, verbose=True):
-        """Terrain slope following Liston and Elder (2006)"""
-        #todo
         """
-        Test 3. Good result 
+        tan-1((dz/dx)**2 + (dz/dy)**2)**(1/2)
+
+        Terrain slope following Liston and Elder (2006)
         """
         beta = np.arctan(np.sqrt(np.sum(np.array(np.gradient(mnt, dx)) ** 2, axis=0)))
 
@@ -31,23 +31,27 @@ class MicroMet(Topo_utils):
 
     def terrain_slope_idx(self, mnt, dx, idx_x, idx_y, verbose=True):
         """
-        Test 3. Good result
+        tan-1((dz/dx)**2 + (dz/dy)**2)**(1/2)
+
+        Terrain slope following Liston and Elder (2006)
         """
         idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
 
-        beta = [self.terrain_slope_azimuth_map(mnt[y - 2:y + 2, x - 2:x + 2], dx, verbose=False)[3, 3] for (x, y) in
+        beta = [self.terrain_slope_map(mnt[y - 2:y + 2, x - 2:x + 2], dx, verbose=False)[2, 2] for (x, y) in
               zip(idx_x, idx_y)]
         beta = np.array(beta)
 
         print("__Terrain slope indexes selected") if verbose else None
-        print("__INFO: do not have to scale Terrain slope")
+        print("__INFO: do not have to scale Terrain slope") if verbose else None
 
         return beta
 
     @staticmethod
     def terrain_slope_azimuth_map(mnt, dx, verbose=True):
         """
-        Test 3. Good result
+        3 pi /2 - tan-1(dz/dy / dz/dx)
+
+        following Liston and Elder (2006)
         """
         gradient_y, gradient_x = np.gradient(mnt, dx)
         arctan_value = np.where(gradient_x != 0, np.arctan(gradient_y / gradient_x), np.where(gradient_y>0, np.pi/2, np.where(gradient_y < 0, gradient_y, -np.pi/2)))
@@ -60,26 +64,55 @@ class MicroMet(Topo_utils):
 
     def terrain_slope_azimuth_idx(self, mnt, dx, idx_x, idx_y, verbose=True):
         """
-        Test 1. no nans OK
-        Test 2. good shape OK
-        Test 3. Good result
-        Test 4. Good data format
+        3 pi /2 - tan-1(dz/dy / dz/dx)
+
+        following Liston and Elder (2006)
         """
         idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
-        xi = [self.terrain_slope_azimuth_map(mnt[y - 2:y + 2, x - 2:x + 2], dx, verbose=False)[3, 3] for (x, y) in
+        xi = [self.terrain_slope_azimuth_map(mnt[y - 2:y + 2, x - 2:x + 2], dx, verbose=False)[2, 2] for (x, y) in
                      zip(idx_x, idx_y)]
         xi = np.array(xi)
 
         print("__Terrain slope azimuth indexes selected") if verbose else None
-        print("__INFO: do not have to scale Terrain slope azimuth")
+        print("__INFO: do not have to scale Terrain slope azimuth") if verbose else None
 
         return xi
 
     @staticmethod
     def curvature_map(mnt, length_scale=None, scaling_factor=None, scale=False, verbose=True):
         """
-        Test 3. Good result
-        Test 4. Scale = True and scale = False
+        Curvature following Liston and Elder (2006)
+
+        (1/4) * ((z-(n+s)/2)/(2*n) + (z-(e+w)/2)/(2*n) + (z-(nw+se)/2)/((2*sqrt(2)*n)) + (z-(ne+sw)/2)/(2*sqrt(2)*n))
+
+        with n = 2*std(dem)
+
+
+        Parameters
+        ----------
+        mnt : dnarray
+            Digital elevation model (topography)
+        idx_x : dnarray
+            Indexes along the x axis
+        idx_y : ndarray
+            Indexes along the y axis
+        method : string
+            "safe" or anything else. If safe, first compute curvature on a map and the select indexes.
+            This allows for clean scaling of curvature if abs(curvatur) > 0.5 (Liston and Elder (2006))
+            If an other string is passed, the computation will be faster but the scaling might be unadequate.
+        scale : boolean
+            If True, scale the output such as -0.5<curvature<0.5
+        length_scale : float
+            Length used in curvature computation
+        scaling_factor : float
+            Length used to scale outputs
+        verbose : boolean
+            Print verbose
+
+        Returns
+        -------
+        curvature : ndarray
+            Curvature
         """
         if length_scale is None:
             std_mnt = np.nanstd(mnt)
@@ -113,11 +146,12 @@ class MicroMet(Topo_utils):
 
     def curvature_idx(self, mnt, idx_x, idx_y, method="safe", scale=False, length_scale=None, scaling_factor=None, verbose=True):
         """
-        Test 3. Good result
-        Test 5. method safe and other and scale True and False
-        """
-        """
         Curvature following Liston and Elder (2006)
+
+        (1/4) * ((z-(n+s)/2)/(2*n) + (z-(e+w)/2)/(2*n) + (z-(nw+se)/2)/((2*sqrt(2)*n)) + (z-(ne+sw)/2)/(2*sqrt(2)*n))
+
+        with n = 2*std(dem)
+
 
         Parameters
         ----------
@@ -161,9 +195,9 @@ class MicroMet(Topo_utils):
                 curvature = curvature / (2 * scaling_factor)
                 assert np.all(-0.5 <= curvature[1:-1, 1:-1])
                 assert np.all(curvature[1:-1, 1:-1] <= 0.5)
-                print("__Used scaling in curvature_idx. Method: NOT safe")
+                print("__Used scaling in curvature_idx. Method: NOT safe") if verbose else None
             else:
-                print("__WARNING: Did not scale curvature")
+                print("__WARNING: Did not scale curvature") if verbose else None
 
             print("__Curvature indexes selected. Method: NOT safe") if verbose else None
 
@@ -171,16 +205,12 @@ class MicroMet(Topo_utils):
 
     def omega_s_map(self, mnt, dx, wind_dir, scale=False, scaling_factor=None, verbose=True):
         """
-        Test 1. no nans OK
-        Test 2. good shape OK
         Test 3. Good result
-        Test 4. Good data format
         """
         """The slope in the direction of the wind"""
-        beta = self.terrain_slope_map(mnt, dx)
-        xi = self.terrain_slope_azimuth_map(mnt, dx)
+        beta = self.terrain_slope_map(mnt, dx, verbose=verbose)
+        xi = self.terrain_slope_azimuth_map(mnt, dx, verbose=verbose)
         omega_s = beta * np.cos(wind_dir - xi)
-        omega_s = change_dtype_if_required(omega_s, np.float32)
 
         if scale:
             scaling_factor = np.nanmax(np.abs(omega_s[1:-1, 1:-1])) if scaling_factor is None else scaling_factor
@@ -188,16 +218,14 @@ class MicroMet(Topo_utils):
             assert np.all(-0.5 <= omega_s[-1:1, -1:1])
             assert np.all(-0.5 <= omega_s[-1:1, -1:1])
 
+        omega_s = change_dtype_if_required(omega_s, np.float32)
         print("__Omega_s calculation. Library: numpy") if verbose else None
 
         return omega_s
 
     def omega_s_idx(self, mnt, dx, wind_dir, idx_x, idx_y, method="safe", scale=False, scaling_factor=None, verbose=True):
         """
-        Test 1. no nans OK
-        Test 2. good shape OK
         Test 3. Good result
-        Test 4. Good data format
         """
         """
         Omega_s following Liston and Elder (2006)
@@ -236,7 +264,7 @@ class MicroMet(Topo_utils):
             return omega_s_map_[idx_y, idx_x]
 
         else:
-            omega_s_idx_ = [self.omega_s_idx(mnt[y - 2:y + 2, x - 2:x + 2], dx, wind_dir, scale=False, verbose=False)[3, 3] for (x, y) in
+            omega_s_idx_ = [self.omega_s_map(mnt[y - 2:y + 2, x - 2:x + 2], dx, wind_dir, scale=False, verbose=False)[3, 3] for (x, y) in
                          zip(idx_x, idx_y)]
             omega_s_idx_ = np.array(omega_s_idx_)
 
@@ -245,24 +273,21 @@ class MicroMet(Topo_utils):
                 omega_s_idx_ = omega_s_idx_ / (2 * scaling_factor)
                 assert np.all(-0.5 <= omega_s_idx_[1:-1, 1:-1])
                 assert np.all(omega_s_idx_[1:-1, 1:-1] <= 0.5)
-                print("__Used scaling in omega_s_idx. Method: NOT safe")
+                print("__Used scaling in omega_s_idx. Method: NOT safe") if verbose else None
             else:
-                print("__WARNING: Did not scale omega_s")
+                print("__WARNING: Did not scale omega_s") if verbose else None
 
             print("__Omega_s indexes selected. Method: NOT safe") if verbose else None
 
             return omega_s_idx_
 
-    def wind_weighting_factor_map(self, mnt, dx, wind_dir, gamma_s=0.58, gamma_c=0.42, verbose=True):
+    def wind_weighting_factor_map(self, mnt, dx, wind_dir, gamma_s=0.58, gamma_c=0.42, scale=True, verbose=True):
         """
-        Test 1. no nans OK
-        Test 2. good shape OK
         Test 3. Good result
-        Test 4. Good data format
         """
         """gamma_s = 0.58 and gamma_c = 0.42"""
-        omega_c = self.curvature_map(mnt, length_scale=None, scale=True)
-        omega_s = self.omega_s_map(mnt, dx, wind_dir, scale=True)
+        omega_c = self.curvature_map(mnt, length_scale=None, scale=scale, verbose=verbose)
+        omega_s = self.omega_s_map(mnt, dx, wind_dir, scale=scale, verbose=verbose)
         w = 1 + gamma_s * omega_s + gamma_c * omega_c
 
         w = change_dtype_if_required(w, np.float32)
@@ -273,10 +298,7 @@ class MicroMet(Topo_utils):
     def wind_weighting_factor_idx(self, mnt, dx, wind_dir, idx_x, idx_y, gamma_s=0.58, gamma_c=0.42, method="safe",
                                   scale=True, length_scale=None, scaling_factor=None, verbose=True):
         """
-        Test 1. no nans OK
-        Test 2. good shape OK
         Test 3. Good result
-        Test 4. Good data format
         """
         """gamma_s = 0.58 and gamma_c = 0.42"""
         idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
@@ -292,16 +314,13 @@ class MicroMet(Topo_utils):
 
         return w
 
-    def diverting_factor_map(self, mnt, dx, wind_dir, verbose=True):
+    def diverting_factor_map(self, mnt, dx, wind_dir, scale=True, verbose=True):
         """
-        Test 1. no nans OK
-        Test 2. good shape OK
         Test 3. Good result
-        Test 4. Good data format
         """
 
-        term1 = -0.5 * self.omega_s_map(mnt, dx, wind_dir, scale=True)
-        azimuth = self.terrain_slope_azimuth_map(mnt, dx)
+        term1 = -0.5 * self.omega_s_map(mnt, dx, wind_dir, scale=scale, verbose=verbose)
+        azimuth = self.terrain_slope_azimuth_map(mnt, dx, verbose=verbose)
         theta_d = term1 * np.sin(2 * (azimuth - wind_dir))
 
         theta_d = change_dtype_if_required(theta_d, np.float32)
@@ -309,7 +328,8 @@ class MicroMet(Topo_utils):
 
         return theta_d
 
-    def diverting_factor_idx(self, mnt, dx, wind_dir, idx_x, idx_y, method="safe", scale=False, scaling_factor=None, verbose=True):
+    def diverting_factor_idx(self, mnt, dx, wind_dir, idx_x, idx_y,
+                             method="safe", scale=False, scaling_factor=None, verbose=True):
         """
         Test 1. no nans OK
         Test 2. good shape OK

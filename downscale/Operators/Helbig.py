@@ -41,7 +41,7 @@ class SgpHelbig(Topo_utils):
         return mu
 
     def mu_helbig_idx(self, mnt, dx, idx_x, idx_y, verbose=True):
-        mu = self.mu_helbig_map(mnt, dx)
+        mu = self.mu_helbig_map(mnt, dx, verbose=verbose)
         mu = change_dtype_if_required(mu, np.float32)
         print("__Selecting indexes on mu") if verbose else None
         return mu[idx_y, idx_x]
@@ -73,7 +73,7 @@ class SgpHelbig(Topo_utils):
                                                                         max_idx=boundaries_mnt)
 
         if type_input == "map":
-            mu = self.mu_helbig_map(mnt, dx)
+            mu = self.mu_helbig_map(mnt, dx, verbose=verbose)
             if library == 'numba' and _numba:
                 mu, y_left, y_right, x_left, x_right = change_several_dtype_if_required(
                     [mu, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
@@ -91,8 +91,8 @@ class SgpHelbig(Topo_utils):
             y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
                                                                             min_idx=[0, 0, 0, 0],
                                                                             max_idx=boundaries_mnt)
-            mu_flat = np.array([np.mean(self.mu_helbig_map(mnt[i1:j1 + 1, i2:j2 + 1], dx)) for i1, j1, i2, j2 in
-                                zip(y_left, y_right, x_left, x_right)])
+            mu_flat = np.array([np.mean(self.mu_helbig_map(mnt[i1:j1 + 1, i2:j2 + 1], dx, verbose=verbose))
+                                for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
 
         mu = mu_flat.reshape((shape[0], shape[1])) if (type_input == "map" or reduce_mnt) else mu_flat
 
@@ -178,9 +178,9 @@ class SgpHelbig(Topo_utils):
             idx_x, idx_y = np.array(np.meshgrid(idx_x, idx_y)).astype(np.int32)
 
         mu = self.mu_helbig_average(mnt, dx, idx_x, idx_y,
-                                    type_input=type_input, reduce_mnt=reduce_mnt, x_win=x_win, y_win=y_win)
+                                    type_input=type_input, reduce_mnt=reduce_mnt, x_win=x_win, y_win=y_win, verbose=verbose)
         xsi = self.xsi_helbig_map(mnt, mu, idx_x, idx_y, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x,
-                                  nb_pixels_y=nb_pixels_y, x_win=x_win, y_win=y_win, library="numba")
+                                  nb_pixels_y=nb_pixels_y, x_win=x_win, y_win=y_win, library="numba", verbose=verbose)
 
         x = 1 - (1 - (1 / (1 + a * mu ** b)) ** c) * np.exp(-d * (L / xsi) ** (-2))
 
@@ -230,11 +230,11 @@ class DwnscHelbig(SgpHelbig):
 
         if type_input == "map":
             laplacian = self.laplacian_map(mnt, dx, library=library, helbig=True)
-            mu = self.mu_helbig_map(mnt, dx)
+            mu = self.mu_helbig_map(mnt, dx, verbose=verbose)
         elif type_input == "indexes":
             idx_x, idx_y = change_several_dtype_if_required([idx_x, idx_y], [np.int32, np.int32])
             laplacian = self.laplacian_idx(mnt, idx_x, idx_y, dx, library=library, helbig=True)
-            mu = self.mu_helbig_idx(mnt, dx, idx_x, idx_y)
+            mu = self.mu_helbig_idx(mnt, dx, idx_x, idx_y, verbose=verbose)
 
         term_1 = 1 - a * laplacian / (1 + a * np.abs(laplacian) ** b)
         term_2 = c / (1 + d * mu ** e)

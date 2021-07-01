@@ -100,7 +100,8 @@ class Topo_utils:
         xx, yy = np.array(np.meshgrid(list(range(shape[1])), list(range(shape[0])))).astype(np.int32)
 
         # Compute laplacian on indexes using an index for every grid point (meshgrid)
-        laplacian = self.laplacian_idx(mnt_padded, xx[1:-1, 1:-1], yy[1:-1, 1:-1], dx, library=library, helbig=helbig)
+        laplacian = self.laplacian_idx(mnt_padded, xx[1:-1, 1:-1], yy[1:-1, 1:-1], dx,
+                                       library=library, helbig=helbig, verbose=verbose)
 
         print(f"__Laplacian map calculated. Shape: {laplacian.shape}. Library: {library}") if verbose else None
 
