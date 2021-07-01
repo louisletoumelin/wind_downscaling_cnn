@@ -82,15 +82,7 @@ if prm["launch_predictions"]:
 
     predict = p.predict_maps
     ttest=t()
-    wind_map, acceleration_all, coords, nwp_data_initial, nwp_data, mnt_data = predict(year_0=prm["year_begin"],
-                                                                                       month_0=prm["month_begin"],
-                                                                                       day_0=prm["day_begin"],
-                                                                                       hour_0=prm["hour_begin"],
-                                                                                       year_1=prm["year_end"],
-                                                                                       month_1=prm["month_end"],
-                                                                                       day_1=prm["day_end"],
-                                                                                       hour_1=prm["hour_end"],
-                                                                                       prm=prm)
+    wind_map, acceleration_all, coords, nwp_data_initial, nwp_data, mnt_data = predict(**prm)
 
     print(f'\nDownscaling scipy in {round(ttest, t())} seconds')
 

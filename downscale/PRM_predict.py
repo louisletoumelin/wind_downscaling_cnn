@@ -26,8 +26,12 @@ def create_prm(month_prediction=True):
     prm["launch_predictions"] = True
 
     # For predictions at stations
-    prm["stations_to_predict"] = ["Col du Lac Blanc"]
+    prm["stations_to_predict"] = ["Col du Lac Blanc", "ALPE-D'HUEZ"]
+
+    # Ideal cases
     prm["ideal_case"] = False
+    prm["input_speed"] = 3
+    prm["input_direction"] = 270
 
     # For predictions long periods
     prm["variable"] = "UV"
@@ -40,13 +44,14 @@ def create_prm(month_prediction=True):
     prm["dx"] = 2_000
     prm["dy"] = 2_500
     prm["extract_stations_only"] = True
+    prm["method"] = "linear"
 
     prm["hour_begin"] = 1
     prm["day_begin"] = 10
     prm["month_begin"] = 6
     prm["year_begin"] = 2019
 
-    prm["hour_end"] = 1
+    prm["hour_end"] = 10
     prm["day_end"] = 10
     prm["month_end"] = 6
     prm["year_end"] = 2019
