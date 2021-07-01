@@ -23,6 +23,7 @@ except ModuleNotFoundError:
     _dask = False
 
 
+# noinspection PyUnboundLocalVariable
 class SgpHelbig(Topo_utils):
 
     def __init__(self):
@@ -178,7 +179,8 @@ class SgpHelbig(Topo_utils):
             idx_x, idx_y = np.array(np.meshgrid(idx_x, idx_y)).astype(np.int32)
 
         mu = self.mu_helbig_average(mnt, dx, idx_x, idx_y,
-                                    type_input=type_input, reduce_mnt=reduce_mnt, x_win=x_win, y_win=y_win, verbose=verbose)
+                                    type_input=type_input, reduce_mnt=reduce_mnt,
+                                    x_win=x_win, y_win=y_win, verbose=verbose)
         xsi = self.xsi_helbig_map(mnt, mu, idx_x, idx_y, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x,
                                   nb_pixels_y=nb_pixels_y, x_win=x_win, y_win=y_win, library="numba", verbose=verbose)
 
@@ -215,6 +217,7 @@ class SgpHelbig(Topo_utils):
         return x_sgp_topo
 
 
+# noinspection PyUnboundLocalVariable
 class DwnscHelbig(SgpHelbig):
 
     def __init__(self):
@@ -250,7 +253,7 @@ class DwnscHelbig(SgpHelbig):
     def downscale_helbig(self, mnt_large, dx=25, L=2_000, idx_x=None, idx_y=None, type_input="map", reduce_mnt=False,
                          library="numba", nb_pixels_x=100, nb_pixels_y=100, verbose=True):
 
-        if verbose: print(f"\nBegin subgrid parameterization from Helbig et al. 2017")
+        print(f"\nBegin subgrid parameterization from Helbig et al. 2017") if verbose else None
         x_sgp_topo = self.subgrid(mnt_large,
                                   idx_x=idx_x,
                                   idx_y=idx_y,
@@ -275,8 +278,9 @@ class DwnscHelbig(SgpHelbig):
         plt.title("MNT")
 
         print(f"\nBegin downscaling from Helbig et al. 2017") if verbose else None
-        x_dsc_topo = self.x_dsc_topo_helbig(mnt_small, dx=dx, idx_x=idx_x, idx_y=idx_y, type_input=type_input, verbose=verbose,
-                                            library=library)
+        x_dsc_topo = self.x_dsc_topo_helbig(mnt_small,
+                                            dx=dx, idx_x=idx_x, idx_y=idx_y,
+                                            type_input=type_input, verbose=verbose, library=library)
 
         plt.figure()
         plt.imshow(x_dsc_topo)

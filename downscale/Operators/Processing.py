@@ -62,13 +62,15 @@ def root_mse(y_true, y_pred):
     return K.sqrt(K.mean(K.square(y_true - y_pred)))
 
 
-# noinspection PyAttributeOutsideInit
+# noinspection PyAttributeOutsideInit,PyUnboundLocalVariable
 class Processing(Wind_utils, Topo_utils, Rotation):
     n_rows, n_col = 79, 69
     _geopandas = _geopandas
     _shapely_geometry = _shapely_geometry
 
     def __init__(self, obs=None, mnt=None, nwp=None, model_path=None, prm=None):
+
+        super().__init__()
 
         GPU = prm["GPU"]
         data_path = prm['data_path']
@@ -139,7 +141,7 @@ class Processing(Wind_utils, Topo_utils, Rotation):
         print(f"Selected time series for pixel at station: {station_name}") if verbose else None
 
         results = results[0] if len(results) == 1 else results
-        return(results)
+        return (results)
 
     @staticmethod
     def _select_time_serie_from_array_xr(array_xr, station_name='Col du Lac Blanc', variable='UV', center=True):
@@ -542,8 +544,9 @@ class Processing(Wind_utils, Topo_utils, Rotation):
         UVW = self.compute_wind_speed(U=U, V=V, W=W)
 
         # Acceleration NWP to CNN
-        acceleration_all = self.wind_speed_ratio(num=UVW, den=wind1.reshape(
-            (nb_station, nb_sim, 1, 1))) if Z0 else np.full_like(UVW, np.nan)
+        acceleration_all = self.wind_speed_ratio(num=UVW,
+                                                 den=wind1.reshape((nb_station, nb_sim, 1, 1))) if Z0 else np.full_like(
+            UVW, np.nan)
 
         # Reshape after broadcasting
         wind_speed_all, wind_dir_all, Z0_all = reshape_list_array(list_array=[wind_speed_all, wind_dir_all, Z0_all],
@@ -858,36 +861,6 @@ class Processing(Wind_utils, Topo_utils, Rotation):
                     if np.isnan(neighbors).sum() <= 3:
                         wind_map[time_step, y, x, component] = np.mean(neighbors[~np.isnan(neighbors)])
         return wind_map
-
-    def plot_model(self):
-        # Load model
-        self.load_model(dependencies=True)
-
-        import visualkeras
-        from tensorflow.python.keras.layers import Dense, Conv2D, Flatten, Dropout, MaxPooling2D, ZeroPadding2D, \
-            Cropping2D, InputLayer
-        from collections import defaultdict
-        import matplotlib
-        import matplotlib.pylab as pl
-        from PIL import ImageFont
-        color_map = defaultdict(dict)
-        norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
-        colors = pl.cm.ocean(norm(np.linspace(0, 1, 9)), bytes=True)
-
-        color_map[Conv2D]['fill'] = tuple(colors[7])
-        color_map[ZeroPadding2D]['fill'] = tuple(colors[6])
-        color_map[Dropout]['fill'] = tuple(colors[5])
-        color_map[MaxPooling2D]['fill'] = tuple(colors[4])
-        color_map[Dense]['fill'] = tuple(colors[3])
-        color_map[Flatten]['fill'] = tuple(colors[2])
-        color_map[Cropping2D]['fill'] = tuple(colors[1])
-        color_map[InputLayer]['fill'] = tuple(colors[0])
-
-        font = ImageFont.truetype("arial.ttf", 35)  # using comic sans is strictly prohibited!
-        visualkeras.layered_view(self.model, color_map=color_map, legend=True, draw_volume=True, draw_funnel=True,
-                                 shade_step=0, font=font, scale_xy=2, scale_z=0.5, to_file='output85.png')
-        # tf.keras.utils.plot_model(self.model, to_file='Model1.png')
-        # tf.keras.utils.plot_model(self.model, to_file='Model2.png', show_shapes=True)
 
     def hstack_topo(self, topo_i, idx_x_mnt, idx_y_mnt, mnt_data, nb_pixel, library='numba', verbose=True):
 
