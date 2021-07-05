@@ -82,6 +82,14 @@ class Processing(Wind_utils, Topo_utils, Rotation):
         self.data_path = data_path
         environment_GPU(GPU=GPU)
 
+    def update_stations_with_neighbors(self, mnt=None, nwp=None, GPU=False, number_of_neighbors=4):
+        mnt = self.mnt if mnt is None else mnt
+        nwp = self.nwp if nwp is None else nwp
+
+        if GPU:
+            self.update_stations_with_KNN_from_NWP(number_of_neighbors, nwp)
+            self.update_stations_with_KNN_from_MNT_using_cKDTree(mnt)
+
     def _extract_variable_from_nwp_at_station(self,
                                               station_name,
                                               variable_to_extract=["time", "wind_speed", "wind_direction", "Z0",

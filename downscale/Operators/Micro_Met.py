@@ -79,7 +79,12 @@ class MicroMet(Topo_utils):
         return xi
 
     @staticmethod
-    def curvature_map(mnt, length_scale=None, scaling_factor=None, scale=False, verbose=True):
+    def get_length_scale_curvature(mnt):
+        std_mnt = np.nanstd(mnt)
+        length_scale = 2 * std_mnt if std_mnt != 0 else 1
+        return length_scale
+
+    def curvature_map(self, mnt, length_scale=None, scaling_factor=None, scale=False, verbose=True):
         """
         Curvature following Liston and Elder (2006)
 
@@ -114,9 +119,8 @@ class MicroMet(Topo_utils):
         curvature : ndarray
             Curvature
         """
-        if length_scale is None:
-            std_mnt = np.nanstd(mnt)
-            length_scale = 2 * std_mnt if std_mnt != 0 else 1
+
+        length_scale = self.get_length_scale_curvature(mnt) if length_scale is None else length_scale
 
         s = np.roll(mnt, -1, axis=0)
         n = np.roll(mnt, 1, axis=0)
@@ -187,7 +191,11 @@ class MicroMet(Topo_utils):
             return curvature_map[idx_y, idx_x]
 
         else:
-            curvature = [self.curvature_map(mnt[y-2:y+2, x-2:x+2], scale=False, verbose=False)[3, 3] for (x, y) in zip(idx_x, idx_y)]
+            length_scale = self.get_length_scale_curvature(mnt)
+            curvature = [self.curvature_map(mnt[y-2:y+2, x-2:x+2],
+                                            scale=False,
+                                            length_scale=length_scale,
+                                            verbose=False)[3, 3] for (x, y) in zip(idx_x, idx_y)]
             curvature = np.array(curvature)
 
             if scale and (np.any(curvature < -0.5) or np.any(curvature > 0.5)):
@@ -278,11 +286,14 @@ class MicroMet(Topo_utils):
 
             return omega_s_idx_
 
-    def wind_weighting_factor_map(self, mnt, dx, wind_dir, gamma_s=0.58, gamma_c=0.42, scale=True, verbose=True):
+    def wind_weighting_factor_map(self, mnt, dx, wind_dir, gamma_s=0.58, gamma_c=0.42,
+                                  scale=True, length_scale=None, scaling_factor=None, verbose=True):
         """Need test map and idx"""
         """gamma_s = 0.58 and gamma_c = 0.42"""
-        omega_c = self.curvature_map(mnt, length_scale=None, scale=scale, verbose=verbose)
-        omega_s = self.omega_s_map(mnt, dx, wind_dir, scale=scale, verbose=verbose)
+        omega_c = self.curvature_map(mnt, length_scale=length_scale, scaling_factor=scaling_factor,
+                                     scale=scale, verbose=verbose)
+        omega_s = self.omega_s_map(mnt, dx, wind_dir,
+                                   scale=scale, scaling_factor=scaling_factor, verbose=verbose)
         w = 1 + gamma_s * omega_s + gamma_c * omega_c
 
         w = change_dtype_if_required(w, np.float32)
@@ -307,9 +318,9 @@ class MicroMet(Topo_utils):
 
         return w
 
-    def diverting_factor_map(self, mnt, dx, wind_dir, scale=True, verbose=True):
+    def diverting_factor_map(self, mnt, dx, wind_dir, scale=True, scaling_factor=None, verbose=True):
         """Need test map and idx"""
-        term1 = -0.5 * self.omega_s_map(mnt, dx, wind_dir, scale=scale, verbose=verbose)
+        term1 = -0.5 * self.omega_s_map(mnt, dx, wind_dir, scaling_factor=scaling_factor, scale=scale, verbose=verbose)
         azimuth = self.terrain_slope_azimuth_map(mnt, dx, verbose=verbose)
         theta_d = term1 * np.sin(2 * (azimuth - wind_dir))
 

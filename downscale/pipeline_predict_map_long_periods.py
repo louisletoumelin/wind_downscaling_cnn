@@ -15,7 +15,6 @@ By rule of three, this give 2 days and 2h for downscaling one year at 1h and 25m
 import numpy as np
 import pandas as pd
 
-
 from downscale.Operators.Processing import Processing
 from downscale.Analysis.Visualization import Visualization
 from downscale.Data_family.MNT import MNT
@@ -60,15 +59,11 @@ if prm["GPU"]: connect_GPU_to_horovod()
 MNT, NWP and observations
 """
 
-
 IGN = MNT(prm["topo_path"], name="IGN")
 AROME = NWP(prm["selected_path"], name="AROME", begin=prm["begin"], end=prm["end"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
-
-if not(prm["GPU"]):
-    number_of_neighbors = 4
-    BDclim.update_stations_with_KNN_from_NWP(number_of_neighbors, AROME)
-    BDclim.update_stations_with_KNN_from_MNT_using_cKDTree(IGN)
+BDclim.update_stations_with_neighbors(IGN, IGN, GPU=prm["GPU"], number_of_neighbors=4)
+p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
 
 """
 Processing, visualization and evaluation
@@ -85,7 +80,6 @@ if prm["launch_predictions"]:
     dates_shift = pd.date_range(start=prm["begin"], end=prm["end"], freq="7D").shift()
 
     for index, (date_begin, date_end) in enumerate(zip(dates, dates_shift)):
-
         # Be sure dates are correct
         date_begin_day = date_begin.day if index == 0 else date_begin.day + 1
         date_end = pd.to_datetime(prm["end"]) if date_end > pd.to_datetime(prm["end"]) else date_end
@@ -106,16 +100,16 @@ if prm["launch_predictions"]:
         # Select function
         predict = p.predict_maps
 
-        #todo load appropriate NWP files
+        # todo load appropriate NWP files
         wind_map, acceleration, time, stations, _, _ = predict(year_0=date_begin.year,
-                                                         month_0=date_begin.month,
-                                                         day_0=date_begin_day,
-                                                         hour_0=0,
-                                                         year_1=date_end.year,
-                                                         month_1=date_end.month,
-                                                         day_1=date_end.day,
-                                                         hour_1=23,
-                                                         prm=prm)
+                                                               month_0=date_begin.month,
+                                                               day_0=date_begin_day,
+                                                               hour_0=0,
+                                                               year_1=date_end.year,
+                                                               month_1=date_end.month,
+                                                               day_1=date_end.day,
+                                                               hour_1=23,
+                                                               prm=prm)
 
         wind_map_all = np.concatenate((wind_map_all, wind_map)) if index != 0 else wind_map
         acceleration_all = np.concatenate((acceleration_all, acceleration)) if index != 0 else acceleration
