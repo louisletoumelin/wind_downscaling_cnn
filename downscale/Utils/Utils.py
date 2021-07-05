@@ -1,5 +1,6 @@
 import numpy as np
-
+import pandas as pd
+import datetime
 
 def select_range(month_begin, month_end, year_begin, year_end, date_begin, date_end):
     import pandas as pd
@@ -10,6 +11,55 @@ def select_range(month_begin, month_end, year_begin, year_end, date_begin, date_
         dates = pd.to_datetime(date_end)
         iterator = zip([dates.day], [dates.month], [dates.year])
     return (iterator)
+
+
+def select_range_7days_for_long_periods_prediction(begin="2017-8-2", end="2020-6-30"):
+    """
+    This function takes as input a date range (begin and end) and split it in 7-days range around excluded dates
+
+    Works if we have only one splitting in a week
+    """
+
+    # Define 7 days periods within date range
+    dates = pd.date_range(start=begin, end=end, freq="7D")
+    dates_shift = pd.date_range(start=begin, end=end, freq="7D").shift()
+    dates_shift = dates_shift.where(dates_shift <= end, end)
+
+    # Split range around selected dates
+    d1 = datetime.datetime(2017, 8, 1, 6)
+    d2 = datetime.datetime(2018, 8, 1, 6)
+    d3 = datetime.datetime(2019, 6, 1, 6)
+    d6 = datetime.datetime(2020, 7, 1, 6)
+    splitting_dates = [np.datetime64(date) for date in [d1, d2, d3, d6]]
+
+    begins = []
+    ends = []
+    for index, (begin, end) in enumerate(zip(dates.values, dates_shift.values)):
+
+        # Add one day to begin after first element
+        begin = begin if index == 0 else begin + np.timedelta64(1, "D")
+        end = end + np.timedelta64(23, "h")
+
+        split = False
+        for splt_date in splitting_dates:
+
+            # If date range needs to be splitted
+            if begin <= splt_date < end:
+                begins.append(begin)
+                ends.append(splt_date - np.timedelta64(1, "h"))
+                begins.append(splt_date)
+                ends.append(end)
+                split = True
+
+        # If we didn't split date range
+        if not split:
+            begins.append(begin)
+            ends.append(end)
+
+    begins = [pd.to_datetime(begin) for begin in begins]
+    ends = [pd.to_datetime(end) for end in ends]
+
+    return begins, ends
 
 
 def check_save_and_load(load_z0, save_z0):

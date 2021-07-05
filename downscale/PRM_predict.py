@@ -51,8 +51,8 @@ def create_prm(month_prediction=True):
     prm["month_begin"] = 6
     prm["year_begin"] = 2019
 
-    prm["hour_end"] = 10
-    prm["day_end"] = 10
+    prm["hour_end"] = 1
+    prm["day_end"] = 11
     prm["month_end"] = 6
     prm["year_end"] = 2019
 

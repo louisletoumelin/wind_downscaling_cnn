@@ -44,7 +44,7 @@ class Evaluation:
         dataframe = array_xr[
             ['U', 'V', 'W', 'UV', 'UVW', 'UV_DIR_deg', 'alpha_deg', 'NWP_wind_speed',
              'NWP_wind_DIR', 'ZS_mnt']].sel(station=station_name).isel(x=34, y=39).to_dataframe()
-        return (dataframe)
+        return dataframe
 
     def _rename_colums_obs_time_series(self):
         """

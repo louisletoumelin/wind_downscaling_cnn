@@ -22,7 +22,24 @@ def _update_selected_path(year, month, day, prm):
     else:
         prm["selected_path"] = prm["AROME_path"]
 
-    return(prm)
+    return prm
+
+
+def update_selected_path_for_long_periods(begin, end, prm):
+
+    d1 = datetime.datetime(2017, 8, 1, 6)
+    d2 = datetime.datetime(2018, 8, 1, 6)
+    d3 = datetime.datetime(2019, 6, 1, 6)
+    d6 = datetime.datetime(2020, 7, 1, 6)
+
+    if (d1 < begin <= d2) and (d1 < end <= d2):
+        prm["selected_path"] = prm["AROME_path_1"]
+    elif (d2 < begin <= d3) and (d2 < end <= d3):
+        prm["selected_path"] = prm["AROME_path_2"]
+    elif (d3 < begin <= d6) and (d3 < end <= d6):
+        prm["selected_path"] = prm["AROME_path_4"]
+
+    return prm
 
 
 def update_selected_path(prm, month_prediction, year_end=None, month_end=None, day_end=None, force_date=False):
@@ -33,16 +50,16 @@ def update_selected_path(prm, month_prediction, year_end=None, month_end=None, d
             prm = _update_selected_path(prm["year_end"], prm["month_end"], prm["day_end"], prm)
     else:
         prm["selected_path"] = prm["AROME_path"]
-    return(prm)
+    return prm
 
 
 def select_path_to_file_npy(prm, GPU=False):
     if GPU:
         prm_path = prm["selected_path"]
         path = "/".join(prm_path.split('/')[:-1]) + "/L93_npy/" + prm_path.split('/')[-1].split('.csv')[0].split('.nc')[0]
-        return(path)
+        return path
     else:
-        return(None)
+        return None
 
 
 def add_additionnal_stations(prm):
@@ -58,4 +75,4 @@ def add_additionnal_stations(prm):
         prm["path_Col_de_Porte"] = None
         prm["path_Col_du_Lautaret"] = None
 
-    return(prm)
+    return prm

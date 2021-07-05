@@ -86,9 +86,9 @@ class Processing(Wind_utils, Topo_utils, Rotation):
         mnt = self.mnt if mnt is None else mnt
         nwp = self.nwp if nwp is None else nwp
 
-        if GPU:
-            self.update_stations_with_KNN_from_NWP(number_of_neighbors, nwp)
-            self.update_stations_with_KNN_from_MNT_using_cKDTree(mnt)
+        if not GPU:
+            self.observation.update_stations_with_KNN_from_NWP(number_of_neighbors, nwp)
+            self.observation.update_stations_with_KNN_from_MNT_using_cKDTree(mnt)
 
     def _extract_variable_from_nwp_at_station(self,
                                               station_name,
