@@ -934,7 +934,7 @@ class Processing(Wind_utils, Topo_utils, Rotation):
     def _predict_maps(self, station_name='Col du Lac Blanc', x_0=None, y_0=None, dx=10_000, dy=10_000, interp=3,
                       year_begin=None, month_begin=None, day_begin=None, hour_begin=None,
                       year_end=None, month_end=None, day_end=None, hour_end=None,
-                      Z0=False, verbose=True, peak_valley=True, method='linear', type_rotation='indexes',
+                      Z0=True, verbose=True, peak_valley=True, method='linear', type_rotation='indexes',
                       log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
                       nb_pixels=15, interpolate_final_map=True, extract_stations_only=False, **kwargs):
 

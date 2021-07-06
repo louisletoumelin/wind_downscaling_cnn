@@ -5,26 +5,27 @@ from time import time as t
 
 try:
     import pyproj
+
     _pyproj = True
 except ModuleNotFoundError:
     _pyproj = False
 try:
     import dask
+
     _dask = True
 except ModuleNotFoundError:
     _dask = False
 try:
     from shapely.geometry import Point
+
     _shapely_geometry = True
 except ModuleNotFoundError:
     _shapely_geometry = False
-
 
 from downscale.Data_family.Data_2D import Data_2D
 
 
 class NWP(Data_2D):
-
     _dask = _dask
     _pyproj = _pyproj
     _shapely_geometry = _shapely_geometry
@@ -60,7 +61,7 @@ class NWP(Data_2D):
                             preprocess_function=self._preprocess_ncfile)
 
         # Select timeframe
-        #self.select_timeframe()
+        self.select_timeframe()
 
         # Select variables of interest
         self._select_specific_variables()
@@ -75,7 +76,6 @@ class NWP(Data_2D):
         self.variables_of_interest = variables_of_interest + ['X_L93', 'Y_L93']
         self._select_specific_variables()
 
-
         # Add z0 variables
         if (path_Z0_2018 is not None) and (path_Z0_2019 is not None):
             self._add_Z0(path_Z0_2018, path_Z0_2019, save=save, load=load_z0, verbose=True)
@@ -85,8 +85,7 @@ class NWP(Data_2D):
 
         if verbose:
             t1 = t()
-            print(f"NWP created in {np.round(t1-t0, 2)} seconds\n")
-
+            print(f"NWP created in {np.round(t1 - t0, 2)} seconds\n")
 
     def compute_array_dask(self):
         try:
@@ -94,7 +93,8 @@ class NWP(Data_2D):
         except:
             print('Did not use compute method on xarray')
 
-    def load_nwp_files(self, path_to_file=None, preprocess_function=None, parallel=False, verbose=True): #self._preprocess_ncfile
+    def load_nwp_files(self, path_to_file=None, preprocess_function=None, parallel=False,
+                       verbose=True):  # self._preprocess_ncfile
         if _dask:
             # Open netcdf file
             self.data_xr = xr.open_mfdataset(path_to_file,
@@ -147,7 +147,7 @@ class NWP(Data_2D):
         # Select Z0 and Z0REL and downsample to 1H
         # Nearest neighbors interpolation for 2018
         Z0_1h_2018_nearest = z0_10_days_2018[['Z0', 'Z0REL']].interp(time=full_indexes[1], method="nearest",
-                                                                  kwargs={"fill_value": "extrapolate"})
+                                                                     kwargs={"fill_value": "extrapolate"})
         if verbose: print(' .. interpolated nearest 2018')
 
         # Linear interpolation for 2018
@@ -156,7 +156,7 @@ class NWP(Data_2D):
 
         # Nearest neighbors interpolation for 2019
         Z0_1h_2019_nearest = z0_10_days_2019[['Z0', 'Z0REL']].interp(time=full_indexes[2], method="nearest",
-                                                                  kwargs={"fill_value": "extrapolate"})
+                                                                     kwargs={"fill_value": "extrapolate"})
         if verbose: print(' .. interpolated nearest 2019')
 
         # Linear interpolation for 2018
@@ -200,8 +200,8 @@ class NWP(Data_2D):
 
         # Create a file for 2020 (including 29 February)
         shape_2020 = (len(full_indexes[3]), 226, 176)
-        Z0_1h_2020 = xr.Dataset(data_vars={"Z0": (["time", "yy", "xx"], np.empty(shape_2020)*np.nan),
-                                           "Z0REL": (["time", "yy", "xx"], np.empty(shape_2020)*np.nan),
+        Z0_1h_2020 = xr.Dataset(data_vars={"Z0": (["time", "yy", "xx"], np.empty(shape_2020) * np.nan),
+                                           "Z0REL": (["time", "yy", "xx"], np.empty(shape_2020) * np.nan),
                                            },
 
                                 coords={"time": full_indexes[3],
@@ -212,12 +212,12 @@ class NWP(Data_2D):
         index_2020_small = index_2020[np.logical_not((index_2020.index.month == 2) & (index_2020.index.day == 29))]
 
         Z0_1h_2020_small = xr.Dataset(data_vars={"Z0": (["time", "yy", "xx"], Z0_1h_2017['Z0'].values),
-                                           "Z0REL": (["time", "yy", "xx"], Z0_1h_2017['Z0REL'].values),
-                                           },
+                                                 "Z0REL": (["time", "yy", "xx"], Z0_1h_2017['Z0REL'].values),
+                                                 },
 
-                                coords={"time": index_2020_small.index,
-                                        "xx": np.array(list(range(176))),
-                                        "yy": np.array(list(range(226)))})
+                                      coords={"time": index_2020_small.index,
+                                              "xx": np.array(list(range(176))),
+                                              "yy": np.array(list(range(226)))})
 
         # Update empty dataset with values from 2017
         Z0_1h_2020.update(Z0_1h_2020_small)
@@ -227,7 +227,7 @@ class NWP(Data_2D):
         array_Z0 = xr.concat([Z0_1h_2017, Z0_1h_2018, Z0_1h_2019, Z0_1h_2020], dim='time')
 
         if save: Z0_1h_2020.to_netcdf(self.save_path + 'processed_Z0.nc')
-        return(array_Z0)
+        return array_Z0
 
     def _add_Z0(self, path_Z0_2018, path_Z0_2019, save=False, load=False, verbose=True):
 
@@ -236,7 +236,8 @@ class NWP(Data_2D):
         year, month, day = self.begin.split('-')
         if load:
             chunks = {"time": 12} if _dask else None
-            array_Z0 = xr.open_dataset(self.save_path + f'processed_Z0_{year}_32bits.nc', chunks=chunks).astype("float32", copy=False)
+            array_Z0 = xr.open_dataset(self.save_path + f'processed_Z0_{year}_32bits.nc', chunks=chunks).astype(
+                "float32", copy=False)
         else:
             # Interpolate
             array_Z0 = self._interpolate_Z0(path_Z0_2018, path_Z0_2019, verbose=verbose, save=save)
@@ -287,7 +288,6 @@ class NWP(Data_2D):
         except:
             pass
 
-
     def _preprocess_ncfile(self, netCDF_file):
         try:
             netCDF_file = netCDF_file.assign_coords(time=("time", netCDF_file.time.data))
@@ -303,11 +303,11 @@ class NWP(Data_2D):
             pass
 
         netCDF_file = netCDF_file[self.variables_of_interest]
-        return (netCDF_file)
+        return netCDF_file
 
     @property
     def shape(self):
-        return (self.data_xr['LON'].shape)
+        return self.data_xr['LON'].shape
 
     @staticmethod
     def gps_to_l93(data_xr=None, shape=None, lon='LON', lat='LAT', height=None, length=None):
@@ -331,18 +331,10 @@ class NWP(Data_2D):
         # Create a new variable with new coordinates
         data_xr["X_L93"] = (("yy", "xx"), X_L93)
         data_xr["Y_L93"] = (("yy", "xx"), Y_L93)
-        return(data_xr)
+        return data_xr
 
     def select_timeframe(self, begin=None, end=None):
         if (begin is not None) and (end is not None):
             self.data_xr = self.data_xr.sel(time=slice(begin, end))
         else:
             self.data_xr = self.data_xr.sel(time=slice(self.begin, self.end))
-
-    def select_nwp_pixel(self, idx_x_nwp, idx_y_nwp, select_using_index=True):
-        "Depreciated"
-        if select_using_index:
-            x_nwp_L93 = nwp_x_l93.isel(xx=idx_x_nwp, yy=idx_y_nwp).data
-            y_nwp_L93 = nwp_y_l93.isel(xx=idx_x_nwp, yy=idx_y_nwp).data
-        return(x_nwp_L93, y_nwp_L93)
-

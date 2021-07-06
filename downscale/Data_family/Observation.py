@@ -513,10 +513,11 @@ class Observation:
                                          crs=crs)
 
     def update_stations_with_KNN_from_NWP(self, number_neighbor, nwp):
-        """Update a Observations.station (DataFrame) with index of NN in nwp
+        """
+        Update a Observations.station (DataFrame) with index of nearest neighbors in nwp
 
-        ex: BDclim.update_stations_with_KNN_from_NWP(4, AROME) gives information about the 4 KNN at the each BDclim
-        station from AROME
+        ex: BDclim.update_stations_with_KNN_from_NWP(4, AROME) gives information about the 4 KNN at the
+        each observation station from AROME
         """
 
         def K_N_N_point(point):

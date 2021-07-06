@@ -130,7 +130,6 @@ for index, (day, month, year) in enumerate(iterator):
     # Processing
     p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
 
-
     # Predictions
     array_xr = p.predict_at_stations(prm["stations_to_predict"], prm=prm)
 
