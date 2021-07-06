@@ -82,18 +82,31 @@ class Processing(Wind_utils, Topo_utils, Rotation):
         self.data_path = data_path
         environment_GPU(GPU=GPU)
 
-    def update_stations_with_neighbors(self, mnt=None, nwp=None, GPU=False, number_of_neighbors=4):
-        mnt = self.mnt if mnt is None else mnt
-        nwp = self.nwp if nwp is None else nwp
+    def update_stations_with_neighbors(self, mnt=None, nwp=None, GPU=False, number_of_neighbors=4, interpolated=False):
 
-        if not GPU:
-            self.observation.update_stations_with_KNN_from_NWP(number_of_neighbors, nwp.data_xr)
-            self.observation.update_stations_with_KNN_from_MNT_using_cKDTree(mnt)
+        if not GPU and not interpolated:
+            mnt = self.mnt if mnt is None else mnt
+            nwp = self.nwp if nwp is None else nwp
+            self.observation.update_stations_with_KNN_from_NWP(nwp=nwp,
+                                                               number_of_neighbors=number_of_neighbors,
+                                                               interpolated=interpolated)
+            self.observation.update_stations_with_KNN_from_MNT_using_cKDTree(mnt,
+                                                                             number_of_neighbors=number_of_neighbors)
+
+        if not GPU and interpolated:
+            self.observation.update_stations_with_KNN_from_NWP(nwp=nwp,
+                                                               number_of_neighbors=number_of_neighbors,
+                                                               interpolated=interpolated)
+
+            self.observation.update_stations_with_KNN_of_NWP_in_MNT_using_cKDTree(mnt, nwp,
+                                                                                  number_of_neighbors=4,
+                                                                                  interpolated=interpolated)
 
     def _extract_variable_from_nwp_at_station(self,
                                               station_name,
                                               variable_to_extract=["time", "wind_speed", "wind_direction", "Z0",
                                                                    "Z0REL", "ZS"],
+                                              interp_str="",
                                               verbose=False):
         """
         Extract numpy arrays of specified variable at a specific station.
@@ -115,7 +128,8 @@ class Processing(Wind_utils, Topo_utils, Rotation):
         # Select station
         nwp_name = self.nwp.name
         stations = self.observation.stations
-        y_idx_nwp, x_idx_nwp = stations[f"index_{nwp_name}_NN_0"][stations["name"] == station_name].values[0]
+        idx_str = f"index_{nwp_name}_NN_0{interp_str}_ref_{nwp_name}{interp_str}"
+        y_idx_nwp, x_idx_nwp = stations[idx_str][stations["name"] == station_name].values[0]
         y_idx_nwp, x_idx_nwp = np.int16(y_idx_nwp), np.int16(x_idx_nwp)
 
         # Select NWP data
@@ -225,7 +239,7 @@ class Processing(Wind_utils, Topo_utils, Rotation):
         std = dict_norm["0"].iloc[1]
         return mean, std
 
-    def _select_timeframe_nwp(self, begin=None, end=None, ideal_case=False, verbose=True):
+    def _select_timeframe_nwp(self, begin=None, end=None, ideal_case=False, nwp=None, verbose=True):
         """
         Selects a timeframe for NWP.
 
@@ -246,7 +260,7 @@ class Processing(Wind_utils, Topo_utils, Rotation):
 
         # Select timeframe
         if ideal_case:
-            begin = self.nwp.begin
+            begin = nwp.begin
             year, month, day = np.int16(begin.split('-'))
             end = str(year) + "-" + str(month) + "-" + str(day + 1)
 
@@ -278,7 +292,7 @@ class Processing(Wind_utils, Topo_utils, Rotation):
             list_return = list_arrays_1 + list_arrays_2
         return list_return
 
-    def predict_at_stations(self, stations_name, line_profile=None, **kwargs):
+    def predict_at_stations(self, stations_name, line_profile=None, prm=None):
         """
         This function is used to select predictions at stations, the line profiled version or the memory profiled version
         """
@@ -287,10 +301,10 @@ class Processing(Wind_utils, Topo_utils, Rotation):
             from line_profiler import LineProfiler
             lp = LineProfiler()
             lp_wrapper = lp(self._predict_at_stations)
-            lp_wrapper(stations_name, **kwargs)
+            lp_wrapper(stations_name, **prm)
             lp.print_stats()
         else:
-            array_xr = self._predict_at_stations(stations_name, **kwargs)
+            array_xr = self._predict_at_stations(stations_name, **prm)
             return array_xr
 
     @staticmethod
@@ -320,9 +334,7 @@ class Processing(Wind_utils, Topo_utils, Rotation):
 
         return alpha * std
 
-    def _predict_at_stations(self, stations_name, verbose=True, Z0=True, peak_valley=True,
-                             log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
-                             ideal_case=False, input_speed=3, input_dir=270, **kwargs):
+    def _predict_at_stations(self, stations_name, **kwargs):
         """
         Wind downscaling operated at observation stations sites only.
 
@@ -361,11 +373,24 @@ class Processing(Wind_utils, Topo_utils, Rotation):
                              ideal_case=False)
         """
 
+        verbose = kwargs.get("verbose")
+        Z0 = kwargs.get("Z0")
+        peak_valley = kwargs.get("peak_valley")
+        log_profile_to_h_2 = kwargs.get("log_profile_to_h_2")
+        log_profile_from_h_2 = kwargs.get("log_profile_from_h_2")
+        log_profile_10m_to_3m = kwargs.get("log_profile_10m_to_3m")
+        ideal_case = kwargs.get("ideal_case")
+        input_speed = kwargs.get("input_speed")
+        input_dir = kwargs.get("input_dir")
+        interp_str = kwargs.get("interp_str")
+        extract_stations_only = kwargs.get("extract_stations_only")
+
         # Select timeframe
         self._select_timeframe_nwp(ideal_case=ideal_case, verbose=True)
 
         # Simulation parameters
-        time_xr = self._extract_variable_from_nwp_at_station(random.choice(stations_name), variable_to_extract=["time"])
+        time_xr = self._extract_variable_from_nwp_at_station(random.choice(stations_name), variable_to_extract=["time"],
+                                                             interp_str=interp_str)
         nb_sim = len(time_xr)
         nb_station = len(stations_name)
 
@@ -389,7 +414,8 @@ class Processing(Wind_utils, Topo_utils, Rotation):
             wind_dir_all[idx_station, :], wind_speed_all[idx_station, :], Z0_all[idx_station, :], \
             Z0REL_all[idx_station, :], ZS_all[idx_station, :] = self._extract_variable_from_nwp_at_station(
                 single_station,
-                variable_to_extract=["wind_direction", "wind_speed", "Z0", "Z0REL", "ZS"])
+                variable_to_extract=["wind_direction", "wind_speed", "Z0", "Z0REL", "ZS"],
+                interp_str=interp_str)
 
             # For ideal case, we define the input speed and direction
             if ideal_case:
@@ -400,10 +426,14 @@ class Processing(Wind_utils, Topo_utils, Rotation):
                                                                                input_dir)
 
             # Extract topography
-            topo_HD, topo_x_l93, topo_y_l93 = self.observation.extract_MNT_around_station(single_station,
-                                                                                          self.mnt,
-                                                                                          nb_pixel,
-                                                                                          nb_pixel)
+            extract_around = "station" if not extract_stations_only else "nwp_neighbor_interp"
+            nwp = None if not extract_stations_only else self.nwp
+            topo_HD, topo_x_l93, topo_y_l93 = self.observation.extract_MNT(self.mnt,
+                                                                           nb_pixel,
+                                                                           nb_pixel,
+                                                                           station=single_station,
+                                                                           nwp=nwp,
+                                                                           extract_around=extract_around)
 
             # Rotate topographies
             topo[idx_station, :, :, :, 0] = self.select_rotation(data=topo_HD,
@@ -737,6 +767,8 @@ class Processing(Wind_utils, Topo_utils, Rotation):
 
     def interpolate_wind_grid_xarray(self, nwp_data, interp=2, method='linear', verbose=True):
 
+        print("__Begin interpolating xarray") if verbose else None
+
         # Calculate U_nwp and V_nwp
         nwp_data = self.horizontal_wind_component(working_with_xarray=True, xarray_data=nwp_data)
 
@@ -747,6 +779,7 @@ class Processing(Wind_utils, Topo_utils, Rotation):
         nwp_data = self.interpolate_xarray_grid(xarray_data=nwp_data, interp=interp, method=method)
         nwp_data = self.compute_wind_speed(computing='xarray', xarray_data=nwp_data)
 
+        print("__Interpolated xarray") if verbose else None
         return nwp_data
 
     def get_caracteristics_nwp(self, nwp_data):
@@ -931,12 +964,36 @@ class Processing(Wind_utils, Topo_utils, Rotation):
         return idx_x_stations, idx_y_stations, stations.values
 
     # todo save indexes second rotation
-    def _predict_maps(self, station_name='Col du Lac Blanc', x_0=None, y_0=None, dx=10_000, dy=10_000, interp=3,
+    def _predict_maps(self, station_name='Col du Lac Blanc', dx=10_000, dy=10_000, interp=3,
                       year_begin=None, month_begin=None, day_begin=None, hour_begin=None,
                       year_end=None, month_end=None, day_end=None, hour_end=None,
                       Z0=True, verbose=True, peak_valley=True, method='linear', type_rotation='indexes',
                       log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
                       nb_pixels=15, interpolate_final_map=True, extract_stations_only=False, **kwargs):
+
+        station_name = kwargs.get("station_name")
+        dx = kwargs.get("dx")
+        dy = kwargs.get("dy")
+        interp = kwargs.get("interp")
+        year_begin = kwargs.get("year_begin")
+        month_begin = kwargs.get("month_begin")
+        day_begin = kwargs.get("day_begin")
+        hour_begin = kwargs.get("hour_begin")
+        year_end = kwargs.get("year_end")
+        month_end = kwargs.get("month_end")
+        day_end = kwargs.get("day_end")
+        hour_end = kwargs.get("hour_end")
+        Z0 = kwargs.get("Z0")
+        verbose = kwargs.get("verbose")
+        peak_valley = kwargs.get("peak_valley")
+        method = kwargs.get("method")
+        type_rotation = kwargs.get("type_rotation")
+        log_profile_to_h_2 = kwargs.get("log_profile_to_h_2")
+        log_profile_from_h_2 = kwargs.get("log_profile_from_h_2")
+        log_profile_10m_to_3m = kwargs.get("log_profile_10m_to_3m")
+        nb_pixels = kwargs.get("nb_pixels")
+        interpolate_final_map = kwargs.get("interpolate_final_map")
+        extract_stations_only = kwargs.get("extract_stations_only")
 
         # Select NWP data
         nwp_data = self.prepare_time_and_domain_nwp(year_begin, month_begin, day_begin, hour_begin,

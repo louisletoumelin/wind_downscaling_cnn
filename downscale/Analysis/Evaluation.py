@@ -18,7 +18,7 @@ class Evaluation:
         t1 = t()
         print(f"\nEvaluation created in {np.round(t1-t0, 2)} seconds\n")
 
-    def create_dataframe_from_nwp_pixel(self, station_name='Col du Lac Blanc'):
+    def create_dataframe_from_nwp_pixel(self, station_name='Col du Lac Blanc', interp_str=""):
         """
         Select a station and extracts correspoding NWP simulations
 
@@ -29,13 +29,20 @@ class Evaluation:
         Dataframe containing NWP values at the station
 
         """
-        wind_dir, wind_speed, time_index, _, _, _ = self.v.p._select_nwp_time_serie_at_pixel(station_name, time=False, all=True)
-        nwp_time_serie = pd.DataFrame(np.transpose([wind_dir, wind_speed]), columns=['Wind_DIR', 'UV'], index=time_index)
+
+        wind_dir, wind_speed, time_index = self.v.p._extract_variable_from_nwp_at_station(station_name,
+                                                   variable_to_extract=["wind_direction", "wind_speed", "time"],
+                                                   interp_str=interp_str,
+                                                   verbose=False)
+
+        nwp_time_serie = pd.DataFrame(np.transpose([wind_dir, wind_speed]),
+                                      columns=['Wind_DIR', 'UV'], index=time_index)
+
         return (nwp_time_serie)
 
     def create_dataframe_from_predictions(self, station_name='Col du Lac Blanc', array_xr=None):
         """
-        Creates za dataframe at a specified location using predictions stored in array_xr (xarray data)
+        Creates a dataframe at a specified location using predictions stored in array_xr (xarray data)
 
         Input:
         station_name (Default: 'Col du Lac Blanc')
@@ -85,8 +92,19 @@ class Evaluation:
 
         return(dataframe)
 
-    def _select_dataframe(self, array_xr, station_name='Col du Lac Blanc', day=None, month=None, year=2019,
-                          variable="UV", rolling_mean=None, rolling_window="24H"):
+    @staticmethod
+    def _select_dataframe_time_window_begin_end(dataframe, begin=None, end=None):
+
+        # Time conditions
+        time_condition_begin = begin <= dataframe.index
+        time_condition_end = dataframe.index <= end
+
+        dataframe = dataframe[time_condition_begin & time_condition_end]
+
+        return dataframe
+
+    def _select_dataframe(self, array_xr, station_name='Col du Lac Blanc', begin=None, end=None, day=None, month=None,
+                          year=2019, variable="UV", rolling_mean=None, rolling_window="24H", interp_str=""):
         """
         Create 3 dataframes corresponding to NWP, CNN and observations at the specified location, time and rolling_mean
 
@@ -98,7 +116,7 @@ class Evaluation:
         nwp_time_serie, cnn_predictions, obs_time_serie (dataframe)
         """
         # Create DataFrames
-        nwp_time_serie = self.create_dataframe_from_nwp_pixel(station_name)
+        nwp_time_serie = self.create_dataframe_from_nwp_pixel(station_name, interp_str=interp_str)
         cnn_predictions = self.create_dataframe_from_predictions(station_name=station_name, array_xr=array_xr)
 
         # self._rename_colums_obs_time_series()
@@ -106,9 +124,20 @@ class Evaluation:
         obs_time_serie = obs_time_serie[obs_time_serie["name"] == station_name]
 
         # Time conditions
-        nwp_time_serie = self._select_dataframe_time_window(nwp_time_serie[variable], day=day, month=month, year=year)
-        cnn_predictions = self._select_dataframe_time_window(cnn_predictions[variable], day=day, month=month, year=year)
-        obs_time_serie = self._select_dataframe_time_window(obs_time_serie[variable], day=day, month=month, year=year)
+        if begin is not None and end is not None:
+            nwp_time_serie = self._select_dataframe_time_window_begin_end(nwp_time_serie[variable],
+                                                                          begin=begin, end=end)
+            cnn_predictions = self._select_dataframe_time_window_begin_end(cnn_predictions[variable],
+                                                                          begin=begin, end=end)
+            obs_time_serie = self._select_dataframe_time_window_begin_end(obs_time_serie[variable],
+                                                                          begin=begin, end=end)
+        else:
+            nwp_time_serie = self._select_dataframe_time_window(nwp_time_serie[variable],
+                                                                day=day, month=month, year=year)
+            cnn_predictions = self._select_dataframe_time_window(cnn_predictions[variable],
+                                                                 day=day, month=month, year=year)
+            obs_time_serie = self._select_dataframe_time_window(obs_time_serie[variable],
+                                                                day=day, month=month, year=year)
 
         # Rolling mean
         if rolling_mean is not None:
@@ -116,7 +145,7 @@ class Evaluation:
             cnn_predictions = cnn_predictions.rolling(rolling_window).mean()
             obs_time_serie = obs_time_serie.rolling(rolling_window).mean()
 
-        return (nwp_time_serie, cnn_predictions, obs_time_serie)
+        return nwp_time_serie, cnn_predictions, obs_time_serie
 
     def plot_time_serie(self, array_xr, station_name='Col du Lac Blanc', day=None, month=None, year=2019,
                         variable="UV", rolling_mean=None, rolling_window="24H",

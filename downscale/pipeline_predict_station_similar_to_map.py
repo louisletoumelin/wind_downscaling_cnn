@@ -45,16 +45,29 @@ connect_GPU_to_horovod() if prm["GPU"] else None
 IGN = MNT(prm["topo_path"], name="IGN")
 AROME = NWP(prm["selected_path"], name="AROME", begin=prm["begin"], end=prm["end"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
+
 p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
-data_xr_interp = p.interpolate_wind_grid_xarray(AROME.data_xr,
+p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=False)
+
+data_xr_interp = p.interpolate_wind_grid_xarray(AROME.data_xr.isel(time=0),
                                                 interp=prm["interp"], method=prm["method"], verbose=prm["verbose"])
-p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4)
+AROME.data_xr = data_xr_interp
+p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=True)
+
 
 """
 Processing, visualization and evaluation
 """
+
 results = {}
+results["nwp"] = {}
 results["cnn"] = {}
+results["obs"] = {}
+
+for station in prm["stations_to_predict"]:
+    results["nwp"][station] = []
+    results["cnn"][station] = []
+    results["obs"][station] = []
 
 t1 = t()
 if prm["launch_predictions"]:
@@ -66,6 +79,7 @@ if prm["launch_predictions"]:
 
         print(f"Begin: {begin}")
         print(f"End: {end}")
+        # Initialize results
 
         # Update the name of the file to load
         prm = update_selected_path_for_long_periods(begin, end, prm)
@@ -79,28 +93,46 @@ if prm["launch_predictions"]:
 
         # Processing
         p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
-        wind_map, acceleration, time, stations, _, _ = p.predict_maps(year_begin=begin.year,
-                                                                      month_begin=begin.month,
-                                                                      day_begin=begin.day,
-                                                                      hour_begin=begin.hour,
-                                                                      year_end=end.year,
-                                                                      month_end=end.month,
-                                                                      day_end=end.day,
-                                                                      hour_end=end.hour,
-                                                                      prm=prm)
 
-        wind_map_all = np.concatenate((wind_map_all, wind_map)) if index != 0 else wind_map
-        acceleration_all = np.concatenate((acceleration_all, acceleration)) if index != 0 else acceleration
-        time_all = np.concatenate((time_all, time)) if index != 0 else time
+        # Intepolate
+        data_xr_interp = p.interpolate_wind_grid_xarray(AROME.data_xr,
+                                                        interp=prm["interp"],
+                                                        method=prm["method"],
+                                                        verbose=prm["verbose"])
+        AROME.data_xr = data_xr_interp
 
-for index, station in enumerate(stations):
-    UV = p.compute_wind_speed(wind_map_all[:, index, 0], wind_map_all[:, index, 1])
-    results["cnn"][station] = pd.DataFrame(UV, index=time_all)
+        # Processing with interpolated data
+        p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
 
-print(f'\nPredictions in {round(t1, t())} seconds')
+        # Predict
+        array_xr = p.predict_at_stations(prm["stations_to_predict"], prm=prm)
 
-# Visualization and evaluation
-v = Visualization(p) if prm["launch_predictions"] else None
-e = Evaluation(v, array_xr=None) if prm["launch_predictions"] else None
+        # Visualization
+        v = Visualization(p)
 
-print(f"\n All prediction in  {round(t_init, t()) / 60} minutes")
+        # Analysis
+        e = Evaluation(v, array_xr)
+
+        # Store nwp, cnn predictions and observations
+        for station in prm["stations_to_predict"]:
+            nwp, cnn, obs = e._select_dataframe(array_xr,
+                                                begin=begin,
+                                                end=end,
+                                                station_name=station,
+                                                variable=prm["variable"],
+                                                rolling_mean=None,
+                                                rolling_window=None,
+                                                interp_str=prm["interp_str"])
+            results["nwp"][station].append(nwp)
+            results["cnn"][station].append(cnn)
+            results["obs"][station].append(obs)
+
+        del p
+        del v
+        del e
+        del array_xr
+        del AROME
+
+for station in prm["stations_to_predict"]:
+    for metric in ["nwp", "cnn", "obs"]:
+        results[metric][station] = pd.concat(results[metric][station])

@@ -35,6 +35,7 @@ def create_prm(month_prediction=True):
 
     # For predictions long periods
     prm["variable"] = "UV"
+    prm["station_similar_to_map"] = True
 
     # For map prediction
     prm["type_rotation"] = 'scipy'  # 'indexes' or 'scipy'
@@ -53,7 +54,7 @@ def create_prm(month_prediction=True):
 
     prm["hour_end"] = 1
     prm["day_end"] = 10
-    prm["month_end"] = 6
+    prm["month_end"] = 8
     prm["year_end"] = 2019
 
     prm["begin"] = str(prm["year_begin"]) + "-" + str(prm["month_begin"]) + "-" + str(prm["day_begin"])
@@ -137,6 +138,9 @@ def create_prm(month_prediction=True):
 
     # Do not modify: L93_X and L93_Y
     prm["path_to_file_npy"] = select_path_to_file_npy(prm, GPU=prm["GPU"])
+
+    # Do not modify: define if looking for interpolated neighbors or not
+    prm["interp_str"] = "_interpolated" if prm["station_similar_to_map"] else ""
 
     # Do not modify: add_additionnal_stations
     prm = add_additionnal_stations(prm)

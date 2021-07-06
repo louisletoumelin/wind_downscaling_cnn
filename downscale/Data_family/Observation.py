@@ -520,70 +520,18 @@ class Observation:
                                          geometry=gpd.points_from_xy(self.stations[x], self.stations[y]),
                                          crs=crs)
 
-    def update_stations_with_KNN_from_NWP(self, number_neighbor, nwp,
-                                          data_xr=None, name=None, height=None, length=None):
-        """
-        Update a Observations.station (DataFrame) with index of nearest neighbors in nwp
+    @staticmethod
+    def search_neighbors_using_cKDTree(mnt, x_L93, y_l93, number_of_neighbors=4):
 
-        ex: BDclim.update_stations_with_KNN_from_NWP(4, AROME) gives information about the 4 KNN at the
-        each observation station from AROME
-        """
-
-        nwp_data_xr = nwp.data_xr if data_xr is None else data_xr
-        name = nwp.name if name is None else name
-        height = nwp.height if height is None else nwp_data_xr.shape[0]
-        length = nwp.length if length is None else nwp_data_xr.shape[1]
-
-        def K_N_N_point(point):
-            distance, idx = tree.query(point, k=number_neighbor)
-            return distance, idx
-
-        # Reference stations
-        list_coord_station = zip(self.stations['X'].values, self.stations['Y'].values)
-
-        # Coordinates where to find neighbors
-        stacked_xy = Data_2D.x_y_to_stacked_xy(nwp_data_xr["X_L93"], nwp_data_xr["Y_L93"])
-        grid_flat = Data_2D.grid_to_flat(stacked_xy)
-        tree = cKDTree(grid_flat)
-
-        # Parallel computation of nearest neighbors
-        try:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                list_nearest = executor.map(K_N_N_point, list_coord_station)
-            print("Parallel computation worked for update_stations_with_KNN_from_NWP\n")
-        except:
-            print(
-                "Parallel computation using concurrent.futures didn't work, so update_stations_with_KNN_from_NWP will not be parallelized.\n")
-            list_nearest = map(K_N_N_point, list_coord_station)
-
-        # Store results as array
-        list_nearest = np.array([np.array(station) for station in list_nearest])
-        list_index = [(x, y) for x in range(height) for y in range(length)]
-
-        # Update DataFrame
-        for neighbor in range(number_neighbor):
-            self.stations[f'delta_x_{name}_NN_{neighbor}'] = list_nearest[:, 0, neighbor]
-            self.stations[f'{name}_NN_{neighbor}'] = [grid_flat[int(index)] for index in
-                                                      list_nearest[:, 1, neighbor]]
-            self.stations[f'index_{name}_NN_{neighbor}'] = [list_index[int(index)] for index in
-                                                            list_nearest[:, 1, neighbor]]
-
-    def update_stations_with_KNN_from_MNT(self, mnt):
-        index_x_MNT, index_y_MNT = mnt.find_nearest_MNT_index(self.stations["X"], self.stations["Y"])
-        self.stations[f"index_X_NN_{mnt.name}"] = index_x_MNT
-        self.stations[f"index_Y_NN_{mnt.name}"] = index_y_MNT
-
-    def update_stations_with_KNN_from_MNT_using_cKDTree(self, mnt, number_of_neighbors=4):
-
-        all_MNT_index_x, all_MNT_index_y = mnt.find_nearest_MNT_index(self.stations["X"], self.stations["Y"])
+        all_MNT_index_x, all_MNT_index_y = mnt.find_nearest_MNT_index(x_L93, y_l93)
         nb_station = len(all_MNT_index_x)
 
         arrays_nearest_neighbors_l93 = np.zeros((number_of_neighbors, nb_station, 2))
         arrays_nearest_neighbors_index = np.zeros((number_of_neighbors, nb_station, 2))
         arrays_nearest_neighbors_delta_x = np.zeros((number_of_neighbors, nb_station))
+
         for idx_station in range(nb_station):
-            l93_station_x, l93_station_y = self.stations["X"].values[idx_station], self.stations["Y"].values[
-                idx_station]
+            l93_station_x, l93_station_y = x_L93.values[idx_station], y_l93.values[idx_station]
             index_MNT_x = np.intp(all_MNT_index_x[idx_station])
             index_MNT_y = np.intp(all_MNT_index_y[idx_station])
 
@@ -605,21 +553,125 @@ class Observation:
                 arrays_nearest_neighbors_index[index, idx_station, :] = list(index_MNT_nearest_neighbor)
                 arrays_nearest_neighbors_delta_x[index, idx_station] = distance[index]
 
+        return arrays_nearest_neighbors_l93, arrays_nearest_neighbors_index, arrays_nearest_neighbors_delta_x
+
+    def update_stations_with_KNN_from_NWP(self, nwp=None, number_of_neighbors=4,
+                                          data_xr=None, name=None, interpolated=False):
+        """
+        Update a Observations.station (DataFrame) with index of nearest neighbors in nwp
+
+        ex: BDclim.update_stations_with_KNN_from_NWP(4, AROME) gives information about the 4 KNN at the
+        each observation station from AROME
+        """
+
+        nwp_data_xr = nwp.data_xr if data_xr is None else data_xr
+        name = nwp.name if name is None else name
+        height = nwp.height if data_xr is None else nwp_data_xr.yy.shape[0]
+        length = nwp.length if data_xr is None else nwp_data_xr.xx.shape[0]
+        interp_str = '' if not interpolated else '_interpolated'
+
+        def K_N_N_point(point):
+            distance, idx = tree.query(point, k=number_of_neighbors)
+            return distance, idx
+
+        # Reference stations
+        list_coord_station = zip(self.stations['X'].values, self.stations['Y'].values)
+
+        # Coordinates where to find neighbors
+        stacked_xy = Data_2D.x_y_to_stacked_xy(nwp_data_xr["X_L93"], nwp_data_xr["Y_L93"])
+        grid_flat = Data_2D.grid_to_flat(stacked_xy)
+        tree = cKDTree(grid_flat)
+
+        # Parallel computation of nearest neighbors
+        try:
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                list_nearest = executor.map(K_N_N_point, list_coord_station)
+            print("Parallel computation worked for update_stations_with_KNN_from_NWP\n")
+        except:
+            print("Parallel computation using concurrent.futures didn't work, "
+                "so update_stations_with_KNN_from_NWP will not be parallelized.\n")
+            list_nearest = map(K_N_N_point, list_coord_station)
+
+        # Store results as array
+        list_nearest = np.array([np.array(station) for station in list_nearest])
+        list_index = [(x, y) for x in range(height) for y in range(length)]
+
+        # Update DataFrame
+        for neighbor in range(number_of_neighbors):
+            self.stations[f'delta_x_{name}_NN_{neighbor}{interp_str}'] = list_nearest[:, 0, neighbor]
+            self.stations[f'{name}_NN_{neighbor}{interp_str}'] = [grid_flat[int(index)] for index in
+                                                                  list_nearest[:, 1, neighbor]]
+            name_str = f'index_{name}_NN_{neighbor}{interp_str}_ref_{name}{interp_str}'
+            self.stations[name_str] = [list_index[int(index)] for index in list_nearest[:, 1, neighbor]]
+
+    def update_stations_with_KNN_from_MNT(self, mnt):
+        index_x_MNT, index_y_MNT = mnt.find_nearest_MNT_index(self.stations["X"], self.stations["Y"])
+        self.stations[f"index_X_NN_{mnt.name}_ref_{mnt.name}"] = index_x_MNT
+        self.stations[f"index_Y_NN_{mnt.name}_ref_{mnt.name}"] = index_y_MNT
+
+    def update_stations_with_KNN_from_MNT_using_cKDTree(self, mnt, number_of_neighbors=4):
+
+        nn_l93, nn_index, nn_delta_x = self.search_neighbors_using_cKDTree(mnt, self.stations["X"], self.stations["Y"],
+                                                                           number_of_neighbors=number_of_neighbors)
+
         mnt_name = mnt.name
         for neighbor in range(number_of_neighbors):
-            self.stations[f"index_{mnt_name}_NN_{neighbor}_cKDTree"] = [tuple(index) for index in
-                                                                        arrays_nearest_neighbors_index[neighbor, :]]
-            self.stations[f"{mnt_name}_NN_{neighbor}_cKDTree"] = [tuple(coord) for coord in
-                                                                  arrays_nearest_neighbors_l93[neighbor, :]]
-            self.stations[f"delta_x_{mnt_name}_NN_{neighbor}_cKDTree"] = arrays_nearest_neighbors_delta_x[neighbor, :]
+            name_str = f"index_{mnt_name}_NN_{neighbor}_cKDTree_ref_{mnt_name}"
+            self.stations[name_str] = [tuple(index) for index in nn_index[neighbor, :]]
+            self.stations[f"{mnt_name}_NN_{neighbor}_cKDTree"] = [tuple(coord) for coord in nn_l93[neighbor, :]]
+            self.stations[f"delta_x_{mnt_name}_NN_{neighbor}_cKDTree"] = nn_delta_x[neighbor, :]
+
+    def update_stations_with_KNN_of_NWP_in_MNT_using_cKDTree(self, mnt, nwp,
+                                                             interpolated=False, number_of_neighbors=4):
+
+        interp_str = "_interpolated" if interpolated else ""
+        mnt_name = mnt.name
+        nwp_name = nwp.name
+
+        for neighbor in range(number_of_neighbors):
+
+            x_str = self.stations[f"{nwp_name}_NN_{neighbor}{interp_str}"].str[0]
+            y_str = self.stations[f"{nwp_name}_NN_{neighbor}{interp_str}"].str[1]
+            _, nn_index, _ = self.search_neighbors_using_cKDTree(mnt, x_str, y_str,
+                                                                 number_of_neighbors=number_of_neighbors)
+
+            name_str = f'index_{nwp_name}_NN_{neighbor}{interp_str}_ref_{mnt_name}'
+            self.stations[name_str] = [tuple(index) for index in nn_index[neighbor, :]]
 
     def extract_MNT_around_station(self, station, mnt, nb_pixel_x, nb_pixel_y):
         condition = self.stations["name"] == station
-        (index_x, index_y) = self.stations[[f"index_{mnt.name}_NN_0_cKDTree"]][condition].values[0][0]
+        (index_x, index_y) = self.stations[[f"index_{mnt.name}_NN_0_cKDTree_ref_{mnt.name}"]][condition].values[0][0]
         index_x, index_y = int(index_x), int(index_y)
         MNT_data = mnt.data[index_y - nb_pixel_y:index_y + nb_pixel_y, index_x - nb_pixel_x:index_x + nb_pixel_x]
         MNT_x = mnt.data_xr.x.data[index_x - nb_pixel_x:index_x + nb_pixel_x]
         MNT_y = mnt.data_xr.y.data[index_y - nb_pixel_y:index_y + nb_pixel_y]
+        return MNT_data, MNT_x, MNT_y
+
+    def extract_MNT_around_nwp_neighbor(self, station, mnt, nwp, nb_pixel_x, nb_pixel_y, interpolated=False):
+        condition = self.stations["name"] == station
+        interp_str = "_interpolated" if interpolated else ""
+        idx_nwp_in_mnt = f"index_{nwp.name}_NN_0{interp_str}_ref_{mnt.name}"
+
+        (index_x, index_y) = self.stations[idx_nwp_in_mnt][condition].values[0]
+        index_x, index_y = int(index_x), int(index_y)
+        MNT_data = mnt.data[index_y - nb_pixel_y:index_y + nb_pixel_y, index_x - nb_pixel_x:index_x + nb_pixel_x]
+        MNT_x = mnt.data_xr.x.data[index_x - nb_pixel_x:index_x + nb_pixel_x]
+        MNT_y = mnt.data_xr.y.data[index_y - nb_pixel_y:index_y + nb_pixel_y]
+        return MNT_data, MNT_x, MNT_y
+
+    def extract_MNT(self, mnt, nb_pixel_x, nb_pixel_y, nwp=None, station="Col du Lac Blanc", extract_around="station"):
+
+        if extract_around == "station":
+            MNT_data, MNT_x, MNT_y = self.extract_MNT_around_station(station, mnt, nb_pixel_x, nb_pixel_y)
+
+        elif extract_around == "nwp_neighbor":
+            MNT_data, MNT_x, MNT_y = self.extract_MNT_around_nwp_neighbor(station, mnt, nwp, nb_pixel_x, nb_pixel_y,
+                                                                          interpolated=False)
+
+        elif extract_around == "nwp_neighbor_interp":
+            MNT_data, MNT_x, MNT_y = self.extract_MNT_around_nwp_neighbor(station, mnt, nwp, nb_pixel_x, nb_pixel_y,
+                                                                          interpolated=True)
+
         return MNT_data, MNT_x, MNT_y
 
     @staticmethod
