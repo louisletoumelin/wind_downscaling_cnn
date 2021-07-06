@@ -87,7 +87,7 @@ class Processing(Wind_utils, Topo_utils, Rotation):
         nwp = self.nwp if nwp is None else nwp
 
         if not GPU:
-            self.observation.update_stations_with_KNN_from_NWP(number_of_neighbors, nwp)
+            self.observation.update_stations_with_KNN_from_NWP(number_of_neighbors, nwp.data_xr)
             self.observation.update_stations_with_KNN_from_MNT_using_cKDTree(mnt)
 
     def _extract_variable_from_nwp_at_station(self,
@@ -735,7 +735,7 @@ class Processing(Wind_utils, Topo_utils, Rotation):
         if verbose: print("__Prepare time and domain NWP")
         return nwp_data
 
-    def interpolate_wind_grid_xarray(self, nwp_data, interp=3, method='linear', verbose=True):
+    def interpolate_wind_grid_xarray(self, nwp_data, interp=2, method='linear', verbose=True):
 
         # Calculate U_nwp and V_nwp
         nwp_data = self.horizontal_wind_component(working_with_xarray=True, xarray_data=nwp_data)

@@ -5,28 +5,31 @@ from time import time as t
 from datetime import datetime
 from collections import defaultdict
 
-
 try:
     from shapely.geometry import Point
     from shapely.geometry import Polygon
+
     _shapely_geometry = True
 except ModuleNotFoundError:
     _shapely_geometry = False
 
 try:
     import concurrent.futures
+
     _concurrent = True
 except:
     _concurrent = False
 
 try:
     import geopandas as gpd
+
     _geopandas = True
 except:
     _geopandas = False
 
 try:
     import dask
+
     _dask = True
 except ModuleNotFoundError:
     _dask = False
@@ -36,7 +39,6 @@ from downscale.Utils.Decorators import print_func_executed_decorator, timer_deco
 
 
 class Observation:
-
     _shapely_geometry = _shapely_geometry
     _concurrent = _concurrent
     geopandas = _geopandas
@@ -92,12 +94,12 @@ class Observation:
         self._downcast_dtype(oldtype='float64', newtype='float32')
 
         t1 = t()
-        print(f"Observation created in {np.round(t1-t0, 2)} seconds\n")
+        print(f"Observation created in {np.round(t1 - t0, 2)} seconds\n")
 
     def _add_all_stations_paths(self, path_to_list_stations, path_to_time_series, path_vallot,
-                          path_saint_sorlin, path_argentiere, path_Dome_Lac_Blanc,
-                          path_Col_du_Lac_Blanc, path_Muzelle_Lac_Blanc,
-                          path_Col_de_Porte, path_Col_du_Lautaret, GPU=False):
+                                path_saint_sorlin, path_argentiere, path_Dome_Lac_Blanc,
+                                path_Col_du_Lac_Blanc, path_Muzelle_Lac_Blanc,
+                                path_Col_de_Porte, path_Col_du_Lautaret, GPU=False):
         if not GPU:
             self.path_to_list_stations = path_to_list_stations
             self.path_to_time_series = path_to_time_series
@@ -123,7 +125,9 @@ class Observation:
         return delayed
 
     def _downcast_dtype(self, oldtype='float64', newtype='float32'):
-        self.time_series.loc[:, self.time_series.dtypes == oldtype ] = self.time_series.loc[:, self.time_series.dtypes == oldtype].astype(newtype)
+        self.time_series.loc[:, self.time_series.dtypes == oldtype] = self.time_series.loc[:,
+                                                                      self.time_series.dtypes == oldtype].astype(
+            newtype)
 
     def _add_all_stations(self, GPU=False):
         if not GPU:
@@ -142,10 +146,13 @@ class Observation:
             if self.path_saint_sorlin is not None: self._add_time_serie_glacier(name='Saint-Sorlin', log_profile=False)
             if self.path_argentiere is not None: self._add_time_serie_glacier(name='Argentiere', log_profile=False)
             if self.path_Dome_Lac_Blanc is not None: self._add_time_serie_Col(name='Dome Lac Blanc', log_profile=True)
-            if self.path_Col_du_Lac_Blanc is not None: self._add_time_serie_Col(name='Col du Lac Blanc', log_profile=True)
-            if self.path_Muzelle_Lac_Blanc is not None: self._add_time_serie_Col(name='La Muzelle Lac Blanc', log_profile=True)
+            if self.path_Col_du_Lac_Blanc is not None: self._add_time_serie_Col(name='Col du Lac Blanc',
+                                                                                log_profile=True)
+            if self.path_Muzelle_Lac_Blanc is not None: self._add_time_serie_Col(name='La Muzelle Lac Blanc',
+                                                                                 log_profile=True)
             if self.path_Col_de_Porte is not None: self._add_time_serie_Col(name='Col de Porte', log_profile=False)
-            if self.path_Col_du_Lautaret is not None: self._add_time_serie_Col(name='Col du Lautaret', log_profile=False)
+            if self.path_Col_du_Lautaret is not None: self._add_time_serie_Col(name='Col du Lautaret',
+                                                                               log_profile=False)
 
     def load_observation_files(self, type=None, path=None, datetime_index=True, date_column='date', verbose=True):
 
@@ -155,11 +162,11 @@ class Observation:
                 if verbose: print(f"__Stations loaded using pd.read_csv")
             else:
                 self.stations = pd.read_csv(path)
-                list_variables_str = ['AROME_NN_0', 'index_AROME_NN_0', 'AROME_NN_1','index_AROME_NN_1', 'AROME_NN_2',
-                               'index_AROME_NN_2', 'AROME_NN_3', 'index_AROME_NN_3', 'index_IGN_NN_0_cKDTree',
-                               'IGN_NN_0_cKDTree', 'index_IGN_NN_1_cKDTree', 'IGN_NN_1_cKDTree',
-                               'index_IGN_NN_2_cKDTree', 'IGN_NN_2_cKDTree', 'index_IGN_NN_3_cKDTree',
-                               'IGN_NN_3_cKDTree']
+                list_variables_str = ['AROME_NN_0', 'index_AROME_NN_0', 'AROME_NN_1', 'index_AROME_NN_1', 'AROME_NN_2',
+                                      'index_AROME_NN_2', 'AROME_NN_3', 'index_AROME_NN_3', 'index_IGN_NN_0_cKDTree',
+                                      'IGN_NN_0_cKDTree', 'index_IGN_NN_1_cKDTree', 'IGN_NN_1_cKDTree',
+                                      'index_IGN_NN_2_cKDTree', 'IGN_NN_2_cKDTree', 'index_IGN_NN_3_cKDTree',
+                                      'IGN_NN_3_cKDTree']
                 self.stations[list_variables_str] = self.stations[list_variables_str].apply(lambda x: x.apply(eval))
                 if verbose: print(f"__Stations loaded using pd.read_csv and eval function to convert str into tuples")
 
@@ -178,7 +185,7 @@ class Observation:
 
     def _add_station(self, name=None):
 
-        if name == 'Vallot':#test2
+        if name == 'Vallot':  # test2
             X = 998884.573304192
             Y = 6533967.012767595
             numposte = np.nan
@@ -319,7 +326,6 @@ class Observation:
                 lon = 6.1115555
                 z_wind_sensor = 7.5
 
-
             if name == 'Col de Porte':
                 alti = 1325
                 lat = 45.295
@@ -385,7 +391,6 @@ class Observation:
         vallot["winddir(deg)"] = vallot["winddir(deg)"].astype("float32")
         vallot["T2m(degC)"] = vallot["T2m(degC)"].astype("float32")
 
-
         # The measurement height is 3m and we apply a log profile to 10m
         if log_profile:
             z0_vallot = 0.00549
@@ -402,16 +407,19 @@ class Observation:
 
         if name == 'Saint-Sorlin':
             for year in range(2006, 2020):
-                glacier_year = pd.read_csv(self.path_saint_sorlin + f"SaintSorlin{year}-halfhourly.csv", sep=';', header=2)
+                glacier_year = pd.read_csv(self.path_saint_sorlin + f"SaintSorlin{year}-halfhourly.csv", sep=';',
+                                           header=2)
                 glacier.append(glacier_year)
 
         if name == 'Argentiere':
             for year in range(2007, 2020):
                 # Corrected dates in 2018
                 if year == 2018:
-                    glacier_year = pd.read_csv(self.path_argentiere + f"Argentiere{year}-halfhourly_corrected.csv", sep=';', header=2)
+                    glacier_year = pd.read_csv(self.path_argentiere + f"Argentiere{year}-halfhourly_corrected.csv",
+                                               sep=';', header=2)
                 else:
-                    glacier_year = pd.read_csv(self.path_argentiere + f"Argentiere{year}-halfhourly.csv", sep=';', header=2)
+                    glacier_year = pd.read_csv(self.path_argentiere + f"Argentiere{year}-halfhourly.csv", sep=';',
+                                               header=2)
                 glacier.append(glacier_year)
 
         glacier = pd.concat(glacier)
@@ -430,7 +438,7 @@ class Observation:
         # Print number of NaNs
         if verbose:
             nb_nan = len(glacier[glacier["date"].isna()])
-            #print("Found NaNs in dates: " + str(nb_nan))
+            # print("Found NaNs in dates: " + str(nb_nan))
 
         # Discard NaNs in dates
         glacier = glacier[glacier["date"].notna()]
@@ -460,14 +468,14 @@ class Observation:
         # Discard duplicates
         if verbose:
             nb_duplicate = len(glacier[glacier.index.duplicated()])
-            #print("Found date duplicate: " + str(nb_duplicate))
+            # print("Found date duplicate: " + str(nb_duplicate))
         glacier = glacier[~glacier.index.duplicated()]
 
         if name == 'Argentiere':
             if verbose:
                 # Print number of annotated observations
                 nb_annotated_observations = len(glacier[glacier["Unnamed: 7"].notna()])
-                #print("Annotated observations: " + str(nb_annotated_observations))
+                # print("Annotated observations: " + str(nb_annotated_observations))
 
             # Discard annotated observations
             glacier = glacier[glacier["Unnamed: 7"].isna()]
@@ -483,7 +491,7 @@ class Observation:
 
         if verbose:
             nb_missing_dates = len(glacier.asfreq('1H').index) - len(glacier.index)
-            #print("Number missing dates: " + str(nb_missing_dates))
+            # print("Number missing dates: " + str(nb_missing_dates))
 
         if log_profile:
             # Apply log profile
@@ -512,13 +520,19 @@ class Observation:
                                          geometry=gpd.points_from_xy(self.stations[x], self.stations[y]),
                                          crs=crs)
 
-    def update_stations_with_KNN_from_NWP(self, number_neighbor, nwp):
+    def update_stations_with_KNN_from_NWP(self, number_neighbor, nwp,
+                                          data_xr=None, name=None, height=None, length=None):
         """
         Update a Observations.station (DataFrame) with index of nearest neighbors in nwp
 
         ex: BDclim.update_stations_with_KNN_from_NWP(4, AROME) gives information about the 4 KNN at the
         each observation station from AROME
         """
+
+        nwp_data_xr = nwp.data_xr if data_xr is None else data_xr
+        name = nwp.name if name is None else name
+        height = nwp.height if height is None else nwp_data_xr.shape[0]
+        length = nwp.length if length is None else nwp_data_xr.shape[1]
 
         def K_N_N_point(point):
             distance, idx = tree.query(point, k=number_neighbor)
@@ -528,7 +542,7 @@ class Observation:
         list_coord_station = zip(self.stations['X'].values, self.stations['Y'].values)
 
         # Coordinates where to find neighbors
-        stacked_xy = Data_2D.x_y_to_stacked_xy(nwp.data_xr["X_L93"], nwp.data_xr["Y_L93"])
+        stacked_xy = Data_2D.x_y_to_stacked_xy(nwp_data_xr["X_L93"], nwp_data_xr["Y_L93"])
         grid_flat = Data_2D.grid_to_flat(stacked_xy)
         tree = cKDTree(grid_flat)
 
@@ -538,20 +552,21 @@ class Observation:
                 list_nearest = executor.map(K_N_N_point, list_coord_station)
             print("Parallel computation worked for update_stations_with_KNN_from_NWP\n")
         except:
-            print("Parallel computation using concurrent.futures didn't work, so update_stations_with_KNN_from_NWP will not be parallelized.\n")
+            print(
+                "Parallel computation using concurrent.futures didn't work, so update_stations_with_KNN_from_NWP will not be parallelized.\n")
             list_nearest = map(K_N_N_point, list_coord_station)
 
         # Store results as array
         list_nearest = np.array([np.array(station) for station in list_nearest])
-        list_index = [(x, y) for x in range(nwp.height) for y in range(nwp.length)]
+        list_index = [(x, y) for x in range(height) for y in range(length)]
 
         # Update DataFrame
         for neighbor in range(number_neighbor):
-            self.stations[f'delta_x_{nwp.name}_NN_{neighbor}'] = list_nearest[:, 0, neighbor]
-            self.stations[f'{nwp.name}_NN_{neighbor}'] = [grid_flat[int(index)] for index in
-                                                              list_nearest[:, 1, neighbor]]
-            self.stations[f'index_{nwp.name}_NN_{neighbor}'] = [list_index[int(index)] for index in
-                                                                list_nearest[:, 1, neighbor]]
+            self.stations[f'delta_x_{name}_NN_{neighbor}'] = list_nearest[:, 0, neighbor]
+            self.stations[f'{name}_NN_{neighbor}'] = [grid_flat[int(index)] for index in
+                                                      list_nearest[:, 1, neighbor]]
+            self.stations[f'index_{name}_NN_{neighbor}'] = [list_index[int(index)] for index in
+                                                            list_nearest[:, 1, neighbor]]
 
     def update_stations_with_KNN_from_MNT(self, mnt):
         index_x_MNT, index_y_MNT = mnt.find_nearest_MNT_index(self.stations["X"], self.stations["Y"])
@@ -613,8 +628,8 @@ class Observation:
             return np.nan
 
         else:
-            val=int((num/22.5)+.5)
-            arr=["N","NNE","NE","ENE","E","ESE", "SE", "SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"]
+            val = int((num / 22.5) + .5)
+            arr = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
             return arr[(val % 16)]
 
     @print_func_executed_decorator("initialization")
@@ -822,7 +837,8 @@ class Observation:
 
                     if index >= 3:
                         resolution = resolutions[index]
-                        time_series_station['resolution_direction'][time_series_station.index.isin(wind_per_day[1].index)] = resolution
+                        time_series_station['resolution_direction'][
+                            time_series_station.index.isin(wind_per_day[1].index)] = resolution
                         resolution_found = True
 
             # Check that high resolution are not mistaken as low resolution
@@ -922,7 +938,8 @@ class Observation:
 
         This function detect constant sequences and their lengths
         """
-        if verbose: print(f"__Tolerance for constant sequence detection: speed={tolerance_speed} m/s, direction={tolerance_direction}degree")
+        if verbose: print(
+            f"__Tolerance for constant sequence detection: speed={tolerance_speed} m/s, direction={tolerance_direction}degree")
 
         time_series = self.time_series
         list_stations = time_series["name"].unique()
@@ -932,7 +949,8 @@ class Observation:
         dict_cst_seq = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(dict))))
         for station in list_stations:
             # Direction
-            for variable in ["length_constant_direction", "date_constant_direction_begin", "date_constant_direction_end"]:
+            for variable in ["length_constant_direction", "date_constant_direction_begin",
+                             "date_constant_direction_end"]:
                 for resolution in [10, 5, 1, 0.1]:
                     for wind in ["=0", "!=0"]:
                         dict_cst_seq[station][variable][str(resolution)][wind] = []
@@ -1016,12 +1034,12 @@ class Observation:
 
                     # If constant sequence
                     else:
-                        constant_speed[index:index+2] = 1
+                        constant_speed[index:index + 2] = 1
                         resolution_cst_seq.append(resolution_speed[index])
                         speed_sequence.append(speed_values[index])
 
                         # If the previous sequence was constant and continues
-                        lenght_speed = lenght_speed+1 if previous_step_speed_is_constant else 2
+                        lenght_speed = lenght_speed + 1 if previous_step_speed_is_constant else 2
 
                         if not previous_step_speed_is_constant:
                             date_begin = dates[index]
@@ -1041,7 +1059,6 @@ class Observation:
                     constant_direction[index] = np.nan
 
                     if previous_step_direction_is_constant:
-
                         resolutions_mult_by_ten = [10 * value for value in resolution_cst_seq_direction]
                         most_freq_val = np.bincount(resolutions_mult_by_ten).argmax() / 10
                         most_freq_val = str(int(most_freq_val)) if most_freq_val >= 1 else str(most_freq_val)
@@ -1049,7 +1066,8 @@ class Observation:
                         key = "=0" if np.mean(direction_sequence) == 0 else "!=0"
                         dict_cst_seq[station]["length_constant_direction"][most_freq_val][key].append(lenght_direction)
                         dict_cst_seq[station]["date_constant_direction_end"][most_freq_val][key].append(dates[index])
-                        dict_cst_seq[station]["date_constant_direction_begin"][most_freq_val][key].append(date_begin_direction)
+                        dict_cst_seq[station]["date_constant_direction_begin"][most_freq_val][key].append(
+                            date_begin_direction)
 
                     previous_step_direction_is_constant = False
                     resolution_cst_seq_direction = []
@@ -1064,7 +1082,6 @@ class Observation:
 
                     # If the previous sequence was constant and is finished
                     if previous_step_direction_is_constant:
-
                         resolutions_mult_by_ten = [10 * value for value in resolution_cst_seq_direction]
                         most_freq_val = np.bincount(resolutions_mult_by_ten).argmax() / 10
                         most_freq_val = str(int(most_freq_val)) if most_freq_val >= 1 else str(most_freq_val)
@@ -1072,13 +1089,14 @@ class Observation:
                         key = "=0" if np.mean(direction_sequence) == 0 else "!=0"
                         dict_cst_seq[station]["length_constant_direction"][most_freq_val][key].append(lenght_direction)
                         dict_cst_seq[station]["date_constant_direction_end"][most_freq_val][key].append(dates[index])
-                        dict_cst_seq[station]["date_constant_direction_begin"][most_freq_val][key].append(date_begin_direction)
+                        dict_cst_seq[station]["date_constant_direction_begin"][most_freq_val][key].append(
+                            date_begin_direction)
 
                     previous_step_direction_is_constant = False
                     resolution_cst_seq_direction = []
                     direction_sequence = []
                 else:
-                    constant_direction[index:index+2] = 1
+                    constant_direction[index:index + 2] = 1
                     resolution_cst_seq_direction.append(resolution_dir[index])
                     direction_sequence.append(dir_values[index])
 
@@ -1089,7 +1107,6 @@ class Observation:
 
                     # If the time_serie end with a constant sequence
                     if index == nb_values - 2:
-
                         resolutions_mult_by_ten = [10 * value for value in resolution_cst_seq_direction]
                         most_freq_val = np.bincount(resolutions_mult_by_ten).argmax() / 10
                         most_freq_val = str(int(most_freq_val)) if most_freq_val >= 1 else str(most_freq_val)
@@ -1097,7 +1114,8 @@ class Observation:
                         key = "=0" if np.mean(direction_sequence) == 0 else "!=0"
                         dict_cst_seq[station]["length_constant_direction"][most_freq_val][key].append(lenght_direction)
                         dict_cst_seq[station]["date_constant_direction_end"][most_freq_val][key].append(dates[index])
-                        dict_cst_seq[station]["date_constant_direction_begin"][most_freq_val][key].append(date_begin_direction)
+                        dict_cst_seq[station]["date_constant_direction_begin"][most_freq_val][key].append(
+                            date_begin_direction)
 
                     previous_step_direction_is_constant = True
 
@@ -1262,7 +1280,6 @@ class Observation:
         for resolution in range(5):
             resolution = str(resolution)
             for speed in ["<1m/s", ">=1m/s"]:
-
                 values = dict_all_stations["length_constant_speed"][resolution][speed]["values"]
 
                 P95 = np.quantile(values, 0.95) if np.array(values).size != 0 else None
@@ -1372,7 +1389,7 @@ class Observation:
             print(f"__Amplification factor direction: {amplification_factor_direction}")
             print(f"__Minimum length of suspect constant sequence: {criteria_min}")
             print(f"__Maximum length of suspect constant sequence: {criteria_max}")
-            
+
         return dict_all_stations
 
     @print_func_executed_decorator("apply_stats_cst_seq")
@@ -1406,7 +1423,8 @@ class Observation:
                     # Get criteria
                     criteria = dict_all_stations['length_constant_speed'][resolution][speed]['stats']['criteria']
 
-                    for index, length in enumerate(dict_constant_sequence[station]['length_constant_speed'][resolution][speed]):
+                    for index, length in enumerate(
+                            dict_constant_sequence[station]['length_constant_speed'][resolution][speed]):
 
                         # Apply criteria
                         assert criteria is not None
@@ -1419,7 +1437,8 @@ class Observation:
                         if length >= criteria:
                             # Flag series
                             time_series_station['validity_speed'][begin:end] = 0
-                            time_series_station['last_flagged_speed'][begin:end] = 'cst_sequence_criteria_not_passed_speed'
+                            time_series_station['last_flagged_speed'][
+                            begin:end] = 'cst_sequence_criteria_not_passed_speed'
                             time_series_station['qc_3_speed'][begin:end] = 'cst_sequence_criteria_not_passed_speed'
 
             # Direction
@@ -1442,7 +1461,8 @@ class Observation:
 
                         # Flag series
                         time_series_station['validity_direction'][begin:end] = 0
-                        time_series_station['last_flagged_direction'][begin:end] = 'cst_sequence_criteria_not_passed_direction'
+                        time_series_station['last_flagged_direction'][
+                        begin:end] = 'cst_sequence_criteria_not_passed_direction'
                         time_series_station['qc_3_direction'][begin:end] = 'cst_sequence_criteria_not_passed_direction'
 
                         # Unflag if constant direction is preferred direction
@@ -1553,8 +1573,9 @@ class Observation:
                                         '<1m/s'][
                                         index]
                                 end = \
-                                dict_constant_sequence[station]['date_constant_speed_end'][str(resolution)]['<1m/s'][
-                                    index]
+                                    dict_constant_sequence[station]['date_constant_speed_end'][str(resolution)][
+                                        '<1m/s'][
+                                        index]
 
                                 # Ten days time serie
                                 begin_ten_days = begin - np.timedelta64(10, 'D')
@@ -1889,20 +1910,16 @@ class Observation:
             next_len = len(groups[index + 1]) >= 12
             current_len = len(groups[index]) <= 24
 
-
             if previous_nan & next_nan & previous_len & next_len & current_not_nan & current_len:
                 groups_to_discard.append(index + 1)
 
         filter = wind["group"].isin(groups_to_discard)
         if type == "speed":
-
             time_series_station["qc_7_isolated_records_speed"][filter] = 0
             time_series_station["validity_speed"][filter] = 0
             time_series_station["last_flagged_speed"][filter] = "Isolated records"
 
-
         if type == "direction":
-
             time_series_station["qc_7_isolated_records_direction"][filter] = 0
             time_series_station["validity_direction"][filter] = 0
             time_series_station["last_flagged_direction"][filter] = "Isolated records"
@@ -1925,22 +1942,17 @@ class Observation:
 
         # Get statistics
         for station in list_stations:
-
             # Select station
             filter = time_series["name"] == station
             time_series_station = time_series[filter]
 
-            time_series_station = self._qc_isolated_records(time_series_station, wind_speed, type="speed", verbose=verbose)
-            time_series_station = self._qc_isolated_records(time_series_station, wind_direction, type="direction", verbose=verbose)
+            time_series_station = self._qc_isolated_records(time_series_station, wind_speed, type="speed",
+                                                            verbose=verbose)
+            time_series_station = self._qc_isolated_records(time_series_station, wind_direction, type="direction",
+                                                            verbose=verbose)
             list_dataframe.append(time_series_station)
 
         self.time_series = pd.concat(list_dataframe)
-
-
-
-
-
-
 
     @timer_decorator("qc", unit="minute")
     def qc(self, compare_calm_long_sequences_to_neighbors=False):
@@ -1979,7 +1991,6 @@ class Observation:
         self.qc_apply_stats_cst_seq(dict_constant_sequence, dict_all_stations)
 
         if compare_calm_long_sequences_to_neighbors:
-
             self.qc_get_nearest_neigbhors()
 
             self.qc_ra(dict_constant_sequence, dict_all_stations)
@@ -2130,32 +2141,3 @@ class Observation:
 
         if update_file:
             self.time_series = pd.concat(list_dataframe)
-
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
