@@ -1,6 +1,6 @@
 from time import time as t
 
-t_init = t()
+t0 = t()
 
 import numpy as np
 import pandas as pd
@@ -49,13 +49,10 @@ from downscale.Utils.prm import update_selected_path_for_long_periods, select_st
 prm = create_prm(month_prediction=True)
 connect_GPU_to_horovod() if prm["GPU"] else None
 
-
 IGN = MNT(prm["topo_path"], name="IGN")
-prm["selected_path"] = prm["AROME_path_1"]
-AROME = NWP(prm["selected_path"], name="AROME", begin=prm["begin"], end=prm["begin_after"], prm=prm)
+AROME = NWP(prm["AROME_path_1"], name="AROME", begin=prm["begin"], end=prm["begin_after"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 prm = select_stations(prm, BDclim)
-
 
 p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
 p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=False)
@@ -80,13 +77,14 @@ for station in prm["stations_to_predict"]:
     results["cnn"][station] = []
     results["obs"][station] = []
 
-t1 = t()
 if prm["launch_predictions"]:
 
     # Iterate on weeks
     begins, ends = select_range_30_days_for_long_periods_prediction(begin=prm["begin"], end=prm["end"])
 
     for index, (begin, end) in enumerate(zip(begins, ends)):
+
+        t1 = t()
 
         print(f"\nBegin: {begin}")
         print(f"End: {end}\n")
@@ -146,9 +144,15 @@ if prm["launch_predictions"]:
         del array_xr
         del AROME
 
+        time_to_predict_month = np.round(t()-t1, 2)
+        print(f"\n Prediction for time between {begin} and {end}:"
+              f"\n{time_to_predict_month / 60} minutes")
 
 for station in prm["stations_to_predict"]:
     for metric in ["nwp", "cnn", "obs"]:
         results[metric][station] = pd.concat(results[metric][station])
 
 pd.to_pickle(results, prm["save_path"] + "Results/results.pkl")
+
+time_to_predict_all = np.round(t()-t0, 2)
+print(f"\n All prediction in  {time_to_predict_all / 60} minutes")
