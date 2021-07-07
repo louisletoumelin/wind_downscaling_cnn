@@ -4,8 +4,6 @@ import xarray as xr
 import matplotlib.pyplot as plt
 from time import time as t
 
-from Analysis.Visualization import Visualization
-
 
 class Evaluation:
 
@@ -40,7 +38,8 @@ class Evaluation:
 
         return (nwp_time_serie)
 
-    def create_dataframe_from_predictions(self, station_name='Col du Lac Blanc', array_xr=None):
+    def create_dataframe_from_predictions(self, station_name='Col du Lac Blanc', array_xr=None,
+                                          extract_around="station",  interp_str=""):
         """
         Creates a dataframe at a specified location using predictions stored in array_xr (xarray data)
 
@@ -48,9 +47,32 @@ class Evaluation:
         station_name (Default: 'Col du Lac Blanc')
         array_xr: predictions obtained with CNN
         """
+
+        if extract_around == "nwp_neighbor_interp":
+
+            nwp_name = self.v.p.nwp.name
+            mnt_name = self.v.p.mnt.name
+            idx_str_neighbors = f"index_{nwp_name}_NN_0{interp_str}_ref_{mnt_name}"
+            idx_str_station = f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"
+
+            stations = self.v.p.observation.stations
+            filter_station = stations["name"] == station_name
+            stations = stations[filter_station]
+
+            delta_idx = stations[idx_str_neighbors].apply(np.array) - stations[idx_str_station].apply(np.array)
+            delta_idx_x = delta_idx.apply(lambda x: x[0]).values[0]
+            delta_idx_y = delta_idx.apply(lambda x: x[1]).values[0]
+
+        delta_idx_x = delta_idx_x if extract_around is not None else 0
+        delta_idx_y = delta_idx_y if extract_around is not None else 0
+
+        idx_x = np.intp(34-delta_idx_x)
+        idx_y = np.intp(39-delta_idx_y)
+
         dataframe = array_xr[
             ['U', 'V', 'W', 'UV', 'UVW', 'UV_DIR_deg', 'alpha_deg', 'NWP_wind_speed',
-             'NWP_wind_DIR', 'ZS_mnt']].sel(station=station_name).isel(x=34, y=39).to_dataframe()
+             'NWP_wind_DIR', 'ZS_mnt']].sel(station=station_name).isel(x=idx_x, y=idx_y).to_dataframe()
+
         return dataframe
 
     def _rename_colums_obs_time_series(self):
@@ -104,7 +126,8 @@ class Evaluation:
         return dataframe
 
     def _select_dataframe(self, array_xr, station_name='Col du Lac Blanc', begin=None, end=None, day=None, month=None,
-                          year=2019, variable="UV", rolling_mean=None, rolling_window="24H", interp_str=""):
+                          year=2019, variable="UV", rolling_mean=None, rolling_window="24H",
+                          extract_around="station", interp_str=""):
         """
         Create 3 dataframes corresponding to NWP, CNN and observations at the specified location, time and rolling_mean
 
@@ -115,9 +138,11 @@ class Evaluation:
         Output:
         nwp_time_serie, cnn_predictions, obs_time_serie (dataframe)
         """
+
         # Create DataFrames
         nwp_time_serie = self.create_dataframe_from_nwp_pixel(station_name, interp_str=interp_str)
-        cnn_predictions = self.create_dataframe_from_predictions(station_name=station_name, array_xr=array_xr)
+        cnn_predictions = self.create_dataframe_from_predictions(station_name=station_name, array_xr=array_xr,
+                                                                 extract_around=extract_around, interp_str=interp_str)
 
         # self._rename_colums_obs_time_series()
         obs_time_serie = self.v.p.observation.time_series

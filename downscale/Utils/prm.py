@@ -1,8 +1,8 @@
+import numpy as np
 import datetime
 
 
 def _update_selected_path(year, month, day, prm):
-
     current_date = datetime.datetime(year, month, day)
     d1 = datetime.datetime(2017, 8, 1, 6)
     d2 = datetime.datetime(2018, 8, 1, 6)
@@ -26,7 +26,6 @@ def _update_selected_path(year, month, day, prm):
 
 
 def update_selected_path_for_long_periods(begin, end, prm):
-
     d1 = datetime.datetime(2017, 8, 1, 6)
     d2 = datetime.datetime(2018, 8, 1, 6)
     d3 = datetime.datetime(2019, 6, 1, 6)
@@ -56,16 +55,15 @@ def update_selected_path(prm, month_prediction, year_end=None, month_end=None, d
 def select_path_to_file_npy(prm, GPU=False):
     if GPU:
         prm_path = prm["selected_path"]
-        path = "/".join(prm_path.split('/')[:-1]) + "/L93_npy/" + prm_path.split('/')[-1].split('.csv')[0].split('.nc')[0]
+        path = "/".join(prm_path.split('/')[:-1]) + "/L93_npy/" + prm_path.split('/')[-1].split('.csv')[0].split('.nc')[
+            0]
         return path
     else:
         return None
 
 
 def add_additionnal_stations(prm):
-
-    if not(prm["add_additionnal_stations"]):
-
+    if not prm["add_additionnal_stations"]:
         prm["path_vallot"] = None
         prm["path_saint_sorlin"] = None
         prm["path_argentiere"] = None
@@ -74,5 +72,28 @@ def add_additionnal_stations(prm):
         prm["path_Muzelle_Lac_Blanc"] = None
         prm["path_Col_de_Porte"] = None
         prm["path_Col_du_Lautaret"] = None
+
+    return prm
+
+
+def select_stations(prm, observation):
+    if prm["stations_to_predict"] == "all":
+
+        all_stations = observation.time_series["name"].unique()
+        prm["stations_to_predict"] = all_stations
+
+        prm["stations_to_predict"] = list(prm["stations_to_predict"])
+
+        stations_to_reject = ['ANTIBES-GAROUPE', 'CANNES', 'SEYNOD-AREA', 'TIGNES_SAPC', 'ST MICHEL MAUR_SAPC',
+                              'FECLAZ_SAPC', 'Dome Lac Blanc', 'MERIBEL BURGIN', "VAL D'I SOLAISE", 'CAP FERRAT',
+                              'ALBERTVILLE','FREJUS', "VAL D'I BELLEVA", None]
+
+        for station_to_reject in stations_to_reject:
+            try:
+                prm["stations_to_predict"].remove(station_to_reject)
+            except ValueError:
+                pass
+
+        prm["stations_to_predict"] = np.array(prm["stations_to_predict"])
 
     return prm

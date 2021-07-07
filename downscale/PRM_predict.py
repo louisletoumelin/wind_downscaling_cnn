@@ -12,21 +12,29 @@ def create_prm(month_prediction=True):
     Simulation parameters
     """
 
+    # GPU
     prm["GPU"] = False
     prm["horovod"] = False
+
+    # Z0
     prm["Z0"] = True
     prm["load_z0"] = True
     prm["save_z0"] = False
+
     prm["peak_valley"] = True
-    prm["select_date_time_serie"] = True
     prm["verbose"] = True
+
+    # Profiling
     prm["line_profile"] = False
     prm["memory_profile"] = False
-    prm["add_additionnal_stations"] = False
-    prm["launch_predictions"] = True
+
+    # Additional steps
+    prm["add_additionnal_stations"] = True
+    prm["select_date_time_serie"] = True
+    prm["launch_predictions"] = False
 
     # For predictions at stations
-    prm["stations_to_predict"] = ["Col du Lac Blanc", "ALPE-D'HUEZ"]
+    prm["stations_to_predict"] = "all"
 
     # Ideal cases
     prm["ideal_case"] = False
@@ -48,21 +56,23 @@ def create_prm(month_prediction=True):
     prm["method"] = "linear"
 
     prm["hour_begin"] = 1
-    prm["day_begin"] = 10
-    prm["month_begin"] = 6
-    prm["year_begin"] = 2019
+    prm["day_begin"] = 2
+    prm["month_begin"] = 8
+    prm["year_begin"] = 2017
 
     prm["hour_end"] = 1
-    prm["day_end"] = 10
-    prm["month_end"] = 8
-    prm["year_end"] = 2019
+    prm["day_end"] = 30
+    prm["month_end"] = 6
+    prm["year_end"] = 2020
 
+    # Please do not modify
     prm["begin"] = str(prm["year_begin"]) + "-" + str(prm["month_begin"]) + "-" + str(prm["day_begin"])
     prm["begin_after"] = str(prm["year_begin"]) + "-" + str(prm["month_begin"]) + "-" + str(prm["day_begin"] + 1)
     prm["end"] = str(prm["year_end"]) + "-" + str(prm["month_end"]) + "-" + str(prm["day_end"])
 
     # Please modify te paths
     if not(prm["GPU"]):
+
         # Parent directory
         working_directory = "C:/Users/louis/git/wind_downscaling_CNN/"
         # Data
@@ -76,11 +86,11 @@ def create_prm(month_prediction=True):
         #prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/04_Mai_2021/liste_postes_Alpes_LLT.csv"
 
         # 2017-2019
-        prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_BDClim_et_sta_alp_20171101_20190501.csv"
+        #prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_BDClim_et_sta_alp_20171101_20190501.csv"
         # 2015-2021
         #prm["BDclim_data_path"] = prm["data_path"] + "BDclim/extract_FF_T_RR1_alp_2015010100_2021013100.csv"
         # 2009-2021
-        #prm["BDclim_data_path"] = prm["data_path"] + "BDclim/04_Mai_2021/extract_FF_T_RR1_alp_2009010100_2021013100.csv"
+        prm["BDclim_data_path"] = prm["data_path"] + "BDclim/04_Mai_2021/extract_FF_T_RR1_alp_2009010100_2021013100.csv"
 
         # NWP
         prm["AROME_path_1"] = prm["data_path"] + "AROME/FORCING_alp_2017080106_2018080106_32bits.nc"
@@ -97,9 +107,9 @@ def create_prm(month_prediction=True):
         # Topography
         prm["topo_path"] = prm["data_path"] + "MNT/IGN_25m/preprocessed_MNT.nc"
         # Observations
-        prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/02_06_2021/stations.csv"
+        prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/07_07_2021/stations.csv"
         # 2009-2021
-        prm["BDclim_data_path"] = prm["data_path"] + "BDclim/02_06_2021/time_series.csv"
+        prm["BDclim_data_path"] = prm["data_path"] + "BDclim/07_07_2021/time_series.csv"
 
         # NWP
         prm["AROME_path_1"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2017080106_2018080106_32bits.nc"
@@ -141,6 +151,7 @@ def create_prm(month_prediction=True):
 
     # Do not modify: define if looking for interpolated neighbors or not
     prm["interp_str"] = "_interpolated" if prm["station_similar_to_map"] else ""
+    prm["extract_around"] = "station" if not prm["extract_stations_only"] else "nwp_neighbor_interp"
 
     # Do not modify: add_additionnal_stations
     prm = add_additionnal_stations(prm)

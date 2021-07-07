@@ -5,6 +5,14 @@ t_init = t()
 import numpy as np
 import pandas as pd
 
+print("Current directory")
+import os
+try:
+    os.chdir("//home/mrmn/letoumelinl")
+except FileNotFoundError:
+    pass
+print(os.getcwd())
+
 from downscale.Operators.Processing import Processing
 from downscale.Analysis.Visualization import Visualization
 from downscale.Data_family.MNT import MNT
@@ -14,7 +22,7 @@ from downscale.Analysis.Evaluation import Evaluation
 from PRM_predict import create_prm
 from downscale.Utils.GPU import connect_GPU_to_horovod
 from downscale.Utils.Utils import round, select_range_30_days_for_long_periods_prediction
-from downscale.Utils.prm import update_selected_path_for_long_periods
+from downscale.Utils.prm import update_selected_path_for_long_periods, select_stations
 
 """
 ['BARCELONNETTE', 'DIGNE LES BAINS', 'RESTEFOND-NIVOSE',
@@ -43,8 +51,11 @@ connect_GPU_to_horovod() if prm["GPU"] else None
 
 
 IGN = MNT(prm["topo_path"], name="IGN")
-AROME = NWP(prm["selected_path"], name="AROME", begin=prm["begin"], end=prm["end"], prm=prm)
+prm["selected_path"] = prm["AROME_path_1"]
+AROME = NWP(prm["selected_path"], name="AROME", begin=prm["begin"], end=prm["begin_after"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
+prm = select_stations(prm, BDclim)
+
 
 p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
 p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=False)
@@ -77,8 +88,8 @@ if prm["launch_predictions"]:
 
     for index, (begin, end) in enumerate(zip(begins, ends)):
 
-        print(f"Begin: {begin}")
-        print(f"End: {end}")
+        print(f"\nBegin: {begin}")
+        print(f"End: {end}\n")
         # Initialize results
 
         # Update the name of the file to load
@@ -94,7 +105,7 @@ if prm["launch_predictions"]:
         # Processing
         p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
 
-        # Intepolate
+        # Interpolate
         data_xr_interp = p.interpolate_wind_grid_xarray(AROME.data_xr,
                                                         interp=prm["interp"],
                                                         method=prm["method"],
@@ -122,10 +133,12 @@ if prm["launch_predictions"]:
                                                 variable=prm["variable"],
                                                 rolling_mean=None,
                                                 rolling_window=None,
-                                                interp_str=prm["interp_str"])
+                                                interp_str=prm["interp_str"],
+                                                extract_around=prm["extract_around"])
             results["nwp"][station].append(nwp)
             results["cnn"][station].append(cnn)
             results["obs"][station].append(obs)
+
 
         del p
         del v
@@ -133,6 +146,9 @@ if prm["launch_predictions"]:
         del array_xr
         del AROME
 
+
 for station in prm["stations_to_predict"]:
     for metric in ["nwp", "cnn", "obs"]:
         results[metric][station] = pd.concat(results[metric][station])
+
+pd.to_pickle(results, prm["save_path"] + "Results/results.pkl")

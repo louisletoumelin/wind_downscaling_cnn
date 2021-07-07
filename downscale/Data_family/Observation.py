@@ -72,6 +72,7 @@ class Observation:
                                      path_saint_sorlin, path_argentiere, path_Dome_Lac_Blanc,
                                      path_Col_du_Lac_Blanc, path_Muzelle_Lac_Blanc,
                                      path_Col_de_Porte, path_Col_du_Lautaret, GPU=GPU)
+
         # Quality control
         self._qc = False
         self._qc_init = False
@@ -90,11 +91,41 @@ class Observation:
         self._add_all_time_series(GPU=GPU)
         if select_date_time_serie: self._select_date_time_serie()
 
+        # Reject stations
+        self._assert_equal_station()
+        self._reject_stations()
+
         # float32
         self._downcast_dtype(oldtype='float64', newtype='float32')
 
         t1 = t()
         print(f"Observation created in {np.round(t1 - t0, 2)} seconds\n")
+
+    def _assert_equal_station(self, verbose=True):
+
+        for station in self.stations["name"].values:
+            if station not in self.time_series["name"].unique():
+                self.stations = self.stations[self.stations["name"] != station]
+
+        for station in self.time_series["name"].unique():
+            if station not in self.stations["name"].values:
+                self.time_series = self.time_series[self.time_series["name"] != station]
+
+        print("__Selected stations that can be found both in stations and time_series") if verbose else None
+
+    def _reject_stations(self, verbose=True):
+        stations_to_reject = ['ANTIBES-GAROUPE', 'CANNES', 'SEYNOD-AREA', 'TIGNES_SAPC', 'ST MICHEL MAUR_SAPC',
+                              'FECLAZ_SAPC', 'Dome Lac Blanc', 'MERIBEL BURGIN', "VAL D'I SOLAISE", 'CAP FERRAT',
+                              'ALBERTVILLE', 'FREJUS', "VAL D'I BELLEVA"]
+
+        for station in stations_to_reject:
+            self.time_series = self.time_series[self.time_series["name"] != station]
+            self.stations = self.stations[self.stations["name"] != station]
+
+        self.time_series = self.time_series[np.logical_not(self.time_series["name"].isna())]
+        self.stations = self.stations[np.logical_not(self.stations["name"].isna())]
+
+        print("__Rejected specific stations") if verbose else None
 
     def _add_all_stations_paths(self, path_to_list_stations, path_to_time_series, path_vallot,
                                 path_saint_sorlin, path_argentiere, path_Dome_Lac_Blanc,
@@ -162,11 +193,28 @@ class Observation:
                 if verbose: print(f"__Stations loaded using pd.read_csv")
             else:
                 self.stations = pd.read_csv(path)
-                list_variables_str = ['AROME_NN_0', 'index_AROME_NN_0', 'AROME_NN_1', 'index_AROME_NN_1', 'AROME_NN_2',
-                                      'index_AROME_NN_2', 'AROME_NN_3', 'index_AROME_NN_3', 'index_IGN_NN_0_cKDTree',
-                                      'IGN_NN_0_cKDTree', 'index_IGN_NN_1_cKDTree', 'IGN_NN_1_cKDTree',
-                                      'index_IGN_NN_2_cKDTree', 'IGN_NN_2_cKDTree', 'index_IGN_NN_3_cKDTree',
-                                      'IGN_NN_3_cKDTree']
+                list_variables_str = ['AROME_NN_0', 'index_AROME_NN_0_ref_AROME',
+                                      'AROME_NN_1', 'index_AROME_NN_1_ref_AROME',
+                                      'AROME_NN_2', 'index_AROME_NN_2_ref_AROME',
+                                      'AROME_NN_3', 'index_AROME_NN_3_ref_AROME',
+                                      'index_IGN_NN_0_cKDTree_ref_IGN', 'IGN_NN_0_cKDTree',
+                                      'index_IGN_NN_1_cKDTree_ref_IGN',
+                                      'IGN_NN_1_cKDTree',
+                                      'index_IGN_NN_2_cKDTree_ref_IGN', 'IGN_NN_2_cKDTree',
+                                      'index_IGN_NN_3_cKDTree_ref_IGN',
+                                      'IGN_NN_3_cKDTree',
+                                      'AROME_NN_0_interpolated',
+                                      'index_AROME_NN_0_interpolated_ref_AROME_interpolated',
+                                      'AROME_NN_1_interpolated',
+                                      'index_AROME_NN_1_interpolated_ref_AROME_interpolated',
+                                      'AROME_NN_2_interpolated',
+                                      'index_AROME_NN_2_interpolated_ref_AROME_interpolated',
+                                      'AROME_NN_3_interpolated',
+                                      'index_AROME_NN_3_interpolated_ref_AROME_interpolated',
+                                      'index_AROME_NN_0_interpolated_ref_IGN',
+                                      'index_AROME_NN_1_interpolated_ref_IGN',
+                                      'index_AROME_NN_2_interpolated_ref_IGN',
+                                      'index_AROME_NN_3_interpolated_ref_IGN']
                 self.stations[list_variables_str] = self.stations[list_variables_str].apply(lambda x: x.apply(eval))
                 if verbose: print(f"__Stations loaded using pd.read_csv and eval function to convert str into tuples")
 

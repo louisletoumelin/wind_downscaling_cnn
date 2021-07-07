@@ -64,10 +64,13 @@ def select_range_7days_for_long_periods_prediction(begin="2017-8-2", end="2020-6
 
 def select_range_30_days_for_long_periods_prediction(begin="2017-8-2", end="2020-6-30"):
 
+    begin = np.datetime64(pd.to_datetime(begin))
+    end = np.datetime64(pd.to_datetime(end))
+
     # Define 30 days periods within date range
     dates = pd.date_range(start=begin, end=end, freq="MS")
     dates_shift = pd.date_range(start=begin, end=end, freq="M", closed='right').shift()
-    dates_shift = dates_shift.where(dates_shift <= end, end)
+    dates_shift = dates_shift.where(dates_shift <= end, [end])
 
     # Split range around selected dates
     d1 = datetime.datetime(2017, 8, 1, 6)
