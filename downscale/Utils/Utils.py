@@ -62,7 +62,7 @@ def select_range_7days_for_long_periods_prediction(begin="2017-8-2", end="2020-6
     return begins, ends
 
 
-def select_range_30_days_for_long_periods_prediction(begin="2017-8-2", end="2020-6-30"):
+def select_range_30_days_for_long_periods_prediction(begin="2017-8-2", end="2020-6-30", GPU=False):
 
     begin = np.datetime64(pd.to_datetime(begin))
     end = np.datetime64(pd.to_datetime(end))
@@ -73,11 +73,20 @@ def select_range_30_days_for_long_periods_prediction(begin="2017-8-2", end="2020
     dates_shift = dates_shift.where(dates_shift <= end, [end])
 
     # Split range around selected dates
-    d1 = datetime.datetime(2017, 8, 1, 6)
-    d2 = datetime.datetime(2018, 8, 1, 6)
-    d3 = datetime.datetime(2019, 6, 1, 6)
-    d6 = datetime.datetime(2020, 7, 1, 6)
-    splitting_dates = [np.datetime64(date) for date in [d1, d2, d3, d6]]
+    if not GPU:
+        d1 = datetime.datetime(2017, 8, 1, 6)
+        d2 = datetime.datetime(2018, 8, 1, 6)
+        d3 = datetime.datetime(2019, 6, 1, 6)
+        d6 = datetime.datetime(2020, 7, 1, 6)
+        splitting_dates = [np.datetime64(date) for date in [d1, d2, d3, d6]]
+    else:
+        d1 = datetime.datetime(2017, 8, 1, 6)
+        d2 = datetime.datetime(2018, 8, 1, 6)
+        d3 = datetime.datetime(2019, 5, 1, 6)
+        d4 = datetime.datetime(2019, 6, 1, 6)
+        d5 = datetime.datetime(2020, 6, 2, 6)
+        splitting_dates = [np.datetime64(date) for date in [d1, d2, d3, d4, d5]]
+
 
     begins = []
     ends = []

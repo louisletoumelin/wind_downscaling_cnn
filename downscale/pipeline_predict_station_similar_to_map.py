@@ -1,4 +1,5 @@
 from time import time as t
+import pickle
 
 t0 = t()
 
@@ -50,7 +51,7 @@ prm = create_prm(month_prediction=True)
 connect_GPU_to_horovod() if prm["GPU"] else None
 
 IGN = MNT(prm["topo_path"], name="IGN")
-AROME = NWP(prm["AROME_path_2"], name="AROME", begin=prm["begin"], end=prm["begin_after"], prm=prm)
+AROME = NWP(prm["AROME_path_1"], name="AROME", begin=prm["begin"], end=prm["begin_after"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 prm = select_stations(prm, BDclim)
 
@@ -80,30 +81,26 @@ for station in prm["stations_to_predict"]:
 if prm["launch_predictions"]:
 
     # Iterate on weeks
-    begins, ends = select_range_30_days_for_long_periods_prediction(begin=prm["begin"], end=prm["end"])
+    begins, ends = select_range_30_days_for_long_periods_prediction(begin=prm["begin"], end=prm["end"], GPU=prm["GPU"])
 
     for index, (begin, end) in enumerate(zip(begins, ends)):
 
         t1 = t()
 
-        print(f"\nBegin: {begin}")
-        print(f"End: {end}\n")
-        # Initialize results
-
         # Update the name of the file to load
         prm = update_selected_path_for_long_periods(begin, end, prm)
+
+        print(f"\nBegin: {begin}")
+        print(f"End: {end}\n")
+        print("\nSelected path here:")
+        print(prm["selected_path"])
 
         # Load NWP
         AROME = NWP(path_to_file=prm["selected_path"],
                     name="AROME",
-                    begin=str(begin.year) + "-" + str(begin.month) + "-" + str(begin.day),
-                    end=str(end.year) + "-" + str(end.month) + "-" + str(end.day),
+                    begin=begin,
+                    end=end,
                     prm=prm)
-        print("\nSelected path here:")
-        print(prm["selected_path"])
-
-        print("\n NWP data here:")
-        print(AROME.data_xr)
 
         # Processing
         p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
@@ -114,9 +111,6 @@ if prm["launch_predictions"]:
                                                         method=prm["method"],
                                                         verbose=prm["verbose"])
         AROME.data_xr = data_xr_interp
-
-        print("\n NWP data here 2:")
-        print(AROME.data_xr)
 
         # Processing with interpolated data
         p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
@@ -160,7 +154,14 @@ for station in prm["stations_to_predict"]:
     for metric in ["nwp", "cnn", "obs"]:
         results[metric][station] = pd.concat(results[metric][station])
 
-pd.to_pickle(results, prm["save_path"] + "Results/results.pkl")
+path = "//scratch/mrmn/letoumelinl/predict_real/Results/" if prm["GPU"] else ''
+for station in prm["stations_to_predict"]:
+    for metric in ["nwp", "cnn", "obs"]:
+        results[metric][station].to_pickle(path + f"results_{metric}_{station}.pkl")
+
+with open(path+'results.pickle', 'wb') as handle:
+    pickle.dump(results, handle)
+
 
 time_to_predict_all = np.round(t()-t0, 2)
 print(f"\n All prediction in  {time_to_predict_all / 60} minutes")

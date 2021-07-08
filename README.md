@@ -30,28 +30,51 @@ Ongoing study - PhD Louis Le Toumelin - louis.letoumelin@gmail.com
 ## Structure
 
 ```
-├── LICENSE            <- To be created
-
-├── README.md          <- File describing the github repository. You are reading it right now.
-
-├── downscale          <- Apply downscaling predictions 
-│   ├── Analysis       <- Analyse and visualize predictions
-│   ├── Data_family    <- Process data according to its nature (model data, DEM, observation...)
-│   ├── Depreciated    <- Old code that I don't want to get rid off now
-│   ├── Operators      <- Process data to make predictions
-│   ├── Utils          <- Utility functions
+├── LICENSE                              <- To be created
+│
+├── README.md                            <- File describing the github repository. You are reading it right now.
+│
+├── downscale                            <- Apply downscaling predictions 
+│   ├── Analysis                         <- Analyse and visualize predictions
+│      ├── Evaluation.py                 <- Evaluate predictions (RMSE, bias...etc)
+│      ├── MidpointNormalize.py          <- Script to plot beautiful centered colorbars
+│      └── Visualization.py              <- Plot results
+│
+│   ├── Data_family                      <- Process data according to its nature (model data, DEM, observation...)
+│      ├── Data_2D.py                    <- Parent class of MNT and NWP
+│      ├── MNT.py                        <- Treat Digital Elevation Models (DEM)
+│      ├── NWP.py                        <- Treat Numerical Weather Prediction (NWP) models outputs 
+│      └── Observation.py                <- Treat observations datasets such as Automatic Weather Stations (AWS)
+│
+│   ├── Depreciated                      <- Old code that I don't want to get rid off 
+│
+│   ├── Operators                        <- Process data to make predictions
+│      ├── Helbig.py                     <- Functions to downscale wind fields according to Helbig et al. (2017)
+│      ├── Micro_Met.py                  <- Functions to downscale wind fields according to MicroMet model from Liston and Elder (2006)
+│      ├── Processing.py                 <- Functions to downscale wind fiels ccording to my method
+│      ├── Rotation.py                   <- Functions to rotate images (e.g. topography maps) including numpy vectorized rotations
+│      ├── topo_utils.py                 <- Functions to calcuate parameters on topography (e.g. Laplacian, tpi, sx, peak-valley elevation)
+│      └── wind_utils.py                 <- Functions specific to wind calculations
+│
+│   ├── Utils                            <- Utility functions
+│      ├── Decorators.py                 <- Some decorators
+│      ├── GPU.py                        <- Some functions used when working with GPU
+│      ├── prm.py                        <- Funcitons to treat input parameters
+│      └── Utils.py                      <- Utility functions
+│
 │   ├── scripts        <- To be removed
+│
 │   └── test           <- test the code with pytest
 │
 ├── pre_process        <- Pre-process data before training
 │
-├── train          <- Apply downscaling predictions 
+├── train                  <- Train models
 │   ├── Metrics            <- RMSE, bias etc
 │   ├── Models             <- UNet, VCD
 │   ├── Prm                <- Define parameters for the training
-│   ├── Slurm              <- sh and slurm commands to laucnh on GPU HPC
+│   ├── Slurm              <- Commands to launch training on supercomputers
 │   ├── Test               <- Evaluate training
-│   ├── Type_of_training   <- Train on folds, class, degree, xi, all data
+│   ├── Type_of_training   <- Different ways to categorize data and then launch training
 │   └── Utils              <- Utility functions
 │
 ├── .gitignore         <- Files ignored during git version control

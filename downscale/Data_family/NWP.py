@@ -60,8 +60,14 @@ class NWP(Data_2D):
         self.load_nwp_files(path_to_file=path_to_file,
                             preprocess_function=self._preprocess_ncfile)
 
+        print("\n\nAROME print here")
+        print(self.data_xr)
+
         # Select timeframe
         self.select_timeframe()
+
+        print("\n\nAROME print here2")
+        print(self.data_xr)
 
         # Select variables of interest
         self._select_specific_variables()
@@ -233,7 +239,23 @@ class NWP(Data_2D):
 
         if verbose: print('__Start adding Z0')
 
-        year, month, day = self.begin.split('-')
+        if isinstance(self.begin, str):
+            year, month, day = self.begin.split('-')
+            month = month.lstrip("0")
+            day = day.lstrip("0")
+
+        elif isinstance(self.begin, pd._libs.tslibs.timestamps.Timestamp):
+            begin = str(self.begin).split()[0]
+            year, month, day = begin.split('-')
+            month = month.lstrip("0")
+            day = day.lstrip("0")
+
+        elif isinstance(self.begin, np.datetime64):
+            begin = str(self.begin).split('T')[0]
+            year, month, day = begin.split('-')
+            month = month.lstrip("0")
+            day = day.lstrip("0")
+
         if load:
             chunks = {"time": 12} if _dask else None
             array_Z0 = xr.open_dataset(self.save_path + f'processed_Z0_{year}_32bits.nc', chunks=chunks).astype(
@@ -334,7 +356,22 @@ class NWP(Data_2D):
         return data_xr
 
     def select_timeframe(self, begin=None, end=None):
-        if (begin is not None) and (end is not None):
+
+        if (begin is None) and (end is None):
+            begin = self.begin
+            end = self.end
+
+        if isinstance(begin, np.datetime64) and isinstance(end, np.datetime64):
+            print("\nused np.datetime64\n")
+            self.data_xr = self.data_xr.sel(time=slice(np.datetime64(begin), np.datetime64(end)))
+
+        elif isinstance(begin, pd._libs.tslibs.timestamps.Timestamp) and isinstance(end, pd._libs.tslibs.timestamps.Timestamp):
+            print("\nused Timestamp converted to str\n")
+            print(begin)
+            print(end)
+            print(slice(str(begin), str(end)))
+            self.data_xr = self.data_xr.sel(time=slice(str(begin), str(end)))
+
+        elif isinstance(begin, str) and isinstance(end, str):
+            print("\nused str\n")
             self.data_xr = self.data_xr.sel(time=slice(begin, end))
-        else:
-            self.data_xr = self.data_xr.sel(time=slice(self.begin, self.end))
