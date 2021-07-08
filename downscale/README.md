@@ -12,7 +12,7 @@ To launch predictions at the *observation stations for a single month*
 python pipeline_predict_stations.py
 ```
 
-To launch predictions at the *observation stations for several months* (less data stored)
+To launch predictions at the **observation stations for several months* (less data stored)
 
 ```
 python pipeline_predict_long_periods.py

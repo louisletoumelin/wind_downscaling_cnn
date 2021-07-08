@@ -13,8 +13,8 @@ def create_prm(month_prediction=True):
     """
 
     # GPU
-    prm["GPU"] = False
-    prm["horovod"] = False
+    prm["GPU"] = True
+    prm["horovod"] = True
 
     # Z0
     prm["Z0"] = True
@@ -31,7 +31,7 @@ def create_prm(month_prediction=True):
     # Additional steps
     prm["add_additionnal_stations"] = True
     prm["select_date_time_serie"] = True
-    prm["launch_predictions"] = False
+    prm["launch_predictions"] = True
 
     # For predictions at stations
     prm["stations_to_predict"] = "all"
@@ -57,13 +57,13 @@ def create_prm(month_prediction=True):
 
     prm["hour_begin"] = 1
     prm["day_begin"] = 2
-    prm["month_begin"] = 8
-    prm["year_begin"] = 2017
+    prm["month_begin"] = 4
+    prm["year_begin"] = 2019
 
     prm["hour_end"] = 1
     prm["day_end"] = 30
-    prm["month_end"] = 6
-    prm["year_end"] = 2020
+    prm["month_end"] = 7
+    prm["year_end"] = 2019
 
     # Please do not modify
     prm["begin"] = str(prm["year_begin"]) + "-" + str(prm["month_begin"]) + "-" + str(prm["day_begin"])
@@ -112,10 +112,17 @@ def create_prm(month_prediction=True):
         prm["BDclim_data_path"] = prm["data_path"] + "BDclim/07_07_2021/time_series.csv"
 
         # NWP
+        #prm["AROME_path_1"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2017080106_2018080106_32bits.nc"
+        #prm["AROME_path_2"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2018080106_2019050106_32bits.nc"
+        #prm["AROME_path_3"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2019060107_2019070106_32bits.nc"
+        #prm["AROME_path_4"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2019060106_2020060206_32bits.nc"
+
         prm["AROME_path_1"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2017080106_2018080106_32bits.nc"
         prm["AROME_path_2"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2018080106_2019050106_32bits.nc"
-        prm["AROME_path_3"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2019060107_2019070106_32bits.nc"
+        prm["AROME_path_3"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2019050106_2019060106_32bits.nc"
+        #prm["AROME_path_3"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2019060107_2019070106_32bits.nc"
         prm["AROME_path_4"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2019060106_2020060206_32bits.nc"
+
         prm["AROME_path"] = [prm["AROME_path_1"], prm["AROME_path_2"], prm["AROME_path_3"], prm["AROME_path_4"]]
 
     # Z0

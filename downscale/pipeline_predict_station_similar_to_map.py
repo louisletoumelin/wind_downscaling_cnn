@@ -50,7 +50,7 @@ prm = create_prm(month_prediction=True)
 connect_GPU_to_horovod() if prm["GPU"] else None
 
 IGN = MNT(prm["topo_path"], name="IGN")
-AROME = NWP(prm["AROME_path_1"], name="AROME", begin=prm["begin"], end=prm["begin_after"], prm=prm)
+AROME = NWP(prm["AROME_path_2"], name="AROME", begin=prm["begin"], end=prm["begin_after"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 prm = select_stations(prm, BDclim)
 
@@ -99,6 +99,11 @@ if prm["launch_predictions"]:
                     begin=str(begin.year) + "-" + str(begin.month) + "-" + str(begin.day),
                     end=str(end.year) + "-" + str(end.month) + "-" + str(end.day),
                     prm=prm)
+        print("\nSelected path here:")
+        print(prm["selected_path"])
+
+        print("\n NWP data here:")
+        print(AROME.data_xr)
 
         # Processing
         p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
@@ -109,6 +114,9 @@ if prm["launch_predictions"]:
                                                         method=prm["method"],
                                                         verbose=prm["verbose"])
         AROME.data_xr = data_xr_interp
+
+        print("\n NWP data here 2:")
+        print(AROME.data_xr)
 
         # Processing with interpolated data
         p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)

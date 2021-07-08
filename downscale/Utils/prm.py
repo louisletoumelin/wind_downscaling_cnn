@@ -26,17 +26,34 @@ def _update_selected_path(year, month, day, prm):
 
 
 def update_selected_path_for_long_periods(begin, end, prm):
-    d1 = datetime.datetime(2017, 8, 1, 6)
-    d2 = datetime.datetime(2018, 8, 1, 6)
-    d3 = datetime.datetime(2019, 6, 1, 6)
-    d6 = datetime.datetime(2020, 7, 1, 6)
 
-    if (d1 < begin <= d2) and (d1 < end <= d2):
-        prm["selected_path"] = prm["AROME_path_1"]
-    elif (d2 < begin <= d3) and (d2 < end <= d3):
-        prm["selected_path"] = prm["AROME_path_2"]
-    elif (d3 < begin <= d6) and (d3 < end <= d6):
-        prm["selected_path"] = prm["AROME_path_4"]
+    if prm["GPU"]:
+        d1 = datetime.datetime(2017, 8, 1, 6)
+        d2 = datetime.datetime(2018, 8, 1, 6)
+        d3 = datetime.datetime(2019, 5, 1, 6)
+        d4 = datetime.datetime(2019, 6, 1, 6)
+        d5 = datetime.datetime(2020, 6, 2, 6)
+
+        if (d1 <= begin <= d2) and (d1 <= end <= d2):
+            prm["selected_path"] = prm["AROME_path_1"]
+        elif (d2 < begin <= d3) and (d2 < end <= d3):
+            prm["selected_path"] = prm["AROME_path_2"]
+        elif (d3 < begin <= d4) and (d3 < end <= d4):
+            prm["selected_path"] = prm["AROME_path_3"]
+        elif (d4 < begin <= d5) and (d4 < end <= d5):
+            prm["selected_path"] = prm["AROME_path_3"]
+    else:
+        d1 = datetime.datetime(2017, 8, 1, 6)
+        d2 = datetime.datetime(2018, 8, 1, 6)
+        d3 = datetime.datetime(2019, 6, 1, 6)
+        d6 = datetime.datetime(2020, 7, 1, 6)
+
+        if (d1 <= begin <= d2) and (d1 <= end <= d2):
+            prm["selected_path"] = prm["AROME_path_1"]
+        elif (d2 < begin <= d3) and (d2 < end <= d3):
+            prm["selected_path"] = prm["AROME_path_2"]
+        elif (d3 < begin <= d6) and (d3 < end <= d6):
+            prm["selected_path"] = prm["AROME_path_4"]
 
     return prm
 
