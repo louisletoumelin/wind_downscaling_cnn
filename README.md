@@ -51,7 +51,7 @@ Ongoing study - PhD Louis Le Toumelin - louis.letoumelin@gmail.com
 │   ├── Operators                        <- Process data to make predictions
 │      ├── Helbig.py                     <- Functions to downscale wind fields according to Helbig et al. (2017)
 │      ├── Micro_Met.py                  <- Functions to downscale wind fields according to MicroMet model from Liston and Elder (2006)
-│      ├── Processing.py                 <- Functions to downscale wind fiels ccording to my method
+│      ├── Processing.py                 <- Functions to downscale wind fields according to my method
 │      ├── Rotation.py                   <- Functions to rotate images (e.g. topography maps) including numpy vectorized rotations
 │      ├── topo_utils.py                 <- Functions to calcuate parameters on topography (e.g. Laplacian, tpi, sx, peak-valley elevation)
 │      └── wind_utils.py                 <- Functions specific to wind calculations
@@ -62,26 +62,26 @@ Ongoing study - PhD Louis Le Toumelin - louis.letoumelin@gmail.com
 │      ├── prm.py                        <- Funcitons to treat input parameters
 │      └── Utils.py                      <- Utility functions
 │
-│   ├── scripts        <- To be removed
+│   ├── scripts                          <- To be removed
 │
-│   └── test           <- test the code with pytest
+│   └── test                             <- test the code with pytest
 │
-├── pre_process        <- Pre-process data before training
+├── pre_process                          <- Pre-process data before training
 │
-├── train                  <- Train models
-│   ├── Metrics            <- RMSE, bias etc
-│   ├── Models             <- UNet, VCD
-│   ├── Prm                <- Define parameters for the training
-│   ├── Slurm              <- Commands to launch training on supercomputers
-│   ├── Test               <- Evaluate training
-│   ├── Type_of_training   <- Different ways to categorize data and then launch training
-│   └── Utils              <- Utility functions
+├── train                                <- Train models
+│   ├── Metrics                          <- RMSE, bias etc
+│   ├── Models                           <- UNet, VCD
+│   ├── Prm                              <- Define parameters for the training
+│   ├── Slurm                            <- Commands to launch training on supercomputers
+│   ├── Test                             <- Evaluate training
+│   ├── Type_of_training                 <- Different ways to categorize data and then launch training
+│   └── Utils                            <- Utility functions
 │
-├── .gitignore         <- Files ignored during git version control
+├── .gitignore                           <- Files ignored during git version control
 │
-├── __init__.py        <- Python file to create a python module
+├── __init__.py                          <- Python file to create a python module
 │
-└──  environment.yml    <- Description of the python environment to use. This file has to be updated.
+└──  environment.yml                     <- Description of the python environment to use. This file has to be updated.
 ```
 
 
