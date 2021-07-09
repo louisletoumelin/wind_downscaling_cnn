@@ -14,6 +14,8 @@ from downscale.Utils.Utils import assert_equal_shapes, reshape_list_array
 from downscale.Operators.Rotation import Rotation
 from downscale.Operators.wind_utils import Wind_utils
 from downscale.Operators.topo_utils import Topo_utils
+from downscale.Operators.Helbig import DwnscHelbig
+from downscale.Operators.Micro_Met import MicroMet
 
 # try importing optional modules
 try:
@@ -63,7 +65,7 @@ def root_mse(y_true, y_pred):
 
 
 # noinspection PyAttributeOutsideInit,PyUnboundLocalVariable
-class Processing(Wind_utils, Topo_utils, Rotation):
+class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
     n_rows, n_col = 79, 69
     _geopandas = _geopandas
     _shapely_geometry = _shapely_geometry
@@ -80,7 +82,76 @@ class Processing(Wind_utils, Topo_utils, Rotation):
         self.nwp = nwp
         self.model_path = model_path
         self.data_path = data_path
+        self.is_updated_with_topo_characteristics = False
         environment_GPU(GPU=GPU)
+
+    def update_station_with_topo_characteristics(self):
+        self.update_stations_with_laplacian()
+        self.update_stations_with_tpi(radius=2000)
+        self.update_stations_with_tpi(radius=500)
+        self.update_stations_with_mu()
+        self.update_stations_with_curvature()
+        self.is_updated_with_topo_characteristics = True
+
+    def update_stations_with_laplacian(self):
+
+        stations = self.observation.stations
+        mnt_name = self.mnt.name
+
+        idx_x = stations[f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"].str[0].values
+        idx_y = stations[f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"].str[1].values
+
+        idx_x = idx_x.astype(np.int32)
+        idx_y = idx_y.astype(np.int32)
+
+        laplacians = self.laplacian_idx(self.mnt.data, idx_x, idx_y, self.mnt.resolution_x, helbig=False)
+
+        self.observation.stations["laplacian"] = laplacians
+
+    def update_stations_with_tpi(self, radius=2000):
+
+        stations = self.observation.stations
+        mnt_name = self.mnt.name
+
+        idx_x = stations[f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"].str[0].values
+        idx_y = stations[f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"].str[1].values
+
+        idx_x = idx_x.astype(np.int32)
+        idx_y = idx_y.astype(np.int32)
+
+        tpi = self.tpi_idx(self.mnt.data, idx_x, idx_y, radius, resolution=self.mnt.resolution_x)
+
+        self.observation.stations[f"tpi_{str(int(radius))}"] = tpi
+
+    def update_stations_with_mu(self):
+
+        stations = self.observation.stations
+        mnt_name = self.mnt.name
+
+        idx_x = stations[f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"].str[0].values
+        idx_y = stations[f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"].str[1].values
+
+        idx_x = idx_x.astype(np.int32)
+        idx_y = idx_y.astype(np.int32)
+
+        mu = self.mu_helbig_idx(self.mnt.data, self.mnt.resolution_x, idx_x, idx_y)
+
+        self.observation.stations["mu"] = mu
+
+    def update_stations_with_curvature(self):
+
+        stations = self.observation.stations
+        mnt_name = self.mnt.name
+
+        idx_x = stations[f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"].str[0].values
+        idx_y = stations[f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"].str[1].values
+
+        idx_x = idx_x.astype(np.int32)
+        idx_y = idx_y.astype(np.int32)
+
+        curvature = self.curvature_idx(self.mnt.data, idx_x, idx_y, method="fast", scale=False)
+
+        self.observation.stations["curvature"] = curvature
 
     def update_stations_with_neighbors(self, mnt=None, nwp=None, GPU=False, number_of_neighbors=4, interpolated=False):
 

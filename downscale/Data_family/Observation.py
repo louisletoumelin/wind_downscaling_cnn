@@ -689,7 +689,7 @@ class Observation:
     def extract_MNT_around_station(self, station, mnt, nb_pixel_x, nb_pixel_y):
         condition = self.stations["name"] == station
         (index_x, index_y) = self.stations[[f"index_{mnt.name}_NN_0_cKDTree_ref_{mnt.name}"]][condition].values[0][0]
-        index_x, index_y = int(index_x), int(index_y)
+        index_x, index_y = np.int32(index_x), np.int32(index_y)
         MNT_data = mnt.data[index_y - nb_pixel_y:index_y + nb_pixel_y, index_x - nb_pixel_x:index_x + nb_pixel_x]
         MNT_x = mnt.data_xr.x.data[index_x - nb_pixel_x:index_x + nb_pixel_x]
         MNT_y = mnt.data_xr.y.data[index_y - nb_pixel_y:index_y + nb_pixel_y]

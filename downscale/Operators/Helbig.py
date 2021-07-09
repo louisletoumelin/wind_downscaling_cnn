@@ -36,16 +36,23 @@ class SgpHelbig(Topo_utils):
 
         From Helbig et al. 2017
         """
+
         mu = np.sqrt(np.sum(np.array(np.gradient(mnt, dx)) ** 2, axis=0) / 2)
+
         mu = change_dtype_if_required(mu, np.float32)
         print("__mu calculation using numpy") if verbose else None
+
         return mu
 
     def mu_helbig_idx(self, mnt, dx, idx_x, idx_y, verbose=True):
-        mu = self.mu_helbig_map(mnt, dx, verbose=verbose)
-        mu = change_dtype_if_required(mu, np.float32)
+
+        mu_helbig_func = self.mu_helbig_map
+        mu = [mu_helbig_func(mnt[y - 1:y + 2, x - 1:x + 2], dx, verbose=False)[1, 1] for (x, y) in zip(idx_x, idx_y)]
+
+        mu = change_dtype_if_required(np.array(mu), np.float32)
         print("__Selecting indexes on mu") if verbose else None
-        return mu[idx_y, idx_x]
+
+        return mu
 
     def mu_helbig_average(self, mnt, dx, idx_x=None, idx_y=None, reduce_mnt=True, type_input="map", x_win=69 // 2,
                           y_win=79 // 2, nb_pixels_x=100, nb_pixels_y=100, library="numba", verbose=True):

@@ -113,6 +113,26 @@ def test_laplacian_helbig():
     assert_array_almost_equal(result_2, expected_result_2)
 
 
+def test_laplacian_idx_and_map():
+    tu = SgpHelbig()
+
+    array_test = np.array([[12, 14, 28, 32], [15, 27, 42, 53], [41, 40, 21, 13], [18, 12, 21, 42]])
+
+    result_idx_1 = tu.laplacian_idx(array_test, np.array([1]), np.array([2]), 1, library="numpy", helbig=False, verbose=False)
+    result_map_1 = tu.laplacian_map(array_test, 1, library="numpy", helbig=False, verbose=False)[2, 1]
+
+    assert_array_almost_equal(result_map_1, result_idx_1)
+
+
+def test_laplacian_idx_result():
+    tu = SgpHelbig()
+    array_test = np.array([[12, 14, 28, 32], [15, 27, 42, 53], [41, 40, 21, 13], [18, 12, 21, 42]])
+    expected_result_2 = np.array([[5, 25, 4, 17], [35, 3, -39, -72], [-50, -59, 32, 77], [17, 43, 12, -50]]) / 4
+    result_idx_2 = tu.laplacian_idx(array_test, np.array([1]), np.array([2]), 1, library="numpy", helbig=True,
+                                  verbose=False)
+    assert_array_almost_equal(result_idx_2, expected_result_2[2, 1])
+
+
 def test_mu_helbig_map():
     tu = SgpHelbig()
 
@@ -125,7 +145,6 @@ def test_mu_helbig_map():
            [3.1622777, 3.1622777, 3.1622777, 3.1622777],
            [1.5811388, 1.5811388, 1.5811388, 1.5811388]], dtype=np.float32)
 
-
     result_1 = tu.mu_helbig_map(array_test_1, 1, verbose=False)
     result_2 = tu.mu_helbig_map(array_test_2, 1, verbose=False)
 
@@ -135,10 +154,13 @@ def test_mu_helbig_map():
 
 def test_mu_helbig_map_idx():
     tu = SgpHelbig()
-    array_test = np.array([[1, 2], [3, 10]])
-    expected_result = np.sqrt(np.array((2.5)))
-    result = tu.mu_helbig_idx(array_test, 1, [0], [0], verbose=False)
-    assert_almost_equal(result, expected_result)
+    array_test = np.array([[1, 3, 5, 7], [2, 4, 6, 8], [9, 11, 13, 15], [10, 12, 14, 16]])
+    expected_result = np.array([[1.5811388, 1.5811388, 1.5811388, 1.5811388],
+           [3.1622777, 3.1622777, 3.1622777, 3.1622777],
+           [3.1622777, 3.1622777, 3.1622777, 3.1622777],
+           [1.5811388, 1.5811388, 1.5811388, 1.5811388]], dtype=np.float32)
+    result = tu.mu_helbig_idx(array_test, 1, np.array([1]), np.array([2]), verbose=False)
+    assert_almost_equal(result, expected_result[2, 1])
 
 
 def test_rolling_mean():

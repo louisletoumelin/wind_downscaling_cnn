@@ -20,6 +20,8 @@ from downscale.Data_family.MNT import MNT
 from downscale.Data_family.NWP import NWP
 from downscale.Data_family.Observation import Observation
 from downscale.Analysis.Evaluation import Evaluation
+from downscale.Analysis.Evaluation import EvaluationFromArrayXr
+from downscale.Analysis.Evaluation import EvaluationFromDict
 from PRM_predict import create_prm
 from downscale.Utils.GPU import connect_GPU_to_horovod
 from downscale.Utils.Utils import round, select_range_30_days_for_long_periods_prediction

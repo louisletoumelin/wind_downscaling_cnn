@@ -37,7 +37,7 @@ class MicroMet(Topo_utils):
         """
         idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
 
-        beta = [self.terrain_slope_map(mnt[y - 2:y + 2, x - 2:x + 2], dx, verbose=False)[2, 2] for (x, y) in
+        beta = [self.terrain_slope_map(mnt[y - 2:y + 3, x - 2:x + 3], dx, verbose=False)[2, 2] for (x, y) in
               zip(idx_x, idx_y)]
         beta = np.array(beta)
 
@@ -69,7 +69,7 @@ class MicroMet(Topo_utils):
         following Liston and Elder (2006)
         """
         idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
-        xi = [self.terrain_slope_azimuth_map(mnt[y - 2:y + 2, x - 2:x + 2], dx, verbose=False)[2, 2] for (x, y) in
+        xi = [self.terrain_slope_azimuth_map(mnt[y - 2:y + 3, x - 2:x + 3], dx, verbose=False)[2, 2] for (x, y) in
                      zip(idx_x, idx_y)]
         xi = np.array(xi)
 
@@ -192,10 +192,10 @@ class MicroMet(Topo_utils):
 
         else:
             length_scale = self.get_length_scale_curvature(mnt)
-            curvature = [self.curvature_map(mnt[y-2:y+2, x-2:x+2],
+            curvature = [self.curvature_map(mnt[y-2:y+3, x-2:x+3],
                                             scale=False,
                                             length_scale=length_scale,
-                                            verbose=False)[3, 3] for (x, y) in zip(idx_x, idx_y)]
+                                            verbose=False)[2, 2] for (x, y) in zip(idx_x, idx_y)]
             curvature = np.array(curvature)
 
             if scale and (np.any(curvature < -0.5) or np.any(curvature > 0.5)):
@@ -269,7 +269,7 @@ class MicroMet(Topo_utils):
             return omega_s_map_[idx_y, idx_x]
 
         else:
-            omega_s_idx_ = [self.omega_s_map(mnt[y - 2:y + 2, x - 2:x + 2], dx, wind_dir, scale=False, verbose=False)[3, 3] for (x, y) in
+            omega_s_idx_ = [self.omega_s_map(mnt[y - 2:y + 3, x - 2:x + 3], dx, wind_dir, scale=False, verbose=False)[2, 2] for (x, y) in
                          zip(idx_x, idx_y)]
             omega_s_idx_ = np.array(omega_s_idx_)
 
