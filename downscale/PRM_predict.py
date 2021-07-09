@@ -13,8 +13,8 @@ def create_prm(month_prediction=True):
     """
 
     # GPU
-    prm["GPU"] = True
-    prm["horovod"] = True
+    prm["GPU"] = False
+    prm["horovod"] = False
 
     # Z0
     prm["Z0"] = True
@@ -31,7 +31,7 @@ def create_prm(month_prediction=True):
     # Additional steps
     prm["add_additionnal_stations"] = True
     prm["select_date_time_serie"] = True
-    prm["launch_predictions"] = True
+    prm["launch_predictions"] = False
 
     # For predictions at stations
     prm["stations_to_predict"] = "all"

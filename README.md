@@ -36,34 +36,34 @@ Ongoing study - PhD Louis Le Toumelin - louis.letoumelin@gmail.com
 │
 ├── downscale                            <- Apply downscaling predictions 
 │   ├── Analysis                         <- Analyse and visualize predictions
-│      ├── Evaluation.py                 <- Evaluate predictions (RMSE, bias...etc)
-│      ├── MidpointNormalize.py          <- Script to plot beautiful centered colorbars
-│      └── Visualization.py              <- Plot results
-│
+│   │  ├── Evaluation.py                 <- Evaluate predictions (RMSE, bias...etc)
+│   │  ├── MidpointNormalize.py          <- Script to plot beautiful centered colorbars
+│   │  └── Visualization.py              <- Plot results
+│   │
 │   ├── Data_family                      <- Process data according to its nature (model data, DEM, observation...)
-│      ├── Data_2D.py                    <- Parent class of MNT and NWP
-│      ├── MNT.py                        <- Treat Digital Elevation Models (DEM)
-│      ├── NWP.py                        <- Treat Numerical Weather Prediction (NWP) models outputs 
-│      └── Observation.py                <- Treat observations datasets such as Automatic Weather Stations (AWS)
-│
+│   │  ├── Data_2D.py                    <- Parent class of MNT and NWP
+│   │  ├── MNT.py                        <- Treat Digital Elevation Models (DEM)
+│   │  ├── NWP.py                        <- Treat Numerical Weather Prediction (NWP) models outputs 
+│   │  └── Observation.py                <- Treat observations datasets such as Automatic Weather Stations (AWS)
+│   │
 │   ├── Depreciated                      <- Old code that I don't want to get rid off 
-│
+│   │
 │   ├── Operators                        <- Process data to make predictions
-│      ├── Helbig.py                     <- Functions to downscale wind fields according to Helbig et al. (2017)
-│      ├── Micro_Met.py                  <- Functions to downscale wind fields according to MicroMet model from Liston and Elder (2006)
-│      ├── Processing.py                 <- Functions to downscale wind fields according to my method
-│      ├── Rotation.py                   <- Functions to rotate images (e.g. topography maps) including numpy vectorized rotations
-│      ├── topo_utils.py                 <- Functions to calcuate parameters on topography (e.g. Laplacian, tpi, sx, peak-valley elevation)
-│      └── wind_utils.py                 <- Functions specific to wind calculations
-│
+│   │  ├── Helbig.py                     <- Functions to downscale wind fields according to Helbig et al. (2017)
+│   │  ├── Micro_Met.py                  <- Functions to downscale wind fields according to MicroMet model from Liston and Elder (2006)
+│   │  ├── Processing.py                 <- Functions to downscale wind fields according to my method
+│   │  ├── Rotation.py                   <- Functions to rotate images (e.g. topography maps) including numpy vectorized rotations
+│   │  ├── topo_utils.py                 <- Functions to calcuate parameters on topography (e.g. Laplacian, tpi, sx, peak-valley elevation)
+│   │  └── wind_utils.py                 <- Functions specific to wind calculations
+│   │
 │   ├── Utils                            <- Utility functions
-│      ├── Decorators.py                 <- Some decorators
-│      ├── GPU.py                        <- Some functions used when working with GPU
-│      ├── prm.py                        <- Funcitons to treat input parameters
-│      └── Utils.py                      <- Utility functions
-│
+│   │  ├── Decorators.py                 <- Some decorators
+│   │  ├── GPU.py                        <- Some functions used when working with GPU
+│   │  ├── prm.py                        <- Funcitons to treat input parameters
+│   │ └── Utils.py                      <- Utility functions
+│   │
 │   ├── scripts                          <- To be removed
-│
+│   │
 │   └── test                             <- test the code with pytest
 │
 ├── pre_process                          <- Pre-process data before training
