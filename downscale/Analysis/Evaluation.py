@@ -15,7 +15,7 @@ class Evaluation(Metrics):
         self.v = v
         if array_xr is not None:
             self.array_xr = array_xr.rename({"UV_DIR_deg": "Wind_DIR"})
-        self._rename_columns_obs_time_series()
+        self._rename_columns_obs_time_series() if self.v.p.observation is not None else None
 
         print(f"\nEvaluation created in {np.round(t() - t0, 2)} seconds\n") if verbose else None
 
@@ -278,20 +278,33 @@ class EvaluationFromDict(Evaluation):
 
     @staticmethod
     def intersection_model_obs_on_results(results):
+        """Keep only data were we have simultaneously model and observed data
 
+        Input = dictionary
+        Output = dictionary
+        """
         for station in results["cnn"].keys():
+
+            # Drop Nans
             nwp = results["nwp"][station].dropna()
             cnn = results["cnn"][station].dropna()
             obs = results["obs"][station].dropna()
 
+            # Drop duplicates
             obs = obs[~obs.index.duplicated(keep='first')]
             cnn = cnn[~cnn.index.duplicated(keep='first')]
             nwp = nwp[~nwp.index.duplicated(keep='first')]
 
-            obs = obs.to_frame().merge(nwp.to_frame(), left_index=True, right_index=True, how='left').dropna()
-            nwp = nwp.to_frame().merge(obs, left_index=True, right_index=True, how='left').dropna()
-            cnn = cnn.to_frame().merge(obs, left_index=True, right_index=True, how='left').dropna()
-            obs = obs.merge(nwp, left_index=True, right_index=True, how='left').dropna()
+            # Convert dictionary values to DataFrame (if necessary)
+            obs = obs.to_frame() if isinstance(obs, pd.core.series.Series) else obs
+            nwp = nwp.to_frame() if isinstance(nwp, pd.core.series.Series) else nwp
+            cnn = cnn.to_frame() if isinstance(cnn, pd.core.series.Series) else cnn
+
+            # Keep index intersection
+            index_intersection = obs.index.intersection(nwp.index).intersection(cnn.index)
+            obs = obs[obs.index.isin(index_intersection)]
+            nwp = nwp[nwp.index.isin(index_intersection)]
+            cnn = cnn[cnn.index.isin(index_intersection)]
 
             results["nwp"][station] = nwp
             results["cnn"][station] = cnn
@@ -305,7 +318,9 @@ class EvaluationFromDict(Evaluation):
     @staticmethod
     def create_df_from_dict(results, data_type="cnn", variable="UV"):
         """
-        result = create_df_with_all_stations_from_dict(results, data_type="cnn", variable="UV")
+        Creates a DataFrame with results at each observation station
+
+        result = create_df_from_dict(results, data_type="cnn", variable="UV")
         result =
                                 UV             name
         time
@@ -335,8 +350,8 @@ class EvaluationFromDict(Evaluation):
 
         return result_df
 
-    def update_df(self, df, variables=["alti", "mu", "tpi_2000", "tpi_500", "curvature"]):
-
+    def update_df(self, df, variables=["laplacian", "alti", "mu", "tpi_2000", "tpi_500", "curvature"]):
+        """update result DataFrame with topographical information"""
         if not self.v.p.is_updated_with_topo_characteristics:
             self.v.p.update_station_with_topo_characteristics()
 
@@ -353,8 +368,32 @@ class EvaluationFromDict(Evaluation):
 
         return df
 
+    @staticmethod
+    def _group_metric_result_by_wind_category(metric_result, variable):
+        metric_result[f"group_{variable}_nwp"] = np.nan
+
+        filter_low = metric_result[f"nwp_{variable}"] < 5
+        metric_result[f"group_{variable}_nwp"][filter_low] = "NWP wind speed < 5 m/s"
+
+        filter_low = metric_result[f"nwp_{variable}"] >= 5
+        filter_high = metric_result[f"nwp_{variable}"] < 10
+        metric_result[f"group_{variable}_nwp"][filter_low & filter_high] = "5 m/s <= NWP wind speed < 10 m/s"
+
+        filter_low = metric_result[f"nwp_{variable}"] >= 10
+        filter_high = metric_result[f"nwp_{variable}"] < 15
+        metric_result[f"group_{variable}_nwp"][filter_low & filter_high] = "10 m/s <= NWP wind speed < 15 m/s"
+
+        filter_low = metric_result[f"nwp_{variable}"] >= 15
+        filter_high = metric_result[f"nwp_{variable}"] < 20
+        metric_result[f"group_{variable}_nwp"][filter_low & filter_high] = "15 m/s <= NWP wind speed < 20 m/s"
+
+        filter_high = metric_result[f"nwp_{variable}"] >= 20
+        metric_result[f"group_{variable}_nwp"][filter_high] = "20 m/s <= NWP wind speed"
+        return metric_result
+
     def plot_metric_all_stations(self, results,
-                                 variables=["UV"], metrics=["abs_error"], topo_carac="alti", fontsize=15):
+                                 variables=["UV"], metrics=["abs_error"], topo_carac="alti", fontsize=15,
+                                 sort_by="alti", plot_classic=False, cmap="viridis"):
 
         # Keep only common rows between observation and model
         results = self.intersection_model_obs_on_results(results)
@@ -364,6 +403,9 @@ class EvaluationFromDict(Evaluation):
             cnn = self.create_df_from_dict(results, data_type="cnn", variable=variable)
             nwp = self.create_df_from_dict(results, data_type="nwp", variable=variable)
             obs = self.create_df_from_dict(results, data_type="obs", variable=variable)
+
+            cnn["hour"] = cnn.index.hour
+            cnn["month"] = cnn.index.month
 
             for metric in metrics:
                 if metric == "abs_error":
@@ -377,14 +419,243 @@ class EvaluationFromDict(Evaluation):
 
                 metric_result = cnn.copy()
                 metric_result[metric] = metric_func(cnn[variable].values, obs[variable].values)
+                metric_result[f"nwp_{variable}"] = nwp[variable].values
 
+                metric_result[f"nwp_{metric}"] = metric_func(nwp[variable].values, obs[variable].values)
                 metric_result = self.update_df(metric_result)
 
-                plt.figure()
-                sns.scatterplot(data=metric_result, x=topo_carac, y=metric)
+                # Classic
+                if plot_classic:
+                    self._plot_classic(data=metric_result, x=topo_carac, y=metric, fontsize=fontsize)
+
+                # Boxplot
+                for y in ["name", "alti", "hour", "month", "tpi_2000", "tpi_500", "laplacian", "mu", "curvature"]:
+                    sort_by_i = sort_by if y == "name" else None
+                    self._plot_boxplot(data=metric_result, x=metric, y=y, sort_by=sort_by_i)
+                    ax = plt.gca()
+                    ax.set_yticklabels(ax.get_yticklabels(), fontsize=10)
+
+                # Boxplot with two models
+                self._plot_two_boxplot(data=metric_result, metric=metric)
                 ax = plt.gca()
-                plt.xlabel(metrics, fontsize=fontsize)
-                plt.xlabel(topo_carac, fontsize=fontsize)
+                ax.set_yticklabels(ax.get_yticklabels(), fontsize=10)
+
+                # Boxplot for wind categories
+                metric_result = self._group_metric_result_by_wind_category(metric_result, variable)
+                self._plot_boxplot(data=metric_result, x=metric, y=f"group_{variable}_nwp")
+                ax = plt.gca()
+                ax.set_yticklabels(ax.get_yticklabels(), fontsize=10)
+
+                # Metric = f(Acceleration)
+                UV_cnn = metric_result[variable].values
+                nwp_UV_cnn = metric_result[f"nwp_{variable}"].values
+                metric_result["acceleration"] = np.where(nwp_UV_cnn > 0, UV_cnn/nwp_UV_cnn, 1)
+                self._plot_classic(data=metric_result, x="acceleration", y=metric)
+
+                # 1-1 plot metric CNN vs metric NWP
+                bins = (100, 100)
+                cnn_metric = metric_result[metric].values
+                nwp_metric = metric_result[f"nwp_{metric}"].values
+                self.v.density_scatter(nwp_metric, cnn_metric, s=5, bins=bins, cmap=cmap, use_power_norm=2)
+                max = np.nanmax([nwp_metric, cnn_metric])
+                min = np.nanmin([nwp_metric, cnn_metric])
+                plt.xlim((min - 2, max + 2))
+                plt.ylim((min - 2, max + 2))
+                plt.plot(nwp_metric, nwp_metric, color='red')
+                plt.axis('square')
+                plt.xlabel(f"{metric} NWP")
+                plt.ylabel(f"{metric} CNN")
+
+    def plot_distribution_all_stations(self, results):
+        """Wind speed distribution (one distribution for all stations)"""
+        results = self.intersection_model_obs_on_results(results)
+        all_df = []
+
+        for model in ["cnn", "nwp", "obs"]:
+            data = [[station, data[0]]
+                    for station, df_data in results[model].items()
+                    for data in df_data.values]
+            df = pd.DataFrame(data, columns=["station", "wind speed"])
+            df["data"] = model
+            all_df.append(df)
+        all_df = pd.concat(all_df)
+
+        sns.displot(data=all_df, x="wind speed", hue="data", kind='kde', fill=True, bw_adjust=3, cut=0)
+
+    def plot_1_1_density(self, results, cmap="viridis"):
+        """
+        1-1 plots
+
+        NWP-CNN, CNN-obs, NWP-obs
+        """
+        results = self.intersection_model_obs_on_results(results)
+
+        all_df = []
+        for model in ["cnn", "nwp", "obs"]:
+            data = [[station, data[0]]
+                    for station, df_data in results[model].items()
+                    for data in df_data.values]
+            df = pd.DataFrame(data, columns=["station", "wind speed"])
+            df["data"] = model
+            all_df.append(df)
+        all_df = pd.concat(all_df)
+
+        cnn_values = all_df["wind speed"][all_df["data"] == "cnn"].values
+        nwp_values = all_df["wind speed"][all_df["data"] == "nwp"].values
+        obs_values = all_df["wind speed"][all_df["data"] == "obs"].values
+
+        bins = (100, 100)
+        self.v.density_scatter(nwp_values, cnn_values, s=5, bins=bins, cmap=cmap)
+        max = np.nanmax([nwp_values, cnn_values])
+        min = np.nanmin([nwp_values, cnn_values])
+        plt.xlim((min - 2, max + 2))
+        plt.ylim((min - 2, max + 2))
+        plt.plot(nwp_values, nwp_values, color='red')
+        plt.axis('square')
+
+        self.v.density_scatter(obs_values, cnn_values, s=5, bins=bins, cmap=cmap)
+        max = np.nanmax([obs_values, cnn_values])
+        min = np.nanmin([obs_values, cnn_values])
+        plt.xlim((min - 2, max + 2))
+        plt.ylim((min - 2, max + 2))
+        plt.plot(obs_values, obs_values, color='red')
+        plt.axis('square')
+
+        self.v.density_scatter(obs_values, nwp_values, s=5, bins=bins, cmap=cmap)
+        max = np.nanmax([obs_values, nwp_values])
+        min = np.nanmin([obs_values, nwp_values])
+        plt.xlim((min - 2, max + 2))
+        plt.ylim((min - 2, max + 2))
+        plt.plot(obs_values, obs_values, color='red')
+        plt.axis('square')
+
+    def plot_heatmap(self, results, variables=["UV"], metrics=["abs_error"], topo_carac="alti", fontsize=15,
+                      sort_by="alti", plot_classic=False, cmap="viridis"):
+
+        # Keep only common rows between observation and model
+        results = self.intersection_model_obs_on_results(results)
+
+        for variable in variables:
+
+            cnn = self.create_df_from_dict(results, data_type="cnn", variable=variable)
+            nwp = self.create_df_from_dict(results, data_type="nwp", variable=variable)
+            obs = self.create_df_from_dict(results, data_type="obs", variable=variable)
+
+            cnn["hour"] = cnn.index.hour
+            cnn["month"] = cnn.index.month
+
+            for metric in metrics:
+                if metric == "abs_error":
+                    metric_func = self.absolute_error
+                if metric == "bias":
+                    metric_func = self.bias
+                if metric == "abs_error_rel":
+                    metric_func = self.absolute_error_relative
+                if metric == "bias_rel":
+                    metric_func = self.bias_rel
+
+                metric_result = cnn.copy()
+                metric_result[metric] = metric_func(cnn[variable].values, obs[variable].values)
+                metric_result[f"nwp_{variable}"] = nwp[variable].values
+
+                metric_result[f"nwp_{metric}"] = metric_func(nwp[variable].values, obs[variable].values)
+                metric_result = self.update_df(metric_result)
+
+                metric_result[f"diff_cnn_nwp_{metric}"] = metric_result[metric] - metric_result[f"nwp_{metric}"]
+
+                # Heatmap month vs hour
+                piv_table = metric_result.pivot_table(index="month", columns="hour", values=metric, aggfunc='mean')
+                plt.figure()
+                ax = plt.gca()
+                sns.heatmap(piv_table, cmap="viridis", ax=ax)
+                plt.title(f"{metric}: month vs hour")
+
+                # Heatmap month vs hour for NWP
+                piv_table = metric_result.pivot_table(index="month", columns="hour", values=f"nwp_{metric}", aggfunc='mean')
+                plt.figure()
+                ax = plt.gca()
+                sns.heatmap(piv_table, cmap="viridis", ax=ax)
+                plt.title(f"{metric}: month vs hour for NWP")
+
+                # Heatmap month vs hour for difference CNN NWP
+                piv_table = metric_result.pivot_table(index="month", columns="hour", values=f"diff_cnn_nwp_{metric}", aggfunc='mean')
+                plt.figure()
+                ax = plt.gca()
+                sns.heatmap(piv_table, cmap="viridis", ax=ax)
+                plt.title(f"{metric}: month vs hour for difference CNN NWP")
+
+                # Heatmap laplacian vs mu
+                piv_table = metric_result.pivot_table(index="laplacian", columns="mu", values=metric,
+                                                      aggfunc='mean')
+                plt.figure()
+                ax = plt.gca()
+                sns.heatmap(piv_table, cmap="viridis", ax=ax)
+                plt.title(f"{metric}: laplacian vs mu")
+
+                # Heatmap laplacian vs mu for NWP
+                piv_table = metric_result.pivot_table(index="laplacian", columns="mu", values=f"nwp_{metric}",
+                                                      aggfunc='mean')
+                plt.figure()
+                ax = plt.gca()
+                sns.heatmap(piv_table, cmap="viridis", ax=ax)
+                plt.title(f"{metric}: laplacian vs mu for NWP")
+
+                # Heatmap laplacian vs mu for difference CNN NWP
+                piv_table = metric_result.pivot_table(index="laplacian", columns="mu", values=f"diff_cnn_nwp_{metric}", aggfunc='mean')
+                plt.figure()
+                ax = plt.gca()
+                sns.heatmap(piv_table, cmap="viridis", ax=ax)
+                plt.title(f"{metric}: laplacian vs mu for difference CNN NWP")
+
+                # Heatmap tpi vs altitude
+                piv_table = metric_result.pivot_table(index="tpi_500", columns="alti", values=metric,
+                                                      aggfunc='mean')
+                plt.figure()
+                ax = plt.gca()
+                sns.heatmap(piv_table, cmap="viridis", ax=ax)
+                plt.title(f"{metric}: tpi vs altitude")
+
+                # Heatmap tpi vs altitude for NWP
+                piv_table = metric_result.pivot_table(index="tpi_500", columns="alti", values=f"nwp_{metric}",
+                                                      aggfunc='mean')
+                plt.figure()
+                ax = plt.gca()
+                sns.heatmap(piv_table, cmap="viridis", ax=ax)
+                plt.title(f"{metric}: tpi vs altitude for NWP")
+
+                # Heatmap tpi vs altitude for difference CNN NWP
+                piv_table = metric_result.pivot_table(index="tpi_500", columns="alti", values=f"diff_cnn_nwp_{metric}", aggfunc='mean')
+                plt.figure()
+                ax = plt.gca()
+                sns.heatmap(piv_table, cmap="viridis", ax=ax)
+                plt.title(f"{metric}: tpi vs altitude for difference CNN NWP")
+
+    @staticmethod
+    def _plot_classic(data=None, x=None, y=None, fontsize=15):
+        plt.figure()
+        sns.scatterplot(data=data, x=x, y=y)
+        plt.ylabel(y, fontsize=fontsize)
+        plt.xlabel(x, fontsize=fontsize)
+
+    @staticmethod
+    def _plot_boxplot(data=None, sort_by="alti", y="name", x="absolute error"):
+        plt.figure()
+        list_ordered = list(data.sort_values(by=[sort_by])[y].unique()) if sort_by is not None else None
+        sns.boxplot(data=data, y=y, x=x, orient="h", showfliers=False, order=list_ordered)
+        sns.despine(trim=True, left=True)
+
+    @staticmethod
+    def _plot_two_boxplot(data=None, metric=None):
+        plt.figure()
+        ax = plt.gca()
+        data = data.melt(id_vars=["name"], var_name='dataset', value_name='values')
+        data = data[data["dataset"].isin([metric, f"nwp_{metric}"])]
+
+        sns.boxplot(data=data, y="name", x="values", hue="dataset", orient="h", showfliers=False,
+                    palette=["Red", "Blue"], ax=ax)
+        ax = plt.gca()
+        ax.set(ylabel="")
+        sns.despine(trim=True, left=True)
 
     @staticmethod
     def plot_bias_long_period_from_dict(results, stations=['Col du Lac Blanc'], groupby='month', rolling_time=None):
@@ -477,5 +748,44 @@ print(np.nanmean(cos_deviation_cnn))
 0.3009208003428228
 
 
+
+
+
+
+
+
+
+
+
+results = e.intersection_model_obs_on_results(results)
+cnn = e.create_df_from_dict(results, data_type="cnn", variable=variable)
+nwp = e.create_df_from_dict(results, data_type="nwp", variable=variable)
+obs = e.create_df_from_dict(results, data_type="obs", variable=variable)
+metric_result = cnn.copy()
+metric_func = e.absolute_error
+metric = "abs_error"
+metric_result[metric] = metric_func(cnn[variable].values, obs[variable].values)
+metric_result[f"nwp_{metric}"] = metric_func(nwp[variable].values, obs[variable].values)
+metric_func = e.bias
+metric = "bias"
+metric_result[metric] = metric_func(cnn[variable].values, obs[variable].values)
+metric_result[f"nwp_{metric}"] = metric_func(nwp[variable].values, obs[variable].values)
+metric_by_name = metric_result.groupby("name").mean()[['abs_error', 'bias']]
+df_merge = pd.concat([cnn, obs], axis=1)
+df_merge.columns = ["UV", "name", "UV_obs", "name_obs"]
+df_merge = df_merge.drop(columns="name_obs")
+correlation = df_merge.groupby("name").apply(lambda x: x.corr().iloc[0,1])
+metric_by_name["corr_coeff"] = correlation
+metric_by_name = metric_by_name["abs_error"]
+fig = plt.figure(figsize=(50, 500))
+ax = plt.gca()
+sns.heatmap(np.transpose(metric_by_name.to_frame()), annot=True, cmap="viridis_r", annot_kws={"size":8}, square=True, fmt="0.1f", linewidths=.5, vmax=5, cbar_kws = dict(shrink=0.25), ax=ax)
+xlabel = ax.get_xticklabels()
+ax.set_xticklabels(xlabel, fontsize=10)
+ylabel = ax.get_yticklabels()
+ax.set_yticklabels(ylabel, rotation=0, fontsize=15)
+ax.set_xlabel(None)
+fig.axes[1].set_visible(False)
+plt.tight_layout()
 
 """

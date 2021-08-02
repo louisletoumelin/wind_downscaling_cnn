@@ -8,7 +8,7 @@ from tensorflow.keras.models import load_model
 from . import test_utils
 
 sys.path.append('//home/mrmn/letoumelinl/train/Metrics/')
-from metrics import *
+from Metrics import *
 
 """
 Functions

@@ -258,9 +258,15 @@ class Wind_utils:
             print("__Wind and Wind_DIR calculated on xarray") if verbose else None
             return xarray_data
 
-    def wind_speed_scaling(self, scaling_wind, prediction, linear=True, library="numexpr", verbose=True):
+    def wind_speed_scaling(self, scaling_wind, prediction, type_scaling="linear", library="numexpr", verbose=True):
         """
-        scaling_wind * prediction / 3
+        Linear: scaling_wind * prediction / 3
+
+        Decrease acceleration and deceleration:
+        Arctan_30_1: 30*np.arctan(scaling_wind/30) * prediction / 3
+
+        Decrease acceleration only:
+        Arctan_30_2: 30*np.arctan((scaling_wind* prediction / 3)/30)
 
         Parameters
         ----------
@@ -276,20 +282,33 @@ class Wind_utils:
         prediction : ndarray
             Scaled wind
         """
-        if linear:
+        if type_scaling == "linear":
             if self._numexpr and library == "numexpr":
                 prediction = ne.evaluate("scaling_wind * prediction / 3")
             else:
                 prediction = scaling_wind * prediction / 3
+
+        if type_scaling == "Arctan_30_1":
+            if self._numexpr and library == "numexpr":
+                prediction = ne.evaluate("30*arctan(scaling_wind/30) * prediction / 3")
+            else:
+                prediction = 30*np.arctan(scaling_wind/30) * prediction / 3
+
+        if type_scaling == "Arctan_30_2":
+            if self._numexpr and library == "numexpr":
+                prediction = ne.evaluate("30*arctan((scaling_wind * prediction / 3)/30)")
+            else:
+                prediction = 30*np.arctan((scaling_wind * prediction / 3)/30)
+
         prediction = change_dtype_if_required(prediction, np.float32)
-        print('__Wind speed scaling done') if verbose else None
+        print(f"__Wind speed scaling done. Type {type_scaling}") if verbose else None
         return prediction
 
     def angular_deviation(self, U, V, library="numexpr", verbose=True):
         """
         Angular deviation from incoming flow.
 
-        THe incoming flow is supposed from the West so that V=0. If deviated, V != 0.
+        The incoming flow is supposed from the West so that V=0. If deviated, V != 0.
         The angular deviation is then np.arctan(V / U)
 
         Parameters

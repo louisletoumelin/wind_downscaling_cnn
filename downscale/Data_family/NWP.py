@@ -60,14 +60,8 @@ class NWP(Data_2D):
         self.load_nwp_files(path_to_file=path_to_file,
                             preprocess_function=self._preprocess_ncfile)
 
-        print("\n\nAROME print here")
-        print(self.data_xr)
-
         # Select timeframe
         self.select_timeframe()
-
-        print("\n\nAROME print here2")
-        print(self.data_xr)
 
         # Select variables of interest
         self._select_specific_variables()
@@ -373,5 +367,4 @@ class NWP(Data_2D):
             self.data_xr = self.data_xr.sel(time=slice(str(begin), str(end)))
 
         elif isinstance(begin, str) and isinstance(end, str):
-            print("\nused str\n")
             self.data_xr = self.data_xr.sel(time=slice(begin, end))

@@ -6,13 +6,13 @@ t0 = t()
 import numpy as np
 import pandas as pd
 
-print("Current directory")
 import os
+from collections import defaultdict
+
 try:
     os.chdir("//home/mrmn/letoumelinl")
 except FileNotFoundError:
     pass
-print(os.getcwd())
 
 from downscale.Operators.Processing import Processing
 from downscale.Analysis.Visualization import Visualization
@@ -70,15 +70,11 @@ p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_n
 Processing, visualization and evaluation
 """
 
-results = {}
-results["nwp"] = {}
-results["cnn"] = {}
-results["obs"] = {}
-
-for station in prm["stations_to_predict"]:
-    results["nwp"][station] = []
-    results["cnn"][station] = []
-    results["obs"][station] = []
+results = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
+for variable in prm["variable"]:
+    for model in ["nwp", "cnn", "obs"]:
+        for station in prm["stations_to_predict"]:
+            results[variable][model][station] = []
 
 if prm["launch_predictions"]:
 
@@ -127,20 +123,20 @@ if prm["launch_predictions"]:
         e = Evaluation(v, array_xr)
 
         # Store nwp, cnn predictions and observations
-        for station in prm["stations_to_predict"]:
-            nwp, cnn, obs = e._select_dataframe(array_xr,
-                                                begin=begin,
-                                                end=end,
-                                                station_name=station,
-                                                variable=prm["variable"],
-                                                rolling_mean=None,
-                                                rolling_window=None,
-                                                interp_str=prm["interp_str"],
-                                                extract_around=prm["extract_around"])
-            results["nwp"][station].append(nwp)
-            results["cnn"][station].append(cnn)
-            results["obs"][station].append(obs)
-
+        for variable in prm["variable"]:
+            for station in prm["stations_to_predict"]:
+                nwp, cnn, obs = e._select_dataframe(array_xr,
+                                                    begin=begin,
+                                                    end=end,
+                                                    station_name=station,
+                                                    variable=variable,
+                                                    rolling_mean=None,
+                                                    rolling_window=None,
+                                                    interp_str=prm["interp_str"],
+                                                    extract_around=prm["extract_around"])
+                results[variable]["nwp"][station].append(nwp)
+                results[variable]["cnn"][station].append(cnn)
+                results[variable]["obs"][station].append(obs)
 
         del p
         del v
@@ -152,16 +148,14 @@ if prm["launch_predictions"]:
         print(f"\n Prediction for time between {begin} and {end}:"
               f"\n{time_to_predict_month / 60} minutes")
 
-for station in prm["stations_to_predict"]:
-    for metric in ["nwp", "cnn", "obs"]:
-        results[metric][station] = pd.concat(results[metric][station])
+for variable in prm["variable"]:
+    for station in prm["stations_to_predict"]:
+        for metric in ["nwp", "cnn", "obs"]:
+            results[variable][metric][station] = pd.concat(results[variable][metric][station])
 
 path = "//scratch/mrmn/letoumelinl/predict_real/Results/" if prm["GPU"] else ''
-for station in prm["stations_to_predict"]:
-    for metric in ["nwp", "cnn", "obs"]:
-        results[metric][station].to_pickle(path + f"results_{metric}_{station}.pkl")
 
-with open(path+'results.pickle', 'wb') as handle:
+with open(path+prm["results_name"]+'.pickle', 'wb') as handle:
     pickle.dump(results, handle)
 
 

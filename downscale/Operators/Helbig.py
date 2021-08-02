@@ -29,8 +29,16 @@ class SgpHelbig(Topo_utils):
     def __init__(self):
         super().__init__()
 
+    def mu_helbig_map(self, mnt, dx, verbose=True):
+        if mnt.ndim > 2:
+            return np.vectorize(self._mu_helbig_map, signature='(m,n),(),()->(m,n)')(mnt,
+                                                                                     dx,
+                                                                                     verbose)
+        else:
+            return self._mu_helbig_map(mnt, dx, verbose)
+
     @staticmethod
-    def mu_helbig_map(mnt, dx, verbose=True):
+    def _mu_helbig_map(mnt, dx, verbose):
         """
         Adapted from I. Gouttevin
 

@@ -17,11 +17,11 @@ def create_prm(month_prediction=True):
     prm["horovod"] = False
 
     # Z0
-    prm["Z0"] = True
-    prm["load_z0"] = True
+    prm["Z0"] = False
+    prm["load_z0"] = False
     prm["save_z0"] = False
 
-    prm["peak_valley"] = True
+    prm["peak_valley"] = False
     prm["verbose"] = True
 
     # Profiling
@@ -30,7 +30,7 @@ def create_prm(month_prediction=True):
 
     # Additional steps
     prm["add_additionnal_stations"] = True
-    prm["select_date_time_serie"] = True
+    prm["select_date_time_serie"] = False
     prm["launch_predictions"] = False
 
     # For predictions at stations
@@ -42,8 +42,9 @@ def create_prm(month_prediction=True):
     prm["input_direction"] = 270
 
     # For predictions long periods
-    prm["variable"] = "UV"
+    prm["variable"] = ["W", "UV", "UVW", "UV_DIR_deg", "alpha_deg", "NWP_wind_speed", "exp_Wind", "acceleration_CNN", "Z0"]
     prm["station_similar_to_map"] = True
+    prm["results_name"] = "results_Arctan_30_1"
 
     # For map prediction
     prm["type_rotation"] = 'scipy'  # 'indexes' or 'scipy'
@@ -71,12 +72,14 @@ def create_prm(month_prediction=True):
     prm["end"] = str(prm["year_end"]) + "-" + str(prm["month_end"]) + "-" + str(prm["day_end"])
 
     # Please modify te paths
-    if not(prm["GPU"]):
+    if not prm["GPU"]:
 
         # Parent directory
         working_directory = "C:/Users/louis/git/wind_downscaling_CNN/"
         # Data
         prm["data_path"] = working_directory + "Data/1_Raw/"
+        # Synthetic topographies
+        prm["gaussian_topo_path"] = prm["data_path"] + "ARPS/"
         # CNN
         prm["experience_path"] = working_directory + "Models/ARPS/"
         # Topography

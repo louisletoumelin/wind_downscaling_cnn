@@ -43,63 +43,63 @@ class Observation:
     _concurrent = _concurrent
     geopandas = _geopandas
 
-    def __init__(self, path_to_list_stations, path_to_time_series, prm=None):
+    def __init__(self, path_to_list_stations=None, path_to_time_series=None, prm=None):
+        if prm is not None:
+            begin = prm["begin"]
+            end = prm["end"]
+            select_date_time_serie = prm["select_date_time_serie"]
+            GPU = prm["GPU"]
+            path_vallot = prm["path_vallot"]
+            path_saint_sorlin = prm["path_saint_sorlin"]
+            path_argentiere = prm["path_argentiere"]
+            path_Dome_Lac_Blanc = prm["path_Dome_Lac_Blanc"]
+            path_Col_du_Lac_Blanc = prm["path_Col_du_Lac_Blanc"]
+            path_Muzelle_Lac_Blanc = prm["path_Muzelle_Lac_Blanc"]
+            path_Col_de_Porte = prm["path_Col_de_Porte"]
+            path_Col_du_Lautaret = prm["path_Col_du_Lautaret"]
+            verbose = prm["verbose"]
 
-        begin = prm["begin"]
-        end = prm["end"]
-        select_date_time_serie = prm["select_date_time_serie"]
-        GPU = prm["GPU"]
-        path_vallot = prm["path_vallot"]
-        path_saint_sorlin = prm["path_saint_sorlin"]
-        path_argentiere = prm["path_argentiere"]
-        path_Dome_Lac_Blanc = prm["path_Dome_Lac_Blanc"]
-        path_Col_du_Lac_Blanc = prm["path_Col_du_Lac_Blanc"]
-        path_Muzelle_Lac_Blanc = prm["path_Muzelle_Lac_Blanc"]
-        path_Col_de_Porte = prm["path_Col_de_Porte"]
-        path_Col_du_Lautaret = prm["path_Col_du_Lautaret"]
-        verbose = prm["verbose"]
+            if verbose:
+                print("\nBegin Observation creation")
+                t0 = t()
 
-        if verbose:
-            print("\nBegin Observation creation")
-            t0 = t()
+            # Dates
+            self.begin = begin
+            self.end = end
 
-        # Dates
-        self.begin = begin
-        self.end = end
+            # Paths
+            self._add_all_stations_paths(path_to_list_stations, path_to_time_series, path_vallot,
+                                         path_saint_sorlin, path_argentiere, path_Dome_Lac_Blanc,
+                                         path_Col_du_Lac_Blanc, path_Muzelle_Lac_Blanc,
+                                         path_Col_de_Porte, path_Col_du_Lautaret, GPU=GPU)
 
-        # Paths
-        self._add_all_stations_paths(path_to_list_stations, path_to_time_series, path_vallot,
-                                     path_saint_sorlin, path_argentiere, path_Dome_Lac_Blanc,
-                                     path_Col_du_Lac_Blanc, path_Muzelle_Lac_Blanc,
-                                     path_Col_de_Porte, path_Col_du_Lautaret, GPU=GPU)
+            # Quality control
+            self._qc = False
+            self._qc_init = False
 
-        # Quality control
-        self._qc = False
-        self._qc_init = False
+            # Stations
+            self.load_observation_files(type='station', path=path_to_list_stations)
 
-        # Stations
-        self.load_observation_files(type='station', path=path_to_list_stations)
+            # Add additional stations
+            self._add_all_stations(GPU=GPU)
 
-        # Add additional stations
-        self._add_all_stations(GPU=GPU)
+            # Time series
+            self.load_observation_files(type='time_series', path=path_to_time_series)
+            if select_date_time_serie: self._select_date_time_serie()
 
-        # Time series
-        self.load_observation_files(type='time_series', path=path_to_time_series)
-        if select_date_time_serie: self._select_date_time_serie()
+            # Add additional time series
+            self._add_all_time_series(GPU=GPU)
+            if select_date_time_serie: self._select_date_time_serie()
 
-        # Add additional time series
-        self._add_all_time_series(GPU=GPU)
-        if select_date_time_serie: self._select_date_time_serie()
+            # Reject stations
+            self._assert_equal_station()
+            #self._reject_stations()
 
-        # Reject stations
-        self._assert_equal_station()
-        self._reject_stations()
+            # float32
+            self._downcast_dtype(oldtype='float64', newtype='float32')
 
-        # float32
-        self._downcast_dtype(oldtype='float64', newtype='float32')
-
-        t1 = t()
-        print(f"Observation created in {np.round(t1 - t0, 2)} seconds\n")
+            t1 = t()
+            print(f"Observation created in {np.round(t1 - t0, 2)} seconds\n")
 
     def _assert_equal_station(self, verbose=True):
 

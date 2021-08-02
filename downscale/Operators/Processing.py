@@ -74,16 +74,16 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
 
         super().__init__()
 
-        GPU = prm["GPU"]
-        data_path = prm['data_path']
+        GPU = prm["GPU"] if prm is not None else None
+        data_path = prm['data_path'] if prm is not None else None
 
-        self.observation = obs
-        self.mnt = mnt
-        self.nwp = nwp
-        self.model_path = model_path
-        self.data_path = data_path
+        self.observation = obs if obs is not None else None
+        self.mnt = mnt if mnt is not None else None
+        self.nwp = nwp if nwp is not None else None
+        self.model_path = prm["model_path"] if prm["model_path"] is not None else None
+        self.data_path = data_path if data_path is not None else None
         self.is_updated_with_topo_characteristics = False
-        environment_GPU(GPU=GPU)
+        environment_GPU(GPU=GPU) if GPU is not None else None
 
     def update_station_with_topo_characteristics(self):
         self.update_stations_with_laplacian()
@@ -596,7 +596,7 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
 
         # Wind speed scaling
         scaling_wind = exp_Wind if Z0 else wind_speed_all
-        prediction = self.wind_speed_scaling(scaling_wind, prediction, linear=True)
+        prediction = self.wind_speed_scaling(scaling_wind, prediction, type_scaling="linear")
 
         # Copy wind variable
         wind4 = np.copy(prediction)
@@ -1204,7 +1204,7 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
 
         # Wind speed scaling
         scaling_wind = exp_Wind.view() if Z0 else wind_speed_nwp.view()
-        prediction = self.wind_speed_scaling(scaling_wind, prediction, linear=True)
+        prediction = self.wind_speed_scaling(scaling_wind, prediction, type_scaling="linear")
 
         if log_profile_10m_to_3m:
             # Apply log profile: 3m => 10m

@@ -68,10 +68,10 @@ IGN = MNT(path_to_file=prm["topo_path"], name="IGN")
 AROME = NWP(path_to_file=prm["selected_path"], name="AROME", begin=prm["begin"], end=prm["end"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 
-# Compute nearest neighbor sif CPU, load them if GPU
-if not (prm["GPU"]):
+# Compute nearest neighbor if CPU, load them if GPU
+if not prm["GPU"]:
     number_of_neighbors = 4
-    BDclim.update_stations_with_KNN_from_NWP(number_of_neighbors, AROME)
+    BDclim.update_stations_with_KNN_from_NWP(number_of_neighbors=number_of_neighbors, nwp=AROME)
     BDclim.update_stations_with_KNN_from_MNT_using_cKDTree(IGN)
 
 """

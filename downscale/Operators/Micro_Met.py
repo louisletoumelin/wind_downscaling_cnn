@@ -212,9 +212,6 @@ class MicroMet(Topo_utils):
             return curvature
 
     def omega_s_map(self, mnt, dx, wind_dir, scale=False, scaling_factor=None, verbose=True):
-        """
-        Test 3. Good result
-        """
         """The slope in the direction of the wind"""
         beta = self.terrain_slope_map(mnt, dx, verbose=verbose)
         xi = self.terrain_slope_azimuth_map(mnt, dx, verbose=verbose)
@@ -288,7 +285,6 @@ class MicroMet(Topo_utils):
 
     def wind_weighting_factor_map(self, mnt, dx, wind_dir, gamma_s=0.58, gamma_c=0.42,
                                   scale=True, length_scale=None, scaling_factor=None, verbose=True):
-        """Need test map and idx"""
         """gamma_s = 0.58 and gamma_c = 0.42"""
         omega_c = self.curvature_map(mnt, length_scale=length_scale, scaling_factor=scaling_factor,
                                      scale=scale, verbose=verbose)

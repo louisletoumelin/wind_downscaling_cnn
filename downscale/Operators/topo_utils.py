@@ -90,6 +90,16 @@ class Topo_utils:
         return peak_valley_height.astype(np.float32)
 
     def laplacian_map(self, mnt, dx, library="numpy", helbig=True, verbose=True):
+        if mnt.ndim > 2:
+            return np.vectorize(self._laplacian_map, signature='(m,n),(),(),(),()->(m,n)')(mnt,
+                                                                                  dx,
+                                                                                  library,
+                                                                                  helbig,
+                                                                                  verbose)
+        else:
+            return self._laplacian_map(mnt, dx, library, helbig, verbose)
+
+    def _laplacian_map(self, mnt, dx, library, helbig, verbose):
 
         # Pad mnt to compute laplacian on edges
         mnt_padded = np.pad(mnt, (1, 1), "edge").astype(np.float32)
@@ -213,7 +223,7 @@ class Topo_utils:
         Inspired from
         https://stackoverflow.com/questions/48215914/vectorized-2-d-moving-window-in-numpy-including-edges
         """
-        xn, yn = in_arr.shape
+        yn, xn = in_arr.shape
         for x in range(xn):
             xmin = max(0, x - x_win)
             xmax = min(xn, x + x_win + 1)
@@ -234,7 +244,15 @@ class Topo_utils:
 
         mnt, x_win, y_win = change_several_dtype_if_required([mnt, x_win, y_win], [np.float32, np.int32, np.int32])
         output = np.empty_like(mnt).astype(np.float32)
-        mean = window_func(mnt, output, x_win, y_win)
+        try:
+            mean = window_func(mnt, output, x_win, y_win)
+        except ZeroDivisionError:
+            print("mnt shape", mnt.shape)
+            print("output shape", output.shape)
+            print("x_win", x_win)
+            print("y_win", y_win)
+            print("x_win shape", x_win.shape)
+            print("x_win shape", x_win.shape)
 
         return mnt - mean
 
@@ -277,8 +295,28 @@ class Topo_utils:
         mean_window = np.array([np.mean(mnt[i1:j1+1, i2:j2+1]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
         return mnt[idx_y, idx_x] - mean_window
 
+    def sx_idx(self, mnt, idx_x, idx_y, cellsize=25, dmax=300, in_wind=270, wind_inc=5, wind_width=30):
+
+        x_win, y_win = self.radius_to_square_window(dmax, cellsize)
+
+        y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y,
+                                                                           x_win=x_win, y_win=y_win,
+                                                                           reshape=False)
+
+        boundaries_mnt = [mnt.shape[0], mnt.shape[0], mnt.shape[1], mnt.shape[1]]
+        y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
+                                                                        min_idx=[0, 0, 0, 0],
+                                                                        max_idx=boundaries_mnt)
+
+        output_shape = np.array(mnt[y_left[0]:y_right[0] + 1, x_left[0]:x_right[0] + 1]).shape
+        cntr_y = output_shape[0] // 2
+        cntr_x = output_shape[1] // 2
+        sx_indexes = [self.sx_map(mnt[i1:j1 + 1, i2:j2 + 1], cellsize, dmax, in_wind, wind_inc, wind_width)[cntr_x, cntr_y] for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)]
+
+        return np.array(sx_indexes)
+
     @staticmethod
-    def sx_idx(dem_padded, y, x, y_offsets, x_offsets, distances):
+    def _sx_idx(dem_padded, y, x, y_offsets, x_offsets, distances):
         # compute the difference in altitude for all cells along all angles
         altitude_diff = dem_padded[y + y_offsets, x + x_offsets] - dem_padded[y, x]
 
@@ -296,7 +334,7 @@ class Topo_utils:
 
         return result
 
-    def sx(self, dem, cellsize, dmax, in_wind, wind_inc=5, wind_width=30, type_input="map", x=None, y=None):
+    def sx_map(self, dem, cellsize, dmax, in_wind, wind_inc=5, wind_width=30):
 
         grid = np.full(dem.shape, np.nan)
 
@@ -326,12 +364,8 @@ class Topo_utils:
         # set distances that are too large to np.nan so they're not considered
         distances[(distances == 0.) | (distances > dmax)] = np.nan
 
-        if type_input == "map":
-            for y in range(nb_cells, nb_cells + dem.shape[0]):
-                for x in range(nb_cells, nb_cells + dem.shape[1]):
-                    # result = np.nansum(np.arctan(result)) / len(winds)
-                    grid[y - nb_cells, x - nb_cells] = self.sx_idx(dem_padded, y, x, y_offsets, x_offsets, distances)
-            return grid
-
-        elif type_input == "indexes":
-            return self.sx_idx(dem_padded, y, x, y_offsets, x_offsets, distances)
+        for y in range(nb_cells, nb_cells + dem.shape[0]):
+            for x in range(nb_cells, nb_cells + dem.shape[1]):
+                # result = np.nansum(np.arctan(result)) / len(winds)
+                grid[y - nb_cells, x - nb_cells] = self._sx_idx(dem_padded, y, x, y_offsets, x_offsets, distances)
+        return grid
