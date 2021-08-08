@@ -65,14 +65,15 @@ data_xr_interp = p.interpolate_wind_grid_xarray(AROME.data_xr.isel(time=0),
 AROME.data_xr = data_xr_interp
 p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=True)
 
-
 """
 Processing, visualization and evaluation
 """
 
-results = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
+results = {}
 for variable in prm["variable"]:
+    results[variable] = {}
     for model in ["nwp", "cnn", "obs"]:
+        results[variable][model] = {}
         for station in prm["stations_to_predict"]:
             results[variable][model][station] = []
 
@@ -144,7 +145,7 @@ if prm["launch_predictions"]:
         del array_xr
         del AROME
 
-        time_to_predict_month = np.round(t()-t1, 2)
+        time_to_predict_month = np.round(t() - t1, 2)
         print(f"\n Prediction for time between {begin} and {end}:"
               f"\n{time_to_predict_month / 60} minutes")
 
@@ -155,9 +156,12 @@ for variable in prm["variable"]:
 
 path = "//scratch/mrmn/letoumelinl/predict_real/Results/" if prm["GPU"] else ''
 
-with open(path+prm["results_name"]+'.pickle', 'wb') as handle:
+# Save results
+with open(path + prm["results_name"] + '.pickle', 'wb') as handle:
     pickle.dump(results, handle)
 
+# Save prm
+pd.DataFrame.from_dict(data=prm, orient='index').to_csv(path + "prm_" + prm['results_name'] + ".csv", header=False)
 
-time_to_predict_all = np.round(t()-t0, 2)
+time_to_predict_all = np.round(t() - t0, 2)
 print(f"\n All prediction in  {time_to_predict_all / 60} minutes")

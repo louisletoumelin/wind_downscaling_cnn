@@ -93,7 +93,7 @@ class Observation:
 
             # Reject stations
             self._assert_equal_station()
-            #self._reject_stations()
+            self._reject_stations()
 
             # float32
             self._downcast_dtype(oldtype='float64', newtype='float32')

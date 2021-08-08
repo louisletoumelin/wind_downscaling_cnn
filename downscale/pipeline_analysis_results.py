@@ -19,7 +19,7 @@ from PRM_predict import create_prm
 from downscale.Utils.GPU import connect_GPU_to_horovod
 
 prm = create_prm(month_prediction=True)
-connect_GPU_to_horovod() if prm["GPU"] else None
+#connect_GPU_to_horovod() if prm["GPU"] else None
 
 IGN = MNT(prm["topo_path"], name="IGN")
 AROME = NWP(prm["AROME_path_1"], name="AROME", begin=prm["begin"], end=prm["begin_after"], prm=prm)
@@ -44,5 +44,4 @@ metrics = ["abs_error", "bias", "abs_error_rel", "bias_rel"]
 # Wind speed distribution for CNN, NWP and observation
 #e.plot_distribution_all_stations(results)
 
-# todo implement this function
-e.plot_heatmap(results, metrics=metrics)
+#e.plot_heatmap(results, metrics=metrics)

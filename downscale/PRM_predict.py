@@ -15,13 +15,14 @@ def create_prm(month_prediction=True):
     # GPU
     prm["GPU"] = False
     prm["horovod"] = False
+    prm["name_prediction"] = "Correct normalization, scaling function Arctan_2"
 
     # Z0
-    prm["Z0"] = False
-    prm["load_z0"] = False
+    prm["Z0"] = True
+    prm["load_z0"] = True
     prm["save_z0"] = False
 
-    prm["peak_valley"] = False
+    prm["peak_valley"] = True
     prm["verbose"] = True
 
     # Profiling
@@ -30,8 +31,8 @@ def create_prm(month_prediction=True):
 
     # Additional steps
     prm["add_additionnal_stations"] = True
-    prm["select_date_time_serie"] = False
-    prm["launch_predictions"] = False
+    prm["select_date_time_serie"] = True
+    prm["launch_predictions"] = True
 
     # For predictions at stations
     prm["stations_to_predict"] = "all"
@@ -44,7 +45,8 @@ def create_prm(month_prediction=True):
     # For predictions long periods
     prm["variable"] = ["W", "UV", "UVW", "UV_DIR_deg", "alpha_deg", "NWP_wind_speed", "exp_Wind", "acceleration_CNN", "Z0"]
     prm["station_similar_to_map"] = True
-    prm["results_name"] = "results_Arctan_30_1"
+    prm["results_name"] = "correct_norm_arctan_30_2"
+    prm["scaling_function"] = "Arctan_30_2"
 
     # For map prediction
     prm["type_rotation"] = 'scipy'  # 'indexes' or 'scipy'
@@ -56,11 +58,13 @@ def create_prm(month_prediction=True):
     prm["extract_stations_only"] = True
     prm["method"] = "linear"
 
+    # 2 August 2017 1h
     prm["hour_begin"] = 1
     prm["day_begin"] = 2
     prm["month_begin"] = 8
     prm["year_begin"] = 2017
 
+    # 31 May 2020 1h
     prm["hour_end"] = 1
     prm["day_end"] = 31
     prm["month_end"] = 5
@@ -146,8 +150,8 @@ def create_prm(month_prediction=True):
     prm["path_Col_de_Porte"] = prm["data_path"] + "BDclim/Col de Porte/treated/cdp.csv"
     prm["path_Col_du_Lautaret"] = prm["data_path"] + "BDclim/Col du Lautaret/lautaret.csv"
 
-    # CNN model
-    prm['model_experience'] = "date_16_02_name_simu_FINAL_1_0_model_UNet/"
+    # CNN model "date_16_02_name_simu_FINAL_1_0_model_UNet/"
+    prm['model_experience'] = "date_20_05_name_simu_retrain_with_mean_each_sample_0_model_UNet/"
     prm["model_path"] = prm["experience_path"] + prm['model_experience']
 
     # Safety

@@ -1,8 +1,12 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 from time import time as t
+
+try:
+    import seaborn as sns
+except ModuleNotFoundError:
+    pass
 
 from downscale.Analysis.Metrics import Metrics
 
@@ -80,15 +84,15 @@ class Evaluation(Metrics):
             delta_idx_x = delta_idx.apply(lambda x: x[0]).values[0]
             delta_idx_y = delta_idx.apply(lambda x: x[1]).values[0]
 
-        delta_idx_x = delta_idx_x if extract_around is not None else 0
-        delta_idx_y = delta_idx_y if extract_around is not None else 0
+        delta_idx_x = delta_idx_x if extract_around != "station" else 0
+        delta_idx_y = delta_idx_y if extract_around != "station" else 0
 
         idx_x = np.intp(34 - delta_idx_x)
         idx_y = np.intp(39 - delta_idx_y)
 
         dataframe = array_xr[
             ['U', 'V', 'W', 'UV', 'UVW', 'UV_DIR_deg', 'alpha_deg', 'NWP_wind_speed',
-             'NWP_wind_DIR', 'ZS_mnt']].sel(station=station_name).isel(x=idx_x, y=idx_y).to_dataframe()
+             'NWP_wind_DIR', "exp_Wind", "acceleration_CNN", "Z0", 'ZS_mnt']].sel(station=station_name).isel(x=idx_x, y=idx_y).to_dataframe()
 
         return dataframe
 
@@ -154,19 +158,35 @@ class Evaluation(Metrics):
 
         # Time conditions
         if begin is not None and end is not None:
-            nwp_time_serie = self._select_dataframe_time_window_begin_end(nwp_time_serie[variable],
-                                                                          begin=begin, end=end)
+            try:
+                nwp_time_serie[variable]
+                nwp_time_serie = self._select_dataframe_time_window_begin_end(nwp_time_serie[variable],
+                                                                              begin=begin, end=end)
+            except KeyError:
+                nwp_time_serie = pd.DataFrame()
             cnn_predictions = self._select_dataframe_time_window_begin_end(cnn_predictions[variable],
                                                                            begin=begin, end=end)
-            obs_time_serie = self._select_dataframe_time_window_begin_end(obs_time_serie[variable],
+            try:
+                obs_time_serie[variable]
+                obs_time_serie = self._select_dataframe_time_window_begin_end(obs_time_serie[variable],
                                                                           begin=begin, end=end)
+            except KeyError:
+                obs_time_serie = pd.DataFrame()
         else:
-            nwp_time_serie = self._select_dataframe_time_window(nwp_time_serie[variable],
-                                                                day=day, month=month, year=year)
+            try:
+                nwp_time_serie[variable]
+                nwp_time_serie = self._select_dataframe_time_window(nwp_time_serie[variable],
+                                                                    day=day, month=month, year=year)
+            except KeyError:
+                nwp_time_serie = pd.DataFrame()
             cnn_predictions = self._select_dataframe_time_window(cnn_predictions[variable],
                                                                  day=day, month=month, year=year)
-            obs_time_serie = self._select_dataframe_time_window(obs_time_serie[variable],
-                                                                day=day, month=month, year=year)
+            try:
+                obs_time_serie[variable]
+                obs_time_serie = self._select_dataframe_time_window(obs_time_serie[variable],
+                                                                    day=day, month=month, year=year)
+            except KeyError:
+                obs_time_serie = pd.DataFrame()
 
         # Rolling mean
         if rolling_mean is not None:
@@ -277,50 +297,53 @@ class EvaluationFromDict(Evaluation):
         super().__init__(v, array_xr=None, verbose=verbose)
 
     @staticmethod
-    def intersection_model_obs_on_results(results):
-        """Keep only data were we have simultaneously model and observed data
+    def intersection_model_obs_on_results(results, variables=["UV"]):
+        """
+        Keep only data were we have simultaneously model and observed data
 
         Input = dictionary
         Output = dictionary
         """
-        for station in results["cnn"].keys():
 
-            # Drop Nans
-            nwp = results["nwp"][station].dropna()
-            cnn = results["cnn"][station].dropna()
-            obs = results["obs"][station].dropna()
+        for variable in variables:
+            for station in results[variable]["cnn"].keys():
 
-            # Drop duplicates
-            obs = obs[~obs.index.duplicated(keep='first')]
-            cnn = cnn[~cnn.index.duplicated(keep='first')]
-            nwp = nwp[~nwp.index.duplicated(keep='first')]
+                # Drop Nans
+                nwp = results[variable]["nwp"][station].dropna()
+                cnn = results[variable]["cnn"][station].dropna()
+                obs = results[variable]["obs"][station].dropna()
 
-            # Convert dictionary values to DataFrame (if necessary)
-            obs = obs.to_frame() if isinstance(obs, pd.core.series.Series) else obs
-            nwp = nwp.to_frame() if isinstance(nwp, pd.core.series.Series) else nwp
-            cnn = cnn.to_frame() if isinstance(cnn, pd.core.series.Series) else cnn
+                # Drop duplicates
+                obs = obs[~obs.index.duplicated(keep='first')]
+                cnn = cnn[~cnn.index.duplicated(keep='first')]
+                nwp = nwp[~nwp.index.duplicated(keep='first')]
 
-            # Keep index intersection
-            index_intersection = obs.index.intersection(nwp.index).intersection(cnn.index)
-            obs = obs[obs.index.isin(index_intersection)]
-            nwp = nwp[nwp.index.isin(index_intersection)]
-            cnn = cnn[cnn.index.isin(index_intersection)]
+                # Convert dictionary values to DataFrame (if necessary)
+                obs = obs.to_frame() if isinstance(obs, pd.core.series.Series) else obs
+                nwp = nwp.to_frame() if isinstance(nwp, pd.core.series.Series) else nwp
+                cnn = cnn.to_frame() if isinstance(cnn, pd.core.series.Series) else cnn
 
-            results["nwp"][station] = nwp
-            results["cnn"][station] = cnn
-            results["obs"][station] = obs
+                # Keep index intersection
+                index_intersection = obs.index.intersection(nwp.index).intersection(cnn.index)
+                obs = obs[obs.index.isin(index_intersection)]
+                nwp = nwp[nwp.index.isin(index_intersection)]
+                cnn = cnn[cnn.index.isin(index_intersection)]
 
-            assert len(results["nwp"][station]) == len(results["obs"][station])
-            assert len(results["cnn"][station]) == len(results["obs"][station])
+                results[variable]["nwp"][station] = nwp
+                results[variable]["cnn"][station] = cnn
+                results[variable]["obs"][station] = obs
+
+                assert len(results[variable]["nwp"][station]) == len(results[variable]["obs"][station])
+                assert len(results[variable]["cnn"][station]) == len(results[variable]["obs"][station])
 
         return results
 
     @staticmethod
-    def create_df_from_dict(results, data_type="cnn", variable="UV"):
+    def create_df_from_dict(results, data_type="cnn", variables=["UV"]):
         """
         Creates a DataFrame with results at each observation station
 
-        result = create_df_from_dict(results, data_type="cnn", variable="UV")
+        result = create_df_from_dict(results, data_type="cnn", variables="UV")
         result =
                                 UV             name
         time
@@ -333,19 +356,23 @@ class EvaluationFromDict(Evaluation):
         """
 
         result_df = []
-        list_stations = []
+        for variable in variables:
+            result_df_var_i = []
+            list_stations = []
+            for station in results[variable][data_type].keys():
+                result_df_var_i.append(results[variable][data_type][station])
+                list_stations.extend([station] * len(results[variable][data_type][station]))
 
-        for station in results[data_type].keys():
-            result_df.append(results[data_type][station])
-            list_stations.extend([station] * len(results[data_type][station]))
+            result_df_var_i = pd.concat(result_df_var_i)
+            result_df_var_i
 
-        result_df = pd.concat(result_df)
-        result_df = result_df[variable]
+            if isinstance(result_df_var_i, pd.core.series.Series):
+                result_df_var_i = result_df_var_i.to_frame()
 
-        if isinstance(result_df, pd.core.series.Series):
-            result_df = result_df.to_frame()
+            result_df_var_i.columns = [variable]
+            result_df.append(result_df_var_i)
 
-        result_df.columns = [variable]
+        result_df = pd.concat(result_df, axis=1)
         result_df["name"] = list_stations
 
         return result_df
@@ -396,16 +423,16 @@ class EvaluationFromDict(Evaluation):
                                  sort_by="alti", plot_classic=False, cmap="viridis"):
 
         # Keep only common rows between observation and model
-        results = self.intersection_model_obs_on_results(results)
+        results = self.intersection_model_obs_on_results(results, variables=variables)
+
+        # Create DataFrame
+        cnn = self.create_df_from_dict(results, data_type="cnn", variables=variables)
+        nwp = self.create_df_from_dict(results, data_type="nwp", variables=variables)
+        obs = self.create_df_from_dict(results, data_type="obs", variables=variables)
+        cnn["hour"] = cnn.index.hour
+        cnn["month"] = cnn.index.month
 
         for variable in variables:
-
-            cnn = self.create_df_from_dict(results, data_type="cnn", variable=variable)
-            nwp = self.create_df_from_dict(results, data_type="nwp", variable=variable)
-            obs = self.create_df_from_dict(results, data_type="obs", variable=variable)
-
-            cnn["hour"] = cnn.index.hour
-            cnn["month"] = cnn.index.month
 
             for metric in metrics:
                 if metric == "abs_error":
@@ -466,68 +493,69 @@ class EvaluationFromDict(Evaluation):
                 plt.xlabel(f"{metric} NWP")
                 plt.ylabel(f"{metric} CNN")
 
-    def plot_distribution_all_stations(self, results):
+    def plot_distribution_all_stations(self, results, variables=["UV"]):
         """Wind speed distribution (one distribution for all stations)"""
-        results = self.intersection_model_obs_on_results(results)
+        results = self.intersection_model_obs_on_results(results, variables=variables)
         all_df = []
+        for variable in variables:
+            for model in ["cnn", "nwp", "obs"]:
+                data = [[station, data[0]]
+                        for station, df_data in results[variable][model].items()
+                        for data in df_data.values]
+                df = pd.DataFrame(data, columns=["station", variable])
+                df["data"] = model
+                all_df.append(df)
+            all_df = pd.concat(all_df)
 
-        for model in ["cnn", "nwp", "obs"]:
-            data = [[station, data[0]]
-                    for station, df_data in results[model].items()
-                    for data in df_data.values]
-            df = pd.DataFrame(data, columns=["station", "wind speed"])
-            df["data"] = model
-            all_df.append(df)
-        all_df = pd.concat(all_df)
+            sns.displot(data=all_df, x=variable, hue="data", kind='kde', fill=True, bw_adjust=3, cut=0)
 
-        sns.displot(data=all_df, x="wind speed", hue="data", kind='kde', fill=True, bw_adjust=3, cut=0)
-
-    def plot_1_1_density(self, results, cmap="viridis"):
+    def plot_1_1_density(self, results, cmap="viridis", variables=["UV"]):
         """
         1-1 plots
 
         NWP-CNN, CNN-obs, NWP-obs
         """
-        results = self.intersection_model_obs_on_results(results)
+        results = self.intersection_model_obs_on_results(results, variables=variables)
 
-        all_df = []
-        for model in ["cnn", "nwp", "obs"]:
-            data = [[station, data[0]]
-                    for station, df_data in results[model].items()
-                    for data in df_data.values]
-            df = pd.DataFrame(data, columns=["station", "wind speed"])
-            df["data"] = model
-            all_df.append(df)
-        all_df = pd.concat(all_df)
+        for variable in variables:
+            all_df = []
+            for model in ["cnn", "nwp", "obs"]:
+                data = [[station, data[0]]
+                        for station, df_data in results[variable][model].items()
+                        for data in df_data.values]
+                df = pd.DataFrame(data, columns=["station", variable])
+                df["data"] = model
+                all_df.append(df)
+            all_df = pd.concat(all_df)
 
-        cnn_values = all_df["wind speed"][all_df["data"] == "cnn"].values
-        nwp_values = all_df["wind speed"][all_df["data"] == "nwp"].values
-        obs_values = all_df["wind speed"][all_df["data"] == "obs"].values
+            cnn_values = all_df[variable][all_df["data"] == "cnn"].values
+            nwp_values = all_df[variable][all_df["data"] == "nwp"].values
+            obs_values = all_df[variable][all_df["data"] == "obs"].values
 
-        bins = (100, 100)
-        self.v.density_scatter(nwp_values, cnn_values, s=5, bins=bins, cmap=cmap)
-        max = np.nanmax([nwp_values, cnn_values])
-        min = np.nanmin([nwp_values, cnn_values])
-        plt.xlim((min - 2, max + 2))
-        plt.ylim((min - 2, max + 2))
-        plt.plot(nwp_values, nwp_values, color='red')
-        plt.axis('square')
+            bins = (100, 100)
+            self.v.density_scatter(nwp_values, cnn_values, s=5, bins=bins, cmap=cmap)
+            max = np.nanmax([nwp_values, cnn_values])
+            min = np.nanmin([nwp_values, cnn_values])
+            plt.xlim((min - 2, max + 2))
+            plt.ylim((min - 2, max + 2))
+            plt.plot(nwp_values, nwp_values, color='red')
+            plt.axis('square')
 
-        self.v.density_scatter(obs_values, cnn_values, s=5, bins=bins, cmap=cmap)
-        max = np.nanmax([obs_values, cnn_values])
-        min = np.nanmin([obs_values, cnn_values])
-        plt.xlim((min - 2, max + 2))
-        plt.ylim((min - 2, max + 2))
-        plt.plot(obs_values, obs_values, color='red')
-        plt.axis('square')
+            self.v.density_scatter(obs_values, cnn_values, s=5, bins=bins, cmap=cmap)
+            max = np.nanmax([obs_values, cnn_values])
+            min = np.nanmin([obs_values, cnn_values])
+            plt.xlim((min - 2, max + 2))
+            plt.ylim((min - 2, max + 2))
+            plt.plot(obs_values, obs_values, color='red')
+            plt.axis('square')
 
-        self.v.density_scatter(obs_values, nwp_values, s=5, bins=bins, cmap=cmap)
-        max = np.nanmax([obs_values, nwp_values])
-        min = np.nanmin([obs_values, nwp_values])
-        plt.xlim((min - 2, max + 2))
-        plt.ylim((min - 2, max + 2))
-        plt.plot(obs_values, obs_values, color='red')
-        plt.axis('square')
+            self.v.density_scatter(obs_values, nwp_values, s=5, bins=bins, cmap=cmap)
+            max = np.nanmax([obs_values, nwp_values])
+            min = np.nanmin([obs_values, nwp_values])
+            plt.xlim((min - 2, max + 2))
+            plt.ylim((min - 2, max + 2))
+            plt.plot(obs_values, obs_values, color='red')
+            plt.axis('square')
 
     def plot_heatmap(self, results, variables=["UV"], metrics=["abs_error"], topo_carac="alti", fontsize=15,
                       sort_by="alti", plot_classic=False, cmap="viridis"):
@@ -535,14 +563,14 @@ class EvaluationFromDict(Evaluation):
         # Keep only common rows between observation and model
         results = self.intersection_model_obs_on_results(results)
 
+        cnn = self.create_df_from_dict(results, data_type="cnn", variables=variables)
+        nwp = self.create_df_from_dict(results, data_type="nwp", variables=variables)
+        obs = self.create_df_from_dict(results, data_type="obs", variables=variables)
+
+        cnn["hour"] = cnn.index.hour
+        cnn["month"] = cnn.index.month
+
         for variable in variables:
-
-            cnn = self.create_df_from_dict(results, data_type="cnn", variable=variable)
-            nwp = self.create_df_from_dict(results, data_type="nwp", variable=variable)
-            obs = self.create_df_from_dict(results, data_type="obs", variable=variable)
-
-            cnn["hour"] = cnn.index.hour
-            cnn["month"] = cnn.index.month
 
             for metric in metrics:
                 if metric == "abs_error":
@@ -657,38 +685,25 @@ class EvaluationFromDict(Evaluation):
         ax.set(ylabel="")
         sns.despine(trim=True, left=True)
 
-    @staticmethod
-    def plot_bias_long_period_from_dict(results, stations=['Col du Lac Blanc'], groupby='month', rolling_time=None):
+    def create_three_df_results(self, results, variable="UV"):
 
-        if groupby is not None:
-            rolling_time = None
+        results = self.intersection_model_obs_on_results(results, variables=[variable])
 
-        for station in stations:
-            plt.figure()
-            nwp = results["nwp"][station]
-            cnn = results["cnn"][station]
-            obs = results["obs"][station]
+        all_df = []
+        for model in ["cnn", "nwp", "obs"]:
+            data = [[station, data[0]]
+                    for station, df_data in results[variable][model].items()
+                    for data in df_data.values]
+            df = pd.DataFrame(data, columns=["station", variable])
+            df["data"] = model
+            all_df.append(df)
+        all_df = pd.concat(all_df)
 
-            nwp_obs = nwp - obs
-            cnn_obs = cnn - obs
+        cnn_values = all_df[variable][all_df["data"] == "cnn"].values
+        nwp_values = all_df[variable][all_df["data"] == "nwp"].values
+        obs_values = all_df[variable][all_df["data"] == "obs"].values
 
-            if groupby == 'month':
-                nwp_obs.groupby(nwp_obs.index.month).mean().plot(linestyle='--', marker='x')
-                cnn_obs.groupby(cnn_obs.index.month).mean().plot(linestyle='--', marker='x')
-            elif groupby == 'year':
-                nwp_obs.groupby(nwp_obs.index.month).mean().plot(linestyle='--', marker='x')
-                cnn_obs.groupby(cnn_obs.index.month).mean().plot(linestyle='--', marker='x')
-            elif groupby is None:
-                nwp_obs.plot(linestyle='--', marker='x')
-                cnn_obs.plot(linestyle='--', marker='x')
-            elif rolling_time is not None:
-                nwp_obs.rolling(rolling_time).mean().plot(linestyle='--', marker='x')
-                cnn_obs.rolling(rolling_time).mean().plot(linestyle='--', marker='x')
-
-            plt.legend(("bias NWP", "bias CNN"))
-            plt.ylabel("Wind speed [m/s]")
-            plt.title(station)
-
+        return cnn_values, nwp_values, obs_values
 
 """
 RMSE_nwp = []

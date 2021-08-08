@@ -288,9 +288,9 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
                 return K.sqrt(K.mean(K.square(y_true - y_pred)))
 
             dependencies = {'root_mse': root_mse}
-            model = load_model(self.model_path + "fold_0.h5", custom_objects=dependencies)
+            model = load_model(self.model_path + "model_weights.h5", custom_objects=dependencies)
         else:
-            model = load_model(self.model_path + "fold_0.h5")
+            model = load_model(self.model_path + "model_weights.h5")
 
         self.model = model
 
@@ -455,6 +455,7 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         input_dir = kwargs.get("input_dir")
         interp_str = kwargs.get("interp_str")
         extract_stations_only = kwargs.get("extract_stations_only")
+        scaling_function = kwargs.get("scaling_function")
 
         # Select timeframe
         self._select_timeframe_nwp(ideal_case=ideal_case, verbose=True)
@@ -596,7 +597,7 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
 
         # Wind speed scaling
         scaling_wind = exp_Wind if Z0 else wind_speed_all
-        prediction = self.wind_speed_scaling(scaling_wind, prediction, type_scaling="linear")
+        prediction = self.wind_speed_scaling(scaling_wind, prediction, type_scaling=scaling_function)
 
         # Copy wind variable
         wind4 = np.copy(prediction)
@@ -1065,6 +1066,7 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         nb_pixels = kwargs.get("nb_pixels")
         interpolate_final_map = kwargs.get("interpolate_final_map")
         extract_stations_only = kwargs.get("extract_stations_only")
+        scaling_function = kwargs.get("scaling_function")
 
         # Select NWP data
         nwp_data = self.prepare_time_and_domain_nwp(year_begin, month_begin, day_begin, hour_begin,
@@ -1204,7 +1206,7 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
 
         # Wind speed scaling
         scaling_wind = exp_Wind.view() if Z0 else wind_speed_nwp.view()
-        prediction = self.wind_speed_scaling(scaling_wind, prediction, type_scaling="linear")
+        prediction = self.wind_speed_scaling(scaling_wind, prediction, type_scaling=scaling_function)
 
         if log_profile_10m_to_3m:
             # Apply log profile: 3m => 10m
