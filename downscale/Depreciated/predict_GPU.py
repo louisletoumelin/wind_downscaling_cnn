@@ -97,8 +97,8 @@ print(f'\nMNT loaded in {round(t0, t1)} seconds')
 
 # AROME
 t2 = t()
-#AROME = NWP(AROME_path_3, "AROME", begin, end, save_path=None, path_Z0_2018=path_Z0_2018, path_Z0_2019=path_Z0_2019, verbose=True)
-AROME = NWP(AROME_path_3, "AROME", begin, end, save_path=None, path_Z0_2018=None, path_Z0_2019=None, verbose=True)
+#AROME = NWP(begin, end, save_path=None, path_Z0_2018=path_Z0_2018, path_Z0_2019=path_Z0_2019, verbose=True)
+AROME = NWP(begin, end, save_path=None, path_Z0_2018=None, path_Z0_2019=None, verbose=True)
 t3 = t()
 print(f'\nNWP loaded in {round(t2, t3)} seconds')
 

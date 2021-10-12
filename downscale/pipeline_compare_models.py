@@ -22,34 +22,30 @@ from downscale.Utils.GPU import connect_GPU_to_horovod
 prm = create_prm(month_prediction=True)
 connect_GPU_to_horovod() if prm["GPU"] else None
 
-IGN = MNT(prm["topo_path"], name="IGN")
-AROME = NWP(prm["AROME_path_1"], name="AROME", begin=prm["begin"], end=prm["begin_after"], prm=prm)
+IGN = MNT(prm=prm)
+AROME = NWP(prm["AROME_path_1"], begin=prm["begin"], end=prm["begin_after"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
-"""
-with open('../../Data/3_Predictions/results_linear.pickle', 'rb') as handle:
-    results_0 = pickle.load(handle)
 
-with open('../../Data/3_Predictions/linear_activation_norm_each_topography.pickle', 'rb') as handle:
+BDclim.replace_obs_by_QC_obs(prm)
+
+
+
+with open('../../Data/3_Predictions/wind_exposed_at_max_elevation_Arctan_30_2.pickle', 'rb') as handle:
     results_1 = pickle.load(handle)
 
-with open('../../Data/3_Predictions/linear_activation_norm_each_topography_add_topography.pickle', 'rb') as handle:
+with open('../../Data/3_Predictions/unexposed_wind_not_activated_Arctan_30_2.pickle ', 'rb') as handle:
     results_2 = pickle.load(handle)
-
-with open('../../Data/3_Predictions/results_Arctan_30_1.pickle', 'rb') as handle:
+"""
+with open('../../Data/3_Predictions/linear_activation_norm_each_topography.pickle', 'rb') as handle:
     results_3 = pickle.load(handle)
 
-with open('../../Data/3_Predictions/results_Arctan_30_2.pickle', 'rb') as handle:
+with open('../../Data/3_Predictions/not_get_closer_and_linear_and_exposed.pickle', 'rb') as handle:
     results_4 = pickle.load(handle)
+"""
+results_list = [results_1, results_2]
+title = ["Best predictions", "Not exposing wind", "Reference"]
 
-with open('../../Data/3_Predictions/correct_norm_arctan_30_1.pickle', 'rb') as handle:
-    results_5 = pickle.load(handle)
-
-with open('../../Data/3_Predictions/correct_norm_arctan_30_2.pickle', 'rb') as handle:
-    results_6 = pickle.load(handle)
-
-results_list = [results_0, results_1, results_2, results_3, results_4, results_5, results_6]
-
-p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
+p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
 p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=False)
 
 v = Visualization(p)
@@ -60,8 +56,10 @@ df_results = pd.DataFrame()
 all_predictions = []
 for index, result in enumerate(results_list):
 
+    print(f"Result: {title[index]}")
+
     # Integrated results
-    cnn, nwp, obs = e.create_three_df_results(result, variable=variable)
+    cnn, nwp, obs = e.create_three_df_results(result, variable=variable, use_QC=True, time_series_qc=BDclim.time_series)
     all_predictions.append(cnn)
     print("\nRMSE CNN", e.RMSE(cnn, obs))
     print("\nRMSE NWP", e.RMSE(nwp, obs))
@@ -69,16 +67,19 @@ for index, result in enumerate(results_list):
     print("\nBias NWP", e.mean_bias(nwp, obs))
 
     # 1-1 density plots
-    e.plot_1_1_density(result, variables=[variable])
+    e.plot_1_1_density(result, variables=[variable],
+                       xlim_min=-5, xlim_max=60, ylim_min=-5, ylim_max=60)
+    plt.title(title[index]+" QC")
 
     # Create a dataFrame with results
-    df_results[f"bias_CNN_{index}"] = e.mean_bias(cnn, obs)
-    df_results[f"bias_NWP_{index}"] = e.mean_bias(cnn, obs)
-
+    df_results[f"bias_CNN_{index}"] = e.bias(cnn, obs)
+    df_results[f"bias_NWP_{index}"] = e.bias(nwp, obs)
+"""
 # Boxplot
 df_results = df_results.melt(var_name="model", value_name="values")
-ax = plt.gca()
-sns.boxplot(data=df_results, y="values", x="model")
+#plt.figure()
+#sns.boxplot(data=df_results, y="values", x="model")
+plt.figure()
 sns.boxplot(data=df_results, y="values", x="model", showfliers=False)
 
 # 1-1 plot without density
@@ -90,5 +91,4 @@ sns.boxplot(data=df_results, y="values", x="model", showfliers=False)
 #plt.xlim(xmin, xmax)
 #plt.ylim(xmin, xmax)
 #plt.axis("square")
-
 """

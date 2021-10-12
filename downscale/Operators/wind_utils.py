@@ -1,6 +1,8 @@
 import numpy as np
+from time import time as t
 
 from downscale.Utils.Utils import change_dtype_if_required
+from downscale.Utils.Decorators import print_func_executed_decorator, timer_decorator
 
 try:
     from numba import jit, prange, float64, float32, int32, int64
@@ -58,8 +60,10 @@ class Wind_utils:
         else:
             return (wind_in * np.log(z_out / z0)) / np.log(z_in / z0)
 
+    @print_func_executed_decorator("expose wind speed", level_begin="\n__", level_end="__")
+    @timer_decorator("expose wind speed", unit="second", level=". . . . ")
     def exposed_wind_speed(self, wind_speed=None, z_out=None, z0=None, z0_rel=None, apply_directly_to_nwp=False,
-                           library="numexpr", verbose=True):
+                           library="numexpr", level_verbose="____", verbose=True):
         """
         Expose wind speed (deoperate subgrid parameterization from NWP)
 
@@ -84,6 +88,8 @@ class Wind_utils:
         acceleration_factor: Acceleration related to unexposition (usually >= 1)
         """
 
+        print(f"{level_verbose}exposing at {np.mean(z_out)} m") if verbose else None
+
         if apply_directly_to_nwp:
             self.nwp.data_xr = self.nwp.data_xr.assign(
                 exp_Wind=lambda x: x.Wind * (np.log(10 / x.Z0) / np.log(10 / x.Z0REL)) * (x.Z0 / x.Z0REL) ** 0.0708)
@@ -102,7 +108,12 @@ class Wind_utils:
                 acceleration_factor = np.where(acceleration_factor > 0, acceleration_factor, 1)
                 exp_Wind = wind_speed * acceleration_factor
 
-            print(f"____Acceleration maximum expose {np.nanmax(acceleration_factor)}") if verbose else None
+            acceleration_max = np.nanmax(acceleration_factor)
+            if acceleration_max > 1.75:
+                print(f"WARNING Acceleration maximum expose {acceleration_max}") if verbose else None
+            else:
+                print(f"____Acceleration maximum expose {acceleration_max}") if verbose else None
+
             return exp_Wind, acceleration_factor
 
     @staticmethod
@@ -129,6 +140,8 @@ class Wind_utils:
         print("__Wind speed scaled for ideal cases") if verbose else None
         return wind_speed, wind_dir
 
+    @print_func_executed_decorator("wind speed ratio (acceleration)", level_begin="____", level_end="____")
+    @timer_decorator("wind speed ratio (acceleration)", unit="second", level=". . . . ")
     def wind_speed_ratio(self, num=None, den=None, library="numexpr"):
         if self._numexpr and library == "numexpr":
             a1 = ne.evaluate("where(den > 0, num / den, 1)")
@@ -136,7 +149,7 @@ class Wind_utils:
             a1 = np.where(den > 0, num / den, 1)
         return a1
 
-    def _3D_wind_speed(self, U=None, V=None, W=None, out=None, library="numexpr", verbose=True):
+    def _3D_wind_speed(self, U=None, V=None, W=None, out=None, library="numexpr", verbose_level="____", verbose=True):
         """
         UVW = np.sqrt(U**2 + V**2 + W**2)
 
@@ -157,12 +170,20 @@ class Wind_utils:
         UVW : ndarray
             Wind speed
         """
+
+        if verbose:
+            t0 = t()
+
         if out is None:
             if self._numexpr and library == "numexpr":
                 wind_speed = ne.evaluate("sqrt(U**2 + V**2 + W**2)")
             else:
                 wind_speed = np.sqrt(U ** 2 + V ** 2 + W ** 2)
-            print("__UVW calculated") if verbose else None
+
+            if verbose:
+                print(f"{verbose_level}Wind speed computed")
+                print(f". . . . Time to calculate wind speed: {np.round(t() - t0)} seconds")
+
             return wind_speed
 
         else:
@@ -170,9 +191,12 @@ class Wind_utils:
                 ne.evaluate("sqrt(U**2 + V**2 + W**2)", out=out)
             else:
                 np.sqrt(U ** 2 + V ** 2 + W ** 2, out=out)
-            print("__UVW calculated") if verbose else None
 
-    def _2D_wind_speed(self, U=None, V=None, out=None, library="numexpr", verbose=True):
+            if verbose:
+                print(f"{verbose_level}Wind speed computed")
+                print(f". . . . Time to calculate wind speed: {np.round(t()-t0)}")
+
+    def _2D_wind_speed(self, U=None, V=None, out=None, library="numexpr", verbose_level="____", verbose=True):
         """
         UV = np.sqrt(U**2 + V**2)
 
@@ -191,12 +215,20 @@ class Wind_utils:
         UV : ndarray
             Wind speed
         """
+
+        if verbose:
+            t0 = t()
+
         if out is None:
             if self._numexpr and library == "numexpr":
                 wind_speed = ne.evaluate("sqrt(U**2 + V**2)")
             else:
                 wind_speed = np.sqrt(U ** 2 + V ** 2)
-            if verbose: print("__UV calculated")
+
+            if verbose:
+                print(f"{verbose_level}Wind speed computed")
+                print(f". . . . Time to calculate wind speed: {np.round(t()-t0)}")
+
             return wind_speed
 
         else:
@@ -204,7 +236,11 @@ class Wind_utils:
                 ne.evaluate("sqrt(U**2 + V**2)", out=out)
             else:
                 np.sqrt(U ** 2 + V ** 2, out=out)
-            if verbose: print("__UV calculated")
+
+            if verbose:
+                print(f"{verbose_level}Wind speed computed")
+                print(f". . . . Time to calculate wind speed: {np.round(t()-t0)}")
+
 
     def compute_wind_speed(self, U=None, V=None, W=None,
                            computing='num', out=None,
@@ -255,9 +291,11 @@ class Wind_utils:
             xarray_data = xarray_data.assign(Wind=lambda x: np.sqrt(x[u_name] ** 2 + x[v_name] ** 2))
             xarray_data = xarray_data.assign(
                 Wind_DIR=lambda x: np.mod(180 + np.rad2deg(np.arctan2(x[u_name], x[v_name])), 360))
-            print("__Wind and Wind_DIR calculated on xarray") if verbose else None
+            print("____Wind and Wind_DIR calculated on xarray") if verbose else None
             return xarray_data
 
+    @print_func_executed_decorator("wind speed scaling", level_begin="____", level_end="____")
+    @timer_decorator("wind speed scaling", unit="second", level=". . . . ")
     def wind_speed_scaling(self, scaling_wind, prediction, type_scaling="linear", library="numexpr", verbose=True):
         """
         Linear: scaling_wind * prediction / 3
@@ -300,10 +338,42 @@ class Wind_utils:
             else:
                 prediction = 30*np.arctan((scaling_wind * prediction / 3)/30)
 
+        if type_scaling == "Arctan_10_2":
+            if self._numexpr and library == "numexpr":
+                prediction = ne.evaluate("10*arctan((scaling_wind * prediction / 3)/10)")
+            else:
+                prediction = 10*np.arctan((scaling_wind * prediction / 3)/10)
+
+        if type_scaling == "Arctan_20_2":
+            if self._numexpr and library == "numexpr":
+                prediction = ne.evaluate("30*arctan((scaling_wind * prediction / 3)/30)")
+            else:
+                prediction = 20*np.arctan((scaling_wind * prediction / 3)/20)
+
+        if type_scaling == "Arctan_38_2_2":
+            if self._numexpr and library == "numexpr":
+                prediction = ne.evaluate("38.2*arctan((scaling_wind * prediction / 3)/38.2)")
+            else:
+                prediction = 38.2*np.arctan((scaling_wind * prediction / 3)/38.2)
+
+        if type_scaling == "Arctan_40_2":
+            if self._numexpr and library == "numexpr":
+                prediction = ne.evaluate("30*arctan((scaling_wind * prediction / 3)/30)")
+            else:
+                prediction = 40*np.arctan((scaling_wind * prediction / 3)/40)
+
+        if type_scaling == "Arctan_50_2":
+            if self._numexpr and library == "numexpr":
+                prediction = ne.evaluate("30*arctan((scaling_wind * prediction / 3)/30)")
+            else:
+                prediction = 50*np.arctan((scaling_wind * prediction / 3)/50)
+
         prediction = change_dtype_if_required(prediction, np.float32)
         print(f"__Wind speed scaling done. Type {type_scaling}") if verbose else None
         return prediction
 
+    @print_func_executed_decorator("computing angular deviation", level_begin="____", level_end="____")
+    @timer_decorator("computing angular deviation", unit="second", level=". . . . ")
     def angular_deviation(self, U, V, library="numexpr", verbose=True):
         """
         Angular deviation from incoming flow.
@@ -330,9 +400,10 @@ class Wind_utils:
                              np.where(V == 0, 0, np.sign(V) * np.pi / 2),
                              np.arctan(V / U))
         alpha = change_dtype_if_required(alpha, np.float32)
-        print("__Angular deviation calculated") if verbose else None
         return alpha
 
+    @print_func_executed_decorator("computing wind direction from angular deviation", level_begin="____", level_end="____")
+    @timer_decorator("computing wind direction from angular deviation", unit="second", level=". . . . ")
     def direction_from_alpha(self, wind_dir, alpha, input_dir_in_degree=True, library="numexpr", verbose=True):
         """
         wind_dir - alpha
@@ -363,6 +434,8 @@ class Wind_utils:
         print("__Wind_DIR calculated from alpha") if verbose else None
         return UV_DIR
 
+    @print_func_executed_decorator("computing horizontal wind components", level_begin="____", level_end="____")
+    @timer_decorator("computing horizontal wind components", unit="second", level=". . . . ")
     def horizontal_wind_component(self, UV=None, UV_DIR=None,
                                   working_with_xarray=False, xarray_data=None, wind_name="Wind",
                                   wind_dir_name="Wind_DIR", library="numexpr", verbose=True):
@@ -415,6 +488,7 @@ class Wind_utils:
             xarray_data = xarray_data.assign(V=lambda x: -x[wind_name] * np.cos(x["theta"]))
             print('__Horizontal wind component calculated on xarray') if verbose else None
             return xarray_data
+
 
     def direction_from_u_and_v(self, U, V, output_in_degree=True, library="numexpr", verbose=True):
         """

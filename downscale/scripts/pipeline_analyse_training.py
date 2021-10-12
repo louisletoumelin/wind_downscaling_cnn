@@ -59,7 +59,7 @@ for fold_nb in range(10):
     df_all["V_pred"] = ""
     df_all["W_pred"] = ""
 
-
+    # Define U_test, V_test, W_test, U_pred etc
     for index in range(len(df_all)):
         df_all["topo_name"].iloc[index] = topos[index, :, :]
         df_all["U_test"].iloc[index] = winds[index, :, :, 0]
@@ -69,8 +69,7 @@ for fold_nb in range(10):
         df_all["V_pred"].iloc[index] = predictions[index, :, :, 1]
         df_all["W_pred"].iloc[index] = predictions[index, :, :, 2]
 
-
-
+    # DataFrame to array
     U_test = df_all["U_test"].values
     V_test = df_all["V_test"].values
     W_test = df_all["W_test"].values
@@ -78,6 +77,7 @@ for fold_nb in range(10):
     V_pred = df_all["V_pred"].values
     W_pred = df_all["W_pred"].values
 
+    # Compute wind and direction
     df_all["UV_test"] = [gaussian_topo.compute_wind_speed(U_test[index], V_test[index], verbose=False) for index in range(len(U_test))]
     df_all["UVW_test"] = [gaussian_topo.compute_wind_speed(U_test[index], V_test[index], W_test[index], verbose=False) for index in range(len(U_test))]
     df_all["alpha_test"] = [gaussian_topo.angular_deviation(U_test[index], V_test[index], verbose=False) for index in range(len(U_test))]
@@ -86,8 +86,8 @@ for fold_nb in range(10):
     df_all["UVW_pred"] = [gaussian_topo.compute_wind_speed(U_pred[index], V_pred[index], W_pred[index], verbose=False) for index in range(len(U_pred))]
     df_all["alpha_pred"] = [gaussian_topo.angular_deviation(U_pred[index], V_pred[index], verbose=False) for index in range(len(U_pred))]
 
+    # Calculate TPI
     df_all["tpi_500"] = [gaussian_topo.tpi_map(topos[index, :, :], 500, 30) for index in range(len(df_all))]
-
 
     def border_array_to_nan(array):
         array[:17, :] = np.nan
@@ -99,8 +99,9 @@ for fold_nb in range(10):
     df_all["tpi_500"] = df_all["tpi_500"].apply(border_array_to_nan)
 
 
-
+    # Calculate sx_300
     df_all["sx_300"] = [gaussian_topo.sx_map(topos[index, :, :], 30, 300, 270, 5, 30) for index in range(len(df_all))]
+
     def border_array_to_nan(array):
         array[:10, :] = np.nan
         array[-10:, :] = np.nan
@@ -108,7 +109,7 @@ for fold_nb in range(10):
         return array
     df_all["sx_300"] = df_all["sx_300"].apply(border_array_to_nan)
 
-
+    # Calculate curvature
     df_all["curvature"] = [gaussian_topo.curvature_map(topos[index, :, :], verbose=False) for index in range(len(df_all))]
     def border_array_to_nan(array):
         array[:1, :] = np.nan
@@ -118,7 +119,7 @@ for fold_nb in range(10):
         return array
     df_all["curvature"] = df_all["curvature"].apply(border_array_to_nan)
 
-
+    # Calculate laplacian
     df_all["laplacian"] = [gaussian_topo.laplacian_map(topos[index, :, :], 30, verbose=False, helbig=False) for index in range(len(df_all))]
     def border_array_to_nan(array):
         array[:1, :] = np.nan
@@ -128,7 +129,7 @@ for fold_nb in range(10):
         return array
     df_all["laplacian"] = df_all["laplacian"].apply(border_array_to_nan)
 
-
+    # Calculate mu
     df_all["mu"] = [gaussian_topo.mu_helbig_map(topos[index, :, :], 30, verbose=False) for index in range(len(df_all))]
     def border_array_to_nan(array):
         array[:1, :] = np.nan
@@ -139,7 +140,6 @@ for fold_nb in range(10):
     df_all["mu"] = df_all["mu"].apply(border_array_to_nan)
 
     # Wind_direction, alpha, TPI, mu, laplacian, sx, curvature
-
     def unnesting(df, explode):
         idx = df.index.repeat(df[explode[0]].str.len())
         df1 = pd.concat([
@@ -166,35 +166,49 @@ for fold_nb in range(10):
     test.append(test_i)
 
 test = pd.concat(test)
-# for metric in ["bias"]
+
 """
 # General boxplot
 ax = sns.boxplot(data=test, y="bias", showfliers=False)
 plt.axis("square")
 
+# Boxplot fct class_sx_300, saved = True
+order = ['sx_300 <= q25', 'q25 < sx_300 <= q50', 'q50 < sx_300 <= q75', 'q75 < sx_300']
 test = gaussian_topo.classify(test, variable="sx_300", quantile=True)
-hue_order = ['bias', 'absolute_error', 'bias_rel', 'absolute_error_rel']
-ax = sns.boxplot(data=test, x="class_sx_300", y="bias", showfliers=False, hue_order=hue_order)
-plt.title("Test dataset: Bias boxplot by sx class")
+ax = sns.boxplot(data=test, x="class_sx_300", y="bias", showfliers=False, order=order)
 
-sns.displot(test, x="bias", kind="kde")
-plt.title("Test dataset: Bias distribution")
+# Boxplot fct class_tpi_500, saved = True
+order = ['tpi_500 <= q25', 'q25 < tpi_500 <= q50', 'q50 < tpi_500 <= q75', 'q75 < tpi_500']
+test = gaussian_topo.classify(test, variable="tpi_500", quantile=True)
+ax = sns.boxplot(data=test, x="class_tpi_500", y="bias", showfliers=False, order=order)
 
+# Boxplot fct mu, saved = True
+order = ['mu <= q25', 'q25 < mu <= q50', 'q50 < mu <= q75', 'q75 < mu']
+test = gaussian_topo.classify(test, variable="mu", quantile=True)
+ax = sns.boxplot(data=test, x="class_mu", y="bias", showfliers=False, order=order)
+
+# Boxplot fct curvature, saved = True
+order = ['curvature <= q25', 'q25 < curvature <= q50', 'q50 < curvature <= q75', 'q75 < curvature']
+test = gaussian_topo.classify(test, variable="curvature", quantile=True)
+ax = sns.boxplot(data=test, x="class_curvature", y="bias", showfliers=False, order=order)
+
+# Boxplot fct degree, saved = True
+ax = sns.boxplot(data=test, x="degree", y="bias", showfliers=False)
+
+# Boxplot fct xi, saved = True
+ax = sns.boxplot(data=test, x="xi", y="bias", showfliers=False)
+
+# Distribution bias, save = True
+sns.displot(test, x="bias", kind="kde"), saved = True
+plt.title("Bias distribution on the test dataset (Gaussian topographies)")
+
+# Distribution bias by xi
 sns.displot(test, x="bias", kind="kde", hue="xi")
 plt.title("Test dataset: Bias distribution by xi")
 
 sns.displot(test, x="bias", kind="kde", hue="degree")
 plt.title("Test dataset: Bias distribution by degree")
 
-ax = sns.boxplot(data=test, x="xi", y="bias", showfliers=False)
-plt.title("Test dataset: Bias boxplot by xi")
-
-ax = sns.boxplot(data=test, x="degree", y="bias", showfliers=False)
-plt.title("Test dataset: Bias boxplot by degree")
-
-test = gaussian_topo.classify(test, variable="tpi_500", quantile=True)
-ax = sns.boxplot(data=test, x="class_tpi_500", y="bias", showfliers=False)
-plt.title("Test dataset: Bias boxplot by tpi class")
 """
 
 

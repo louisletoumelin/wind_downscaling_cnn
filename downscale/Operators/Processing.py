@@ -7,10 +7,12 @@ from tensorflow.keras import backend as K
 import matplotlib.colors as colors
 import random
 import datetime
+from time import time as t
 
 # Local imports
 from downscale.Utils.GPU import environment_GPU
-from downscale.Utils.Utils import assert_equal_shapes, reshape_list_array
+from downscale.Utils.Utils import assert_equal_shapes, reshape_list_array, print_statistical_description_array
+from downscale.Utils.Decorators import print_func_executed_decorator, timer_decorator
 from downscale.Operators.Rotation import Rotation
 from downscale.Operators.wind_utils import Wind_utils
 from downscale.Operators.topo_utils import Topo_utils
@@ -70,20 +72,17 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
     _geopandas = _geopandas
     _shapely_geometry = _shapely_geometry
 
-    def __init__(self, obs=None, mnt=None, nwp=None, model_path=None, prm=None):
+    def __init__(self, obs=None, mnt=None, nwp=None, prm=None, GPU=False):
 
         super().__init__()
-
-        GPU = prm["GPU"] if prm is not None else None
-        data_path = prm['data_path'] if prm is not None else None
 
         self.observation = obs if obs is not None else None
         self.mnt = mnt if mnt is not None else None
         self.nwp = nwp if nwp is not None else None
-        self.model_path = prm["model_path"] if prm["model_path"] is not None else None
-        self.data_path = data_path if data_path is not None else None
+        self.model_path = prm["model_path"] if (prm is not None and prm["model_path"] is not None) else None
+        self.data_path = prm['data_path'] if (prm is not None and prm['data_path'] is not None) else None
         self.is_updated_with_topo_characteristics = False
-        environment_GPU(GPU=GPU) if GPU is not None else None
+        environment_GPU(GPU=prm["GPU"]) if (prm is not None and prm["GPU"] is not None) else None
 
     def update_station_with_topo_characteristics(self):
         self.update_stations_with_laplacian()
@@ -173,11 +172,14 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
                                                                                   number_of_neighbors=4,
                                                                                   interpolated=interpolated)
 
+    @print_func_executed_decorator("load model", level_begin="____", level_end="____")
+    @timer_decorator("load model", unit="second", level=". . . . ")
     def _extract_variable_from_nwp_at_station(self,
                                               station_name,
                                               variable_to_extract=["time", "wind_speed", "wind_direction", "Z0",
                                                                    "Z0REL", "ZS"],
                                               interp_str="",
+                                              only_array=True,
                                               verbose=False):
         """
         Extract numpy arrays of specified variable at a specific station.
@@ -200,6 +202,7 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         nwp_name = self.nwp.name
         stations = self.observation.stations
         idx_str = f"index_{nwp_name}_NN_0{interp_str}_ref_{nwp_name}{interp_str}"
+
         y_idx_nwp, x_idx_nwp = stations[idx_str][stations["name"] == station_name].values[0]
         y_idx_nwp, x_idx_nwp = np.int16(y_idx_nwp), np.int16(x_idx_nwp)
 
@@ -212,29 +215,44 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
             results[variable_to_extract.index("time")] = time_index
 
         if "wind_speed" in variable_to_extract:
-            wind_speed = nwp_instance.Wind.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+            if only_array:
+                wind_speed = nwp_instance.Wind.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+            else:
+                wind_speed = wind_speed = nwp_instance.Wind.isel(xx=x_idx_nwp, yy=y_idx_nwp)
             results[variable_to_extract.index("wind_speed")] = wind_speed
 
         if "wind_direction" in variable_to_extract:
-            wind_dir = nwp_instance.Wind_DIR.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+            if only_array:
+                wind_dir = nwp_instance.Wind_DIR.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+            else:
+                wind_dir = nwp_instance.Wind_DIR.isel(xx=x_idx_nwp, yy=y_idx_nwp)
             results[variable_to_extract.index("wind_direction")] = wind_dir
 
         if "Z0" in variable_to_extract:
-            Z0 = nwp_instance.Z0.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+            if only_array:
+                Z0 = nwp_instance.Z0.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+            else:
+                Z0 = nwp_instance.Z0.isel(xx=x_idx_nwp, yy=y_idx_nwp)
             results[variable_to_extract.index("Z0")] = Z0
 
         if "Z0REL" in variable_to_extract:
-            Z0REL = nwp_instance.Z0REL.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+            if only_array:
+                Z0REL = nwp_instance.Z0REL.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+            else:
+                Z0REL = nwp_instance.Z0REL.isel(xx=x_idx_nwp, yy=y_idx_nwp)
             results[variable_to_extract.index("Z0REL")] = Z0REL
 
         if "ZS" in variable_to_extract:
-            ZS = nwp_instance.ZS.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+            if only_array:
+                ZS = nwp_instance.ZS.isel(xx=x_idx_nwp, yy=y_idx_nwp).data
+            else:
+                ZS = nwp_instance.ZS.isel(xx=x_idx_nwp, yy=y_idx_nwp)
             results[variable_to_extract.index("ZS")] = ZS
 
         print(f"Selected time series for pixel at station: {station_name}") if verbose else None
 
         results = results[0] if len(results) == 1 else results
-        return (results)
+        return results
 
     @staticmethod
     def _select_time_serie_from_array_xr(array_xr, station_name='Col du Lac Blanc', variable='UV', center=True):
@@ -266,6 +284,8 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         time = array_xr.sel(station=station_name).isel(x=x, y=y).time.data
         return prediction, time
 
+    @print_func_executed_decorator("load model", level_begin="____", level_end="____")
+    @timer_decorator("load model", unit="second", level=". . . . ")
     def load_model(self, dependencies=False):
         """
         Load a CNN, and its dependencies.
@@ -310,6 +330,8 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         std = dict_norm["0"].iloc[1]
         return mean, std
 
+    @print_func_executed_decorator("select timeframe NWP", level_begin="____", level_end="____")
+    @timer_decorator("select timeframe NWP", unit="second", level=". . . . ")
     def _select_timeframe_nwp(self, begin=None, end=None, ideal_case=False, nwp=None, verbose=True):
         """
         Selects a timeframe for NWP.
@@ -337,8 +359,10 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
 
         self.nwp.select_timeframe(begin=begin, end=end)
 
-        print("__NWP time window selected") if verbose else None
+        print(f"________Begin: {begin}. "
+              f"\n________End: {end}") if verbose else None
 
+    @timer_decorator("initialize arrays", unit="second", level=". . . . ")
     def _initialize_arrays(self, predict='stations_month', nb_station=None, nb_sim=None):
         """
         Utility function used to initialize arrays in _predict_at_stations
@@ -352,6 +376,7 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
             ZS_all = np.empty((nb_station, nb_sim), dtype=np.uint16)
             peak_valley_height = np.empty(nb_station, dtype=np.float32)
             mean_height = np.empty(nb_station, dtype=np.float32)
+            max_height = np.empty(nb_station, dtype=np.float32)
             all_topo_HD = np.empty((nb_station, self.n_rows, self.n_col), dtype=np.uint16)
             all_topo_x_small_l93 = np.empty((nb_station, self.n_col), dtype=np.float32)
             all_topo_y_small_l93 = np.empty((nb_station, self.n_rows), dtype=np.float32)
@@ -359,9 +384,74 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
             three_m_array = 3 * np.ones((nb_station, nb_sim), dtype=np.float32)
             list_arrays_1 = [topo, wind_speed_all, wind_dir_all, Z0_all, Z0REL_all, ZS_all, peak_valley_height,
                              mean_height]
-            list_arrays_2 = [all_topo_HD, all_topo_x_small_l93, all_topo_y_small_l93, ten_m_array, three_m_array]
+            list_arrays_2 = [all_topo_HD, all_topo_x_small_l93, all_topo_y_small_l93, ten_m_array, three_m_array,
+                             max_height]
             list_return = list_arrays_1 + list_arrays_2
         return list_return
+
+    @timer_decorator("modify wind speed observations", unit="second", level=". . ")
+    def modify_wind_speed_observation(self, prm, z_out_height=10, wind_speed='vw10m(m/s)',
+                                      snow_height_str="HTN(cm)", Z0_snow=0.001, Z0_bare_ground=0.05):
+
+        stations = self.observation.stations
+        time_series = self.observation.time_series
+        height_sensor = self.read_height_sensor(prm["height_sensor_path"])
+        time_series["wind_corrected"] = np.nan
+
+        for station in stations["name"].values:
+
+            filter_station = height_sensor["name"] == station
+            sensor_height = height_sensor["height"][filter_station].values[0]
+
+            # Select observations at the station
+            filter_station = time_series["name"] == station
+            obs_station = time_series[filter_station]
+
+            # Load wind speed from observations
+            UV = obs_station[wind_speed].values
+
+            Z0 = np.full_like(UV, Z0_bare_ground)
+
+            z_in = np.full_like(UV, sensor_height)
+            z_out = np.full_like(UV, z_out_height)
+
+            if station in prm["list_no_HTN"]:
+
+                if sensor_height != 10:
+
+                    # Compute logarithmic adjustment
+                    z_in_verbose = str(np.round(np.mean(z_in)))
+                    z_out_verbose = str(z_out_height)
+                    wind_corrected = self.apply_log_profile(z_in, z_out, UV, Z0, z_in_verbose=z_in_verbose,
+                                                            z_out_verbose=z_out_verbose)
+
+                else:
+
+                    wind_corrected = UV
+
+            else:
+
+                snow_height = obs_station[snow_height_str].values / 100
+                Z0 = np.where(snow_height > 0.02, Z0_snow, Z0)
+
+                # Compute logarithmic adjustment
+                z_in = z_in - snow_height
+                z_in_verbose = "multiple heights depending on snow height"
+                z_out_verbose = str(z_out_height)
+                wind_corrected = self.apply_log_profile(z_in, z_out, UV, Z0, z_in_verbose=z_in_verbose,
+                                                        z_out_verbose=z_out_verbose)
+
+            filter_time = time_series.index.isin(obs_station.index)
+            time_series["wind_corrected"][filter_station & filter_time] = wind_corrected
+
+        self.observation.time_series = time_series
+
+    @staticmethod
+    def read_height_sensor(path):
+        try:
+            return pd.read_pickle(path)
+        except:
+            return pd.read_csv(path)
 
     def predict_at_stations(self, stations_name, line_profile=None, prm=None):
         """
@@ -386,6 +476,8 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
             return zs
 
     @staticmethod
+    @print_func_executed_decorator("get closer from learning conditions", level_begin="\n__", level_end="__")
+    @timer_decorator("get closer from learning conditions", unit="second", level="..")
     def get_closer_from_learning_conditions(topo, mean_height, std, P95=530, P05=-527, axis=(1, 2)):
 
         max_alt_deviation = np.nanmax(topo.squeeze() - mean_height, axis=axis)
@@ -454,8 +546,11 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         input_speed = kwargs.get("input_speed")
         input_dir = kwargs.get("input_dir")
         interp_str = kwargs.get("interp_str")
-        extract_stations_only = kwargs.get("extract_stations_only")
+        centered_on_interpolated = kwargs.get("centered_on_interpolated")
         scaling_function = kwargs.get("scaling_function")
+        scale_at_10m = kwargs.get("scale_at_10m")
+        scale_at_max_altitude = kwargs.get("scale_at_max_altitude")
+        get_closer_learning_condition = kwargs.get("get_closer_learning_condition")
 
         # Select timeframe
         self._select_timeframe_nwp(ideal_case=ideal_case, verbose=True)
@@ -469,7 +564,8 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         # initialize arrays
         topo, wind_speed_all, wind_dir_all, Z0_all, Z0REL_all, ZS_all, \
         peak_valley_height, mean_height, all_topo_HD, all_topo_x_small_l93, all_topo_y_small_l93, ten_m_array, \
-        three_m_array = self._initialize_arrays(predict='stations_month', nb_station=nb_station, nb_sim=nb_sim)
+        three_m_array, max_height = self._initialize_arrays(predict='stations_month', nb_station=nb_station,
+                                                            nb_sim=nb_sim)
 
         # Indexes
         nb_pixel = 70  # min = 116/2
@@ -483,11 +579,18 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
             print(f"\nBegin downscaling at {single_station}")
 
             # Select nwp pixel
-            wind_dir_all[idx_station, :], wind_speed_all[idx_station, :], Z0_all[idx_station, :], \
-            Z0REL_all[idx_station, :], ZS_all[idx_station, :] = self._extract_variable_from_nwp_at_station(
-                single_station,
-                variable_to_extract=["wind_direction", "wind_speed", "Z0", "Z0REL", "ZS"],
-                interp_str=interp_str)
+            if Z0:
+                wind_dir_all[idx_station, :], wind_speed_all[idx_station, :], Z0_all[idx_station, :], \
+                Z0REL_all[idx_station, :], ZS_all[idx_station, :] = self._extract_variable_from_nwp_at_station(
+                    single_station,
+                    variable_to_extract=["wind_direction", "wind_speed", "Z0", "Z0REL", "ZS"],
+                    interp_str=interp_str)
+            else:
+                wind_dir_all[idx_station, :], wind_speed_all[idx_station, :], \
+                ZS_all[idx_station, :] = self._extract_variable_from_nwp_at_station(
+                    single_station,
+                    variable_to_extract=["wind_direction", "wind_speed", "ZS"],
+                    interp_str=interp_str)
 
             # For ideal case, we define the input speed and direction
             if ideal_case:
@@ -498,14 +601,19 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
                                                                                input_dir)
 
             # Extract topography
-            extract_around = "station" if not extract_stations_only else "nwp_neighbor_interp"
-            nwp = None if not extract_stations_only else self.nwp
+            extract_around = "station" if not centered_on_interpolated else "nwp_neighbor_interp"
+            nwp = None if not centered_on_interpolated else self.nwp
             topo_HD, topo_x_l93, topo_y_l93 = self.observation.extract_MNT(self.mnt,
                                                                            nb_pixel,
                                                                            nb_pixel,
                                                                            station=single_station,
                                                                            nwp=nwp,
                                                                            extract_around=extract_around)
+            print(topo_y_l93[:5])
+            import matplotlib.pyplot as plt
+            plt.figure()
+            plt.imshow(topo_HD)
+            plt.title(single_station)
 
             # Rotate topographies
             topo[idx_station, :, :, :, 0] = self.select_rotation(data=topo_HD,
@@ -513,20 +621,34 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
                                                                  clockwise=False)[:, y_offset_left:y_offset_right,
                                             x_offset_left:x_offset_right]
 
+            plt.figure()
+            plt.imshow(topo[idx_station, 0, :, :, 0])
+            plt.title(f"rotated: {single_station}, wind direction: {wind_dir_all[idx_station, 0]}")
+
             # Store results
             all_topo_HD[idx_station, :, :] = topo_HD[y_offset_left:y_offset_right, x_offset_left:x_offset_right]
             all_topo_x_small_l93[idx_station, :] = topo_x_l93[x_offset_left:x_offset_right]
             all_topo_y_small_l93[idx_station, :] = topo_y_l93[y_offset_left:y_offset_right]
             peak_valley_height[idx_station] = np.int32(2 * np.nanstd(all_topo_HD[idx_station, :, :]))
             mean_height[idx_station] = np.int32(np.nanmean(all_topo_HD[idx_station, :, :]))
+            max_height[idx_station] = np.int32(np.nanmax(all_topo_HD[idx_station, :, :]))
 
         # Exposed wind
         if Z0:
             peak_valley_height = peak_valley_height.reshape((nb_station, 1))
+            max_height = max_height.reshape((nb_station, 1))
             Z0_all = np.where(Z0_all == 0, 1 * 10 ^ (-8), Z0_all)
+            if scale_at_10m:
+                zs = ten_m_array
+            elif scale_at_max_altitude:
+                zs = max_height
+            else:
+                zs = ZS_all
             height = self.select_height_for_exposed_wind_speed(height=peak_valley_height,
-                                                               zs=ZS_all,
+                                                               zs=zs,
                                                                peak_valley=peak_valley)
+            del zs
+            del max_height
             wind1 = np.copy(wind_speed_all)
 
             # Log profile
@@ -538,8 +660,13 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
             wind2 = np.copy(wind_speed_all)
 
             # Expose wind
+            if scale_at_10m or scale_at_max_altitude:
+                z_out = height
+            else:
+                z_out = height / 2
+            print(f"__exposing at {np.mean(z_out)} m") if verbose else None
             exp_Wind, acceleration_factor = self.exposed_wind_speed(wind_speed=wind_speed_all,
-                                                                    z_out=height / 2,
+                                                                    z_out=z_out,
                                                                     z0=Z0_all,
                                                                     z0_rel=Z0REL_all)
             # exp_Wind = wind_speed_all
@@ -559,9 +686,13 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         # Normalize
         _, std = self._load_norm_prm()
         mean_height = mean_height.reshape((nb_station, 1, 1, 1))
-        std = self.get_closer_from_learning_conditions(topo, mean_height, std, axis=(2, 3))
+        if get_closer_learning_condition:
+            std = self.get_closer_from_learning_conditions(topo, mean_height, std, axis=(2, 3))
+            std = std.reshape((nb_station, nb_sim, 1, 1, 1))
+        else:
+            std = std.reshape((1, 1, 1, 1, 1))
+
         mean_height = mean_height.reshape((nb_station, 1, 1, 1, 1))
-        std = std.reshape((nb_station, nb_sim, 1, 1, 1))
         topo = self.normalize_topo(topo, mean_height, std)
 
         # Reshape for tensorflow
@@ -675,6 +806,14 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
 
         print('__Reshape final predictions done') if verbose else None
 
+        plt.figure()
+        plt.imshow(self.compute_wind_speed(U=U, V=V)[0, 0])
+        plt.title(f"rotated back: O")
+
+        plt.figure()
+        plt.imshow(self.compute_wind_speed(U=U, V=V)[1, 0])
+        plt.title(f"rotated back: 1")
+
         # Store results
         print('__Start creating array') if verbose else None
         array_xr = xr.Dataset(data_vars={"U": (["station", "time", "y", "x"], U),
@@ -733,7 +872,59 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
 
         return array_xr
 
-    def _select_large_domain_around_station(self, station_name, dx, dy, type_input="NWP", additional_dx_mnt=None):
+    @print_func_executed_decorator("select large domain with coordinates", level_begin="____", level_end="____")
+    @timer_decorator("select large domain with coordinates", unit="second", level=". . . . ")
+    def _select_large_domain_with_coordinates(self, type_input="MNT",
+                                              coords=None, epsg_coords="2154", dx_mnt=2_000, x_mnt="x", y_mnt="y",
+                                              dx_nwp=100, x_nwp="X_L93", y_nwp="Y_L93", verbose=True):
+        t0 = t() if verbose else None
+
+        if epsg_coords != "2154":
+            raise NotImplementedError("Please specify coordinates in L93 coordinate system")
+
+        x_min, y_min, x_max, y_max = coords
+
+        assert x_min < x_max
+        assert y_min < y_max
+
+        if type_input == "MNT":
+            data_xr = self.mnt.data_xr
+            x = x_mnt
+            y = y_mnt
+            dx = dx_mnt
+        elif type_input == "NWP":
+            data_xr = self.nwp.data_xr
+            x = x_nwp
+            y = y_nwp
+            dx = dx_nwp
+        else:
+            raise NotImplementedError("We only support domain selection with coordinates and station name")
+
+        x_min = x_min - dx
+        x_max = x_max + dx
+        y_min = y_min - dx
+        y_max = y_max + dx
+
+        assert x_min > np.min(data_xr[x])
+        assert y_min > np.min(data_xr[y])
+        assert x_max < np.max(data_xr[x])
+        assert y_max < np.max(data_xr[y])
+
+        mask = (x_min <= data_xr[x]) & (data_xr[x] <= x_max) & (y_min <= data_xr[y]) & (data_xr[y] <= y_max)
+        data_xr = data_xr.where(mask, drop=True)
+
+        if verbose:
+            print(f"____Selected domain {type_input}. "
+                  f"\n________Margin: {dx} m. "
+                  f"\n________Final length: {np.nanmax(data_xr[x].values) - np.nanmin(data_xr[x].values)} m. "
+                  f"\n________Final height {np.nanmax(data_xr[y].values) - np.nanmin(data_xr[y].values)} m")
+
+        return data_xr
+
+    @print_func_executed_decorator("Select large domain around station", level_begin="____", level_end="____")
+    @timer_decorator("Select large domain around station", unit="second", level=". . . . ")
+    def _select_large_domain_around_station(self, station_name, dx, dy, type_input="NWP", additional_dx_mnt=None,
+                                            verbose=True):
         """
 
         This function operate on NWP or MNT and select and area around a station specified by its name
@@ -760,6 +951,7 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         result : list
             Xarray DataFrame on the specified domain
         """
+        t0 = t() if verbose else None
 
         stations = self.observation.stations
         if type_input == "NWP":
@@ -776,10 +968,12 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
             data_xr = data_xr.where(mask, drop=True)
 
         elif type_input == "MNT":
+
             # MNT domain must be larger than NWP domain as we extract MNT data around NWP data
             if additional_dx_mnt is not None:
                 dx = dx + additional_dx_mnt
                 dy = dy + additional_dx_mnt
+
             mnt_name = self.mnt.name
             mnt_x, mnt_y = stations[f"{mnt_name}_NN_0_cKDTree"][stations["name"] == station_name].values[0]
 
@@ -792,9 +986,15 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
             mask = (x_min <= data_xr.x) & (data_xr.x <= x_max) & (y_min <= data_xr.y) & (data_xr.y <= y_max)
             data_xr = data_xr.where(mask, drop=True)
 
+        else:
+            raise NotImplementedError
+
+        print(f"____Time to select large domain around station: {np.round(t()-t0)} seconds")
         return data_xr
 
     @staticmethod
+    @print_func_executed_decorator("interpolate xarray grid", level_begin="____", level_end="____")
+    @timer_decorator("interpolate xarray grid", unit="second", level=". . . . ")
     def interpolate_xarray_grid(xarray_data=None, interp=None, name_x='xx', name_y='yy', method='linear'):
         """
         Interpolate a regular grid on an xarray dataframe using multilinear interpolation.
@@ -825,21 +1025,44 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         xarray_data = xarray_data.interp(xx=new_x, yy=new_y, method=method)
         return xarray_data
 
+    @print_func_executed_decorator("prepare time and domain NWP", level_begin="\n__", level_end="__")
+    @timer_decorator("prepare time and domain NWP", unit="second", level=". . ")
     def prepare_time_and_domain_nwp(self, year_0, month_0, day_0, hour_0, year_1, month_1, day_1, hour_1,
-                                    station_name=None, dx=None, dy=None, additional_dx_mnt=None, verbose=True):
+                                    select_area="station", station_name=None, dx=None, dy=None,
+                                    coords=None, epsg_coords="2154",
+                                    additional_dx_mnt=None, x_nwp="X_L93", y_nwp="Y_L93",
+                                    additional_dx_nwp=100, verbose=True):
+        if verbose:
+            print(f"____Area selected using: {select_area}")
 
+        # Select timeframe
         begin = datetime.datetime(year_0, month_0, day_0, hour_0)
         end = datetime.datetime(year_1, month_1, day_1, hour_1)
         self._select_timeframe_nwp(begin=begin, end=end)
 
-        nwp_data = self._select_large_domain_around_station(station_name, dx, dy, type_input="NWP",
-                                                            additional_dx_mnt=additional_dx_mnt)
-        if verbose: print("__Prepare time and domain NWP")
+        # Select area
+        if select_area == "station":
+            nwp_data = self._select_large_domain_around_station(station_name, dx, dy,
+                                                                type_input="NWP",
+                                                                additional_dx_mnt=additional_dx_mnt)
+        elif select_area == "coord":
+            nwp_data = self._select_large_domain_with_coordinates(coords=coords,
+                                                                  epsg_coords=epsg_coords,
+                                                                  type_input="NWP",
+                                                                  x_nwp=x_nwp,
+                                                                  y_nwp=y_nwp,
+                                                                  dx_nwp=additional_dx_nwp)
+        else:
+            raise NotImplementedError
+
         return nwp_data
 
+    @print_func_executed_decorator("interpolating xarray", level_begin="\n__", level_end="__")
+    @timer_decorator("interpolating xarray", unit="second", level=". . ")
     def interpolate_wind_grid_xarray(self, nwp_data, interp=2, method='linear', verbose=True):
 
-        print("__Begin interpolating xarray") if verbose else None
+        if verbose:
+            t0 = t()
 
         # Calculate U_nwp and V_nwp
         nwp_data = self.horizontal_wind_component(working_with_xarray=True, xarray_data=nwp_data)
@@ -851,31 +1074,40 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         nwp_data = self.interpolate_xarray_grid(xarray_data=nwp_data, interp=interp, method=method)
         nwp_data = self.compute_wind_speed(computing='xarray', xarray_data=nwp_data)
 
-        print("__Interpolated xarray") if verbose else None
         return nwp_data
 
-    def get_caracteristics_nwp(self, nwp_data):
+    @print_func_executed_decorator("get NWP characteristics", level_begin="\n__", level_end="__")
+    @timer_decorator("get NWP characteristics", unit="second", level=". . ")
+    def get_characteristics_nwp(self, nwp_data, verbose=True):
+
+        t0 = t() if verbose else None
+
         times = nwp_data.time.data.astype(np.float32)
         nb_time_step = len(times)
         nwp_x_l93 = nwp_data.X_L93.data.astype(np.float32)
         nwp_y_l93 = nwp_data.Y_L93.data.astype(np.float32)
         nb_px_nwp_y, nb_px_nwp_x = nwp_x_l93.shape
+
+        if verbose:
+            print(f"____Selection NWP characteristics: {np.round(t()-t0)} seconds")
+
         return times, nb_time_step, nwp_x_l93, nwp_y_l93, nb_px_nwp_y, nb_px_nwp_x
 
-    def get_caracteristics_mnt(self, mnt_data, verbose=True):
+    @print_func_executed_decorator("get MNT characteristics", level_begin="\n__", level_end="__")
+    @timer_decorator("get MNT characteristics", unit="second", level=". . ")
+    def get_characteristics_mnt(self, mnt_data, verbose=True):
 
         xmin_mnt = np.nanmin(mnt_data.x.data)
         ymax_mnt = np.nanmax(mnt_data.y.data)
         resolution_x = self.mnt.resolution_x
         resolution_y = self.mnt.resolution_y
 
-        print("__Selected NWP caracteristics") if verbose else None
-
         return xmin_mnt, ymax_mnt, resolution_x, resolution_y
 
     @staticmethod
+    @print_func_executed_decorator("extracting variables from xarray", level_begin="__", level_end="__")
+    @timer_decorator("extracting variables from xarray", unit="second", level=". . ")
     def extract_from_xarray_to_numpy(array, list_variables, verbose=True):
-        print("__Variables extracted from xarray data") if verbose else None
         return (array[variable].data.astype(np.float32) for variable in list_variables)
 
     @staticmethod
@@ -912,6 +1144,8 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
 
         return result
 
+    @print_func_executed_decorator("replace pixels on maps", level_begin="\n__", level_end="__")
+    @timer_decorator("replace pixels on maps", unit="second", level=". . ")
     def replace_pixels_on_map(self, mnt_map=None, wind=None, idx_x_mnt=None, idx_y_mnt=None,
                               x_center=None, y_center=None, wind_speed_nwp=None, save_pixels=15, acceleration=False,
                               library='numba', verbose=True):
@@ -920,8 +1154,6 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         y_offset_right = y_center + save_pixels + 1
         x_offset_left = x_center - save_pixels
         x_offset_right = x_center + save_pixels + 1
-
-        print("__Replaced pixels on map") if verbose else None
 
         mnt_map = self._replace_pixels_on_map(mnt_map=mnt_map, wind=wind, idx_x_mnt=idx_x_mnt, idx_y_mnt=idx_y_mnt,
                                               library=library, save_pixels=save_pixels,
@@ -947,6 +1179,8 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         else:
             return mnt_map, np.array([])
 
+    @print_func_executed_decorator("final interpolation", level_begin="\n__", level_end="__")
+    @timer_decorator("final interpolation", unit="second", level=". . ")
     def interpolate_final_result(self, wind_map, library='numba', verbose=True):
         if library == 'numba' and _numba:
             jit_int = jit([float32[:, :, :, :](float32[:, :, :, :])], nopython=True)(self._interpolate_array)
@@ -975,6 +1209,8 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
                         wind_map[time_step, y, x, component] = np.mean(neighbors[~np.isnan(neighbors)])
         return wind_map
 
+    @print_func_executed_decorator("Horizontal stacking of topographies", level_begin="\n__", level_end="__")
+    @timer_decorator("Horizontal stacking of topographies", unit="second", level=". . ")
     def hstack_topo(self, topo_i, idx_x_mnt, idx_y_mnt, mnt_data, nb_pixel, library='numba', verbose=True):
 
         if library == 'numba' and _numba:
@@ -999,6 +1235,8 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
                 topo_i[j, i, :, :] = mnt_data[0, y - nb_pixel:y + nb_pixel, x - nb_pixel:x + nb_pixel]
         return topo_i
 
+    @print_func_executed_decorator("Look for stations in the domain", level_begin="\n__", level_end="__")
+    @timer_decorator("Look for stations in the domain", unit="second", level=". . ")
     def find_stations_in_domain(self, mnt_data_x=None, mnt_data_y=None, verbose=True):
 
         # DataFrame with stations
@@ -1017,6 +1255,8 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
             print(f"__Stations found in the domain: \n {stations['name'].values}")
         return stations['X'], stations['Y'], stations['name']
 
+    @print_func_executed_decorator("Extract indexes of downscaled wind at stations", level_begin="\n__", level_end="__")
+    @timer_decorator("Extract indexes of downscaled wind at stations", unit="second", level=". . ")
     def extract_downscaled_wind_at_stations(self,
                                             mnt_data_x=None, mnt_data_y=None, xmin_mnt=None, ymax_mnt=None,
                                             resolution_x=None, resolution_y=None, look_for_resolution=False,
@@ -1031,17 +1271,19 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
                                                                          look_for_resolution=look_for_resolution,
                                                                          resolution_x=resolution_x,
                                                                          resolution_y=resolution_y)
-        print("__Extracted indexes at stations") if verbose else None
 
         return idx_x_stations, idx_y_stations, stations.values
 
-    # todo save indexes second rotation
-    def _predict_maps(self, station_name='Col du Lac Blanc', dx=10_000, dy=10_000, interp=3,
-                      year_begin=None, month_begin=None, day_begin=None, hour_begin=None,
-                      year_end=None, month_end=None, day_end=None, hour_end=None,
-                      Z0=True, verbose=True, peak_valley=True, method='linear', type_rotation='indexes',
-                      log_profile_to_h_2=False, log_profile_from_h_2=False, log_profile_10m_to_3m=False,
-                      nb_pixels=15, interpolate_final_map=True, extract_stations_only=False, **kwargs):
+    @print_func_executed_decorator("cnn prediction", level_begin="\n__", level_end="__")
+    @timer_decorator("cnn prediction", unit="minute", level="..")
+    def cnn_prediction(self, input_topo, verbose=True):
+        print(f"____Input shape before CNN prediction: {input_topo.shape}") if verbose else None
+        prediction = self.model.predict(input_topo)
+        return prediction
+
+    @print_func_executed_decorator("Predict maps", level_begin="\n", level_end="")
+    @timer_decorator("Predict maps", unit="minute", level="")
+    def _predict_maps(self, **kwargs):
 
         station_name = kwargs.get("station_name")
         dx = kwargs.get("dx")
@@ -1065,16 +1307,28 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         log_profile_10m_to_3m = kwargs.get("log_profile_10m_to_3m")
         nb_pixels = kwargs.get("nb_pixels")
         interpolate_final_map = kwargs.get("interpolate_final_map")
-        extract_stations_only = kwargs.get("extract_stations_only")
+        centered_on_interpolated = kwargs.get("centered_on_interpolated")
         scaling_function = kwargs.get("scaling_function")
+        scale_at_10m = kwargs.get("scale_at_10m")
+        scale_at_max_altitude = kwargs.get("scale_at_max_altitude")
+        get_closer_learning_condition = kwargs.get("get_closer_learning_condition")
+        coords_domain_for_map_prediction = kwargs.get("coords_domain_for_map_prediction")
+        select_area = kwargs.get("select_area")
 
         # Select NWP data
         nwp_data = self.prepare_time_and_domain_nwp(year_begin, month_begin, day_begin, hour_begin,
                                                     year_end, month_end, day_end, hour_end,
-                                                    station_name=station_name, dx=dx, dy=dy)
+                                                    select_area=select_area,
+                                                    station_name=station_name, dx=dx, dy=dy,
+                                                    coords=coords_domain_for_map_prediction,
+                                                    additional_dx_nwp=4_000)
+        nwp_data = nwp_data.dropna(dim="xx").dropna(dim="yy")
         nwp_data_initial = nwp_data.copy(deep=False)
+
+        # Interpolate NWP
         nwp_data = self.interpolate_wind_grid_xarray(nwp_data, interp=interp, method=method, verbose=verbose)
-        times, nb_time_step, nwp_x_l93, nwp_y_l93, nb_px_nwp_y, nb_px_nwp_x = self.get_caracteristics_nwp(nwp_data)
+        times, nb_time_step, nwp_x_l93, nwp_y_l93, nb_px_nwp_y, nb_px_nwp_x = self.get_characteristics_nwp(nwp_data)
+
         variables = ["Wind", "Wind_DIR", "Z0", "Z0REL", "ZS"] if Z0 else ["Wind", "Wind_DIR"]
         if Z0:
             wind_speed_nwp, wind_DIR_nwp, Z0_nwp, Z0REL_nwp, ZS_nwp = self.extract_from_xarray_to_numpy(nwp_data,
@@ -1083,9 +1337,21 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
             wind_speed_nwp, wind_DIR_nwp = self.extract_from_xarray_to_numpy(nwp_data, variables)
 
         # Select MNT data
-        mnt_data = self._select_large_domain_around_station(station_name, dx, dy, type_input="MNT",
-                                                            additional_dx_mnt=2_000)
-        xmin_mnt, ymax_mnt, resolution_x, resolution_y = self.get_caracteristics_mnt(mnt_data)
+        if centered_on_interpolated:
+            mnt_data = self._select_large_domain_with_coordinates(type_input="MNT",
+                                                                  coords=coords_domain_for_map_prediction,
+                                                                  epsg_coords="2154",
+                                                                  dx_mnt=4_000,
+                                                                  x_mnt="x",
+                                                                  y_mnt="y")
+        else:
+            mnt_data = self._select_large_domain_around_station(station_name, dx, dy,
+                                                                type_input="MNT",
+                                                                additional_dx_mnt=4_000)
+
+        # Select MNT data characteristics
+        mnt_data = self.mnt.data_xr
+        xmin_mnt, ymax_mnt, resolution_x, resolution_y = self.get_characteristics_mnt(mnt_data)
         mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt = self.mnt._get_mnt_data_and_shape(mnt_data)
         coord = [mnt_data_x, mnt_data_y]
 
@@ -1093,12 +1359,14 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         wind_map = np.zeros((nb_time_step, shape_x_mnt, shape_y_mnt, 3), dtype=np.float32)
         peak_valley_height = np.empty((nb_px_nwp_y, nb_px_nwp_x), dtype=np.float32)
         mean_height = np.empty((nb_px_nwp_y, nb_px_nwp_x), dtype=np.float32)
+        max_height = np.empty((nb_px_nwp_y, nb_px_nwp_x), dtype=np.float32)
 
         # Constants
         nb_pixel = 70
 
         # Load pre_rotated indexes
-        all_mat = np.load(self.data_path + "MNT/indexes_rot.npy").astype(np.int32).reshape(360, 79 * 69, 2)
+        if type_rotation == 'indexes':
+            all_mat = np.load(self.data_path + "MNT/indexes_rot.npy").astype(np.int32).reshape(360, 79 * 69, 2)
 
         # Select indexes MNT
         idx_x_mnt, idx_y_mnt = self.mnt.find_nearest_MNT_index(nwp_x_l93[:, :],
@@ -1110,12 +1378,13 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
                                                                resolution_x=resolution_x,
                                                                resolution_y=resolution_y)
 
-        # Large topo
+        # Create a vector containing all topographies around NWP pixels
         topo_i = np.empty((nb_px_nwp_y, nb_px_nwp_x, 140, 140)).astype(np.float32)
         topo_i = self.hstack_topo(topo_i, idx_x_mnt, idx_y_mnt, mnt_data, nb_pixel, library='numba')
 
         # Mean peak_valley altitude
-        peak_valley_height[:, :] = self.mean_peak_valley(topo_i, )
+        peak_valley_height[:, :] = self.mean_peak_valley(topo_i) if not scale_at_max_altitude else peak_valley_height
+        max_height[:, :] = np.int32(np.nanmax(topo_i)) if scale_at_max_altitude else max_height
         mean_height[:, :] = np.int32(np.mean(topo_i))
 
         # Wind direction
@@ -1142,8 +1411,10 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         # Normalize
         _, std = self._load_norm_prm()
         mean_height = mean_height.reshape((1, nb_px_nwp_y, nb_px_nwp_x, 1, 1))
-        std = self.get_closer_from_learning_conditions(topo_rot, mean_height, std, axis=(3, 4))
-        std = std.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 1, 1)).astype(dtype=np.float32, copy=False)
+        max_height = max_height.reshape((1, nb_px_nwp_y, nb_px_nwp_x, 1, 1))
+        if get_closer_learning_condition:
+            std = self.get_closer_from_learning_conditions(topo_rot, mean_height, std, axis=(3, 4))
+        std = std.reshape((1, 1, 1, 1, 1)).astype(dtype=np.float32, copy=False)
         topo_rot = self.normalize_topo(topo_rot, mean_height, std).astype(dtype=np.float32, copy=False)
 
         del std
@@ -1156,7 +1427,7 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         self.load_model(dependencies=True)
 
         # Predictions
-        prediction = self.model.predict(topo_rot)
+        prediction = self.cnn_prediction(topo_rot)
 
         # Reshape predictions for analysis and broadcasting
         prediction = prediction.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, self.n_rows, self.n_col, 3)).astype(
@@ -1165,8 +1436,8 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
                                                                                                           copy=False)
         wind_DIR_nwp = wind_DIR_nwp.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 1, 1)).astype(np.float32,
                                                                                                    copy=False)
-        acceleration_cnn = prediction / 3
-        print("____Acceleration maximum CNN", np.nanmax(acceleration_cnn))
+        acceleration_cnn = self.wind_speed_ratio(num=prediction, den=3)
+        #print_statistical_description_array(acceleration_cnn, name="Acceleration CNN")
 
         # Exposed wind speed
         if Z0:
@@ -1178,10 +1449,17 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
             peak_valley_height = peak_valley_height.reshape((1, nb_px_nwp_y, nb_px_nwp_x, 1, 1, 1))
             ten_m_array = np.zeros_like(peak_valley_height) + 10
             three_m_array = np.zeros_like(peak_valley_height) + 10
+            max_height = max_height.reshape((1, nb_px_nwp_y, nb_px_nwp_x, 1, 1, 1))
 
             # Choose height in the formula
+            if scale_at_10m:
+                zs = ten_m_array
+            elif scale_at_max_altitude:
+                zs = max_height
+            else:
+                zs = ZS_nwp
             height = self.select_height_for_exposed_wind_speed(height=peak_valley_height,
-                                                               zs=ZS_nwp,
+                                                               zs=zs,
                                                                peak_valley=peak_valley)
 
             # Apply log profile: 10m => h/2 or 10m => Zs
@@ -1189,9 +1467,15 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
                 wind_speed_nwp = self.apply_log_profile(z_in=ten_m_array, z_out=peak_valley_height / 2,
                                                         wind_in=wind_speed_nwp, z0=Z0_nwp,
                                                         verbose=verbose, z_in_verbose="10m", z_out_verbose="height/2")
+
             # Unexpose wind speed
+            if scale_at_10m or scale_at_max_altitude:
+                z_out = height
+            else:
+                z_out = height / 2
+
             exp_Wind, acceleration_factor = self.exposed_wind_speed(wind_speed=wind_speed_nwp,
-                                                                    z_out=(height / 2),
+                                                                    z_out=z_out,
                                                                     z0=Z0_nwp,
                                                                     z0_rel=Z0REL_nwp,
                                                                     verbose=True)
@@ -1267,36 +1551,57 @@ class Processing(Wind_utils, DwnscHelbig, MicroMet, Rotation):
         if interpolate_final_map:
             wind_map = self.interpolate_final_result(wind_map, library='numpy')
 
-        if extract_stations_only:
-            idx_x_stations, idx_y_stations, stations = self.extract_downscaled_wind_at_stations(mnt_data_x=mnt_data_x,
-                                                                                                mnt_data_y=mnt_data_y,
-                                                                                                xmin_mnt=xmin_mnt,
-                                                                                                ymax_mnt=ymax_mnt,
-                                                                                                resolution_x=resolution_x,
-                                                                                                resolution_y=resolution_y)
+        if centered_on_interpolated:
+            #idx_x_stations, idx_y_stations, stations = self.extract_downscaled_wind_at_stations(mnt_data_x=mnt_data_x,
+            #                                                                                    mnt_data_y=mnt_data_y,
+            #                                                                                    xmin_mnt=xmin_mnt,
+            #                                                                                    ymax_mnt=ymax_mnt,
+            #                                                                                    resolution_x=resolution_x,
+            #                                                                                    resolution_y=resolution_y)
 
-            return wind_map[:, idx_y_stations, idx_x_stations, :], \
-                   acceleration_all[:, idx_y_stations, idx_x_stations], \
-                   nwp_data_initial.time.values, \
-                   stations, [], []
+            wind = wind_map.reshape((nb_time_step, shape_x_mnt, shape_y_mnt, 3))
+            wind_xr = xr.Dataset(
+                data_vars=dict(
+                    U=(["time", "y", "x"], wind[:, :, :, 0]),
+                    V=(["time", "y", "x"], wind[:, :, :, 1]),
+                    W=(["time", "y", "x"], wind[:, :, :, 2])),
+
+                coords=dict(
+                    x=(["x"], coord[0]),
+                    y=(["y"], coord[1]),
+                    time=nwp_data_initial.time.values)
+            )
+
+            #return wind_map[:, idx_y_stations, idx_x_stations, :], \
+            #       acceleration_all[:, idx_y_stations, idx_x_stations], \
+            #       nwp_data_initial.time.values, \
+            #       stations, [], []
+
+            return wind_xr
 
         return wind_map, acceleration_all, coord, nwp_data_initial, nwp_data, mnt_data
 
-    def predict_maps(self, line_profile=None, memory_profile=None, **kwargs):
+    def predict_maps(self, line_profile=False, memory_profile=False, prm=None):
         """
         This function is used to select map predictions, the line profiled version or the memory profiled version
         """
+
+        line_profile = prm["line_profile"] if prm["line_profile"] is not None else line_profile
+        memory_profile = prm["memory_profile"] if prm["memory_profile"] is not None else memory_profile
 
         if line_profile:
             from line_profiler import LineProfiler
             lp = LineProfiler()
             lp_wrapper = lp(self._predict_maps)
-            lp_wrapper(**kwargs)
+            lp_wrapper(**prm)
             lp.print_stats()
         elif memory_profile:
             from memory_profiler import profile
             mp = profile(self._predict_maps)
-            mp(**kwargs)
+            mp(**prm)
         else:
-            array_xr = self._predict_maps(**kwargs)
+            array_xr = self._predict_maps(**prm)
             return array_xr
+
+
+

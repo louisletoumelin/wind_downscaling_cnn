@@ -2,6 +2,9 @@ import numpy as np
 import pandas as pd
 import datetime
 
+from downscale.Utils.Decorators import print_func_executed_decorator, timer_decorator
+
+
 def select_range(month_begin, month_end, year_begin, year_end, date_begin, date_end):
     import pandas as pd
     if (month_end != month_begin) or (year_begin != year_end):
@@ -20,10 +23,13 @@ def select_range_7days_for_long_periods_prediction(begin="2017-8-2", end="2020-6
     Works if we have only one splitting in a week
     """
 
+    begin = np.datetime64(pd.to_datetime(begin))
+    end = np.datetime64(pd.to_datetime(end))
+
     # Define 7 days periods within date range
     dates = pd.date_range(start=begin, end=end, freq="7D")
     dates_shift = pd.date_range(start=begin, end=end, freq="7D").shift()
-    dates_shift = dates_shift.where(dates_shift <= end, end)
+    dates_shift = dates_shift.where(dates_shift <= end, [end])
 
     # Split range around selected dates
     d1 = datetime.datetime(2017, 8, 1, 6)
@@ -123,12 +129,6 @@ def select_range_30_days_for_long_periods_prediction(begin="2017-8-2", end="2020
     return begins, ends
 
 
-def check_save_and_load(load_z0, save_z0):
-    if load_z0 and save_z0:
-        save_z0 = False
-    return load_z0, save_z0
-
-
 def print_current_line(time_step, nb_sim, division):
     nb_sim_divided = nb_sim // division
     for k in range(1, division + 1):
@@ -209,3 +209,19 @@ def lists_to_arrays_if_required(lists_or_arrays):
         return (_list_to_array_if_required(list_or_array) for list_or_array in lists_or_arrays)
     else:
         return _list_to_array_if_required(lists_or_arrays)
+
+
+@timer_decorator("statistical description array", unit="minute", level="")
+def print_statistical_description_array(array, name="Acceleration CNN", level="________"):
+
+    print(f"{level}{name} min", np.nanmin(array))
+    print(f"\n{level}{name} q0.10", np.nanquantile(array, 0.1))
+    print(f"\n{level}{name} q0.25", np.nanquantile(array, 0.25))
+    print(f"\n{level}{name} median", np.nanmedian(array))
+    print(f"\n{level}{name} q0.75", np.nanquantile(array, 0.75))
+    print(f"\n{level}{name} q0.90", np.nanquantile(array, 0.9))
+    print(f"\n{level}{name} q0.95", np.nanquantile(array, 0.95))
+    print(f"\n{level}{name} q0.99", np.nanquantile(array, 0.99))
+    print(f"\n{level}{name} maximum", np.nanmax(array))
+
+    return None

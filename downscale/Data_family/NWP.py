@@ -30,16 +30,18 @@ class NWP(Data_2D):
     _pyproj = _pyproj
     _shapely_geometry = _shapely_geometry
 
-    def __init__(self, path_to_file=None, name=None, begin=None, end=None,
+    def __init__(self, path_to_file=None, begin=None, end=None,
                  variables_of_interest=['Wind', 'Wind_DIR', 'LAT', 'LON', 'ZS'], prm=None):
 
-        save_path = prm["save_path"]
-        path_Z0_2018 = prm["path_Z0_2018"]
-        path_Z0_2019 = prm["path_Z0_2019"]
-        path_to_file_npy = prm["path_to_file_npy"]
-        verbose = prm["verbose"]
-        load_z0 = prm["load_z0"]
-        save = prm["save_z0"]
+        path_to_file = prm["selected_path"] if prm is not None else path_to_file
+        save_path = prm["save_path"] if prm is not None else None
+        path_Z0_2018 = prm["path_Z0_2018"] if prm is not None else None
+        path_Z0_2019 = prm["path_Z0_2019"] if prm is not None else None
+        path_to_file_npy = prm["path_to_file_npy"] if prm is not None else None
+        verbose = prm["verbose"] if prm is not None else None
+        load_z0 = prm["load_z0"] if prm is not None else None
+        save = prm["save_z0"] if prm is not None else None
+        name = prm["name_nwp"] if prm is not None else None
 
         if verbose:
             print("\nBegin NWP creation")
@@ -356,15 +358,13 @@ class NWP(Data_2D):
             end = self.end
 
         if isinstance(begin, np.datetime64) and isinstance(end, np.datetime64):
-            print("\nused np.datetime64\n")
+            print("\n____Used np.datetime64 to select timeframe\n")
             self.data_xr = self.data_xr.sel(time=slice(np.datetime64(begin), np.datetime64(end)))
 
         elif isinstance(begin, pd._libs.tslibs.timestamps.Timestamp) and isinstance(end, pd._libs.tslibs.timestamps.Timestamp):
-            print("\nused Timestamp converted to str\n")
-            print(begin)
-            print(end)
-            print(slice(str(begin), str(end)))
+            print("\nused Timestamp converted to str to select timeframe\n")
             self.data_xr = self.data_xr.sel(time=slice(str(begin), str(end)))
 
         elif isinstance(begin, str) and isinstance(end, str):
+            print("\n____Used str to select datetime to str to select timeframe\n")
             self.data_xr = self.data_xr.sel(time=slice(begin, end))

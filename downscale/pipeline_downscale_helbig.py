@@ -12,10 +12,10 @@ from PRM_predict import create_prm
 prm = create_prm(month_prediction=True)
 
 # IGN
-IGN = MNT(prm["topo_path"], name="IGN")
+IGN = MNT(prm=prm)
 
 # AROME
-AROME = NWP(prm["selected_path"], name="AROME", begin=prm["begin"], end=prm["end"], prm=prm)
+AROME = NWP(prm["selected_path"], begin=prm["begin"], end=prm["end"], prm=prm)
 
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 

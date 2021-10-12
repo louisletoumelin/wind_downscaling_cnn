@@ -7,6 +7,7 @@ from downscale.Operators.wind_utils import Wind_utils
 from downscale.Operators.topo_utils import Topo_utils
 from downscale.Operators.Helbig import DwnscHelbig
 from downscale.Operators.Micro_Met import MicroMet
+from downscale.Operators.Processing import Processing
 
 
 class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):
@@ -28,7 +29,8 @@ class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):
         Wind/wcompwind/5degree/gaussianw_N5451_dx30_xi200_sigma18_r000.txt
 
         """
-
+        print("__Begin loading synthetic topographies") if name == 'topo_name' else None
+        print("__Begin loading winds on synthetic topographies") if name == 'wind_name' else None
         all_data = []
 
         for simu in range(len(df_all.values)):
@@ -60,6 +62,9 @@ class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):
 
             # Print execution
             print_current_line(simu, len(df_all.values), 5)
+
+        print("__End loading synthetic topographies") if name == 'topo_name' else None
+        print("__End loading winds on synthetic topographies") if name == 'wind_name' else None
 
         return np.array(all_data)
 
@@ -203,6 +208,76 @@ class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):
                 df[f"class_{variable}"][filter_6] = "sx <= -0.1"
 
         return df
+
+    def load_initial_and_predicted_data_in_df(self, prm):
+        p = Processing(prm=prm)
+        p.load_model(dependencies=True)
+        _, std = p._load_norm_prm()
+
+        df_all = pd.read_csv(prm["path_to_synthetic_topo"]).drop(columns=["degree_xi", 'Unnamed: 0'])
+        topos = self.filenames_to_array(df_all, prm["gaussian_topo_path"], 'topo_name')
+        winds = self.filenames_to_array(df_all, prm["gaussian_topo_path"], 'wind_name').reshape(len(topos), 79, 69, 3)
+
+        # Normalize data
+        mean_topos = np.mean(topos, axis=(1, 2)).reshape(len(topos), 1, 1)
+        std = std.reshape(1, 1, 1)
+        topo_norm = self.normalize_topo(topos, mean_topos, std)
+
+        # Predict test data
+        predictions = p.model.predict(topo_norm)
+
+        for type_of_data in ["pred", "test"]:
+            for variable in [f"U_{type_of_data}", f"V_{type_of_data}", f"W_{type_of_data}"]:
+                df_all[variable] = ""
+
+        # Define U_test, V_test, W_test, U_pred etc
+        for index in range(len(df_all)):
+            df_all["topo_name"].iloc[index] = topos[index, :, :]
+            df_all["U_test"].iloc[index] = winds[index, :, :, 0]
+            df_all["V_test"].iloc[index] = winds[index, :, :, 1]
+            df_all["W_test"].iloc[index] = winds[index, :, :, 2]
+            df_all["U_pred"].iloc[index] = predictions[index, :, :, 0]
+            df_all["V_pred"].iloc[index] = predictions[index, :, :, 1]
+            df_all["W_pred"].iloc[index] = predictions[index, :, :, 2]
+
+        # DataFrame to array
+        U_test, V_test, W_test = df_all["U_test"].values, df_all["V_test"].values, df_all["W_test"].values
+        U_pred, V_pred, W_pred = df_all["U_pred"].values, df_all["V_pred"].values, df_all["W_pred"].values
+
+        # Compute wind and direction
+        df_all["UV_test"] = [self.compute_wind_speed(U_test[index], V_test[index], verbose=False) for index in range(len(U_test))]
+        df_all["UVW_test"] = [self.compute_wind_speed(U_test[index], V_test[index], W_test[index], verbose=False)
+                              for index in range(len(U_test))]
+        df_all["alpha_test"] = [self.angular_deviation(U_test[index], V_test[index], verbose=False) for index in
+                                range(len(U_test))]
+
+        df_all["UV_pred"] = [self.compute_wind_speed(U_pred[index], V_pred[index], verbose=False) for index in
+                             range(len(U_pred))]
+        df_all["UVW_pred"] = [self.compute_wind_speed(U_pred[index], V_pred[index], W_pred[index], verbose=False)
+                              for index in range(len(U_pred))]
+        df_all["alpha_pred"] = [self.angular_deviation(U_pred[index], V_pred[index], verbose=False) for index in
+                                range(len(U_pred))]
+
+        return df_all
+
+    @staticmethod
+    def unnesting(df, explode):
+        idx = df.index.repeat(df[explode[0]].str.len())
+        df1 = pd.concat([
+            pd.DataFrame({x: np.concatenate(df[x].values)}) for x in explode], axis=1)
+        df1.index = idx
+        return df1.join(df.drop(explode, 1), how='left')
+
+    def df_with_list_in_rows_to_flatten_df(self, df_all, list_variables=['topo_name', 'U_test', 'V_test',
+                          'W_test', 'U_pred', 'V_pred', 'W_pred', 'UV_test', 'UVW_test',
+                          'alpha_test', 'UV_pred', 'UVW_pred', 'alpha_pred']):
+
+        for variable in list_variables:
+            df_all[variable] = df_all[variable].apply(lambda x: np.array(x).flatten())
+
+        df_all_flat = self.unnesting(df_all, list_variables)
+
+        return df_all_flat
 
     """
     def load_data_train_test_by_fold(self, prm):

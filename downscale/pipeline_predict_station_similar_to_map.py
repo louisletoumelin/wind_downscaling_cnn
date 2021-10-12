@@ -52,12 +52,12 @@ from downscale.Utils.prm import update_selected_path_for_long_periods, select_st
 prm = create_prm(month_prediction=True)
 connect_GPU_to_horovod() if prm["GPU"] else None
 
-IGN = MNT(prm["topo_path"], name="IGN")
-AROME = NWP(prm["AROME_path_1"], name="AROME", begin=prm["begin"], end=prm["begin_after"], prm=prm)
+IGN = MNT(prm=prm)
+AROME = NWP(prm["AROME_path_1"], begin=prm["begin"], end=prm["begin_after"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 prm = select_stations(prm, BDclim)
 
-p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
+p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
 p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=False)
 
 data_xr_interp = p.interpolate_wind_grid_xarray(AROME.data_xr.isel(time=0),
@@ -95,14 +95,12 @@ if prm["launch_predictions"]:
         print(prm["selected_path"])
 
         # Load NWP
-        AROME = NWP(path_to_file=prm["selected_path"],
-                    name="AROME",
-                    begin=begin,
+        AROME = NWP(begin=begin,
                     end=end,
                     prm=prm)
 
         # Processing
-        p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
+        p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
 
         # Interpolate
         data_xr_interp = p.interpolate_wind_grid_xarray(AROME.data_xr,
@@ -112,7 +110,7 @@ if prm["launch_predictions"]:
         AROME.data_xr = data_xr_interp
 
         # Processing with interpolated data
-        p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
+        p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
 
         # Predict
         array_xr = p.predict_at_stations(prm["stations_to_predict"], prm=prm)
@@ -134,6 +132,7 @@ if prm["launch_predictions"]:
                                                     rolling_mean=None,
                                                     rolling_window=None,
                                                     interp_str=prm["interp_str"],
+                                                    interp_str_nwp="",
                                                     extract_around=prm["extract_around"])
                 results[variable]["nwp"][station].append(nwp)
                 results[variable]["cnn"][station].append(cnn)

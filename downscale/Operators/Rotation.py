@@ -4,6 +4,8 @@ import xarray as xr
 from scipy.ndimage import rotate
 import concurrent.futures
 
+from downscale.Utils.Decorators import print_func_executed_decorator, timer_decorator
+
 try:
     from numba import jit, prange, float64, float32, int32, int64
 
@@ -47,16 +49,17 @@ class Rotation:
         If wind_dir = 270° then angle = 270+90 % 360 = 360 % 360 = 0
         For wind coming from the West, there is no rotation
         """
-        if verbose: print('__Begin rotate topographies')
 
         if not clockwise:
             rotated_topography = self.rotate_vectorize_scipy(topography, 90 + wind_dir)
         if clockwise:
             rotated_topography = self.rotate_vectorize_scipy(topography, -90 - wind_dir)
 
-        if verbose: print('__End rotate topographies')
+        if verbose: print('____Used scipy to rotate')
         return rotated_topography
 
+    @print_func_executed_decorator("rotating", level_begin="__", level_end="__")
+    @timer_decorator("rotating", unit="second", level=". . . . ")
     def select_rotation(self, data=None, wind_dir=None, type_rotation='scipy', clockwise=False, library='numba',
                         verbose=True, all_mat=None, topo_rot=None, topo_i=None, angles=None,
                         wind_large=None, wind=None):

@@ -32,14 +32,19 @@ class Data_2D:
         projected_points = [point for point in gps_to_l93_func.itransform([(lon, lat)])][0]
         return projected_points
 
-    def crop_mnt(self, y_max, x_min, x_max, y_min,
+    def crop_mnt(self, x_min, y_max, x_max, y_min, unit="degree",
                  input_topo='C:/Users/louis/git/wind_downscaling_CNN/Data/1_Raw/MNT/IGN_25m/ign_L93_25m_alpesIG.tif',
-                 output_topo='C:/Users/louis/git/wind_downscaling_CNN/Data/1_Raw/MNT/IGN_25m/topo_lac_blanc.tif',
+                 output_topo='C:/Users/louis/git/wind_downscaling_CNN/Data/1_Raw/MNT/IGN_25m/topo_lac_blanc_2.tif',
                  crs_in=4326,
                  crs_out=2154):
+        """
+        x_min, y_max, x_max, y_min = BDclim.select_bounding_box_around_station(station_name="AGUIL. DU MIDI", dx=2_000, dy=2_000)
+        IGN.crop_mnt(x_min, y_max, x_max, y_min, unit="m")
+        """
         from osgeo import gdal
-        x_min, y_max = self.project_coordinates(lon=x_min, lat=y_max, crs_in=crs_in, crs_out=crs_out)
-        x_max, y_min = self.project_coordinates(lon=x_max, lat=y_min, crs_in=crs_in, crs_out=crs_out)
+        if unit == "degree":
+            x_min, y_max = self.project_coordinates(lon=x_min, lat=y_max, crs_in=crs_in, crs_out=crs_out)
+            x_max, y_min = self.project_coordinates(lon=x_max, lat=y_min, crs_in=crs_in, crs_out=crs_out)
         bbox = (x_min, y_max, x_max, y_min)
         ds = gdal.Open(input_topo)
         gdal.Translate(output_topo, ds, projWin=bbox)

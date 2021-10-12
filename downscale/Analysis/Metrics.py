@@ -7,7 +7,7 @@ class Metrics:
         pass
 
     @staticmethod
-    def pearson_correlation(y_true, y_pred):
+    def pearson_correlation(y_true, y_pred, **kwargs):
         # return(tf.linalg.trace(tfp.stats.correlation(y_pred, y_true))/3)
         pd_series = pd.core.series.Series
 
@@ -18,7 +18,7 @@ class Metrics:
         return pd.concat([y_true, y_pred], axis=1).corr().iloc[0, 1]
 
     @staticmethod
-    def absolute_error(pred, true):
+    def absolute_error(pred, true, **kwargs):
 
         input_is_dataframe = type(pred) == type(true) == pd.core.frame.DataFrame
         input_is_series = type(pred) == type(true) == pd.core.series.Series
@@ -32,7 +32,7 @@ class Metrics:
             return np.abs(pred-true)
 
     @staticmethod
-    def absolute_error_relative(pred, true):
+    def absolute_error_relative(pred, true, **kwargs):
 
         input_is_dataframe = type(pred) == type(true) == pd.core.frame.DataFrame
         input_is_series = type(pred) == type(true) == pd.core.series.Series
@@ -46,7 +46,7 @@ class Metrics:
             return np.where(true != 0, np.abs(pred-true)/true, np.nan)
 
     @staticmethod
-    def RMSE(pred, true):
+    def RMSE(pred, true, **kwargs):
 
         input_is_dataframe = type(pred) == type(true) == pd.core.frame.DataFrame
         input_is_series = type(pred) == type(true) == pd.core.series.Series
@@ -60,7 +60,7 @@ class Metrics:
             return np.sqrt(np.nanmean((pred - true) ** 2))
 
     @staticmethod
-    def mean_bias(pred, true):
+    def mean_bias(pred, true, **kwargs):
 
         input_is_dataframe = type(pred) == type(true) == pd.core.frame.DataFrame
         input_is_series = type(pred) == type(true) == pd.core.series.Series
@@ -74,7 +74,7 @@ class Metrics:
         return np.nanmean(pred - true)
 
     @staticmethod
-    def bias(pred, true):
+    def bias(pred, true, **kwargs):
 
         input_is_dataframe = type(pred) == type(true) == pd.core.frame.DataFrame
         input_is_series = type(pred) == type(true) == pd.core.series.Series
@@ -88,7 +88,7 @@ class Metrics:
         return pred - true
 
     @staticmethod
-    def bias_rel(pred, true):
+    def bias_rel(pred, true, **kwargs):
 
         input_is_dataframe = type(pred) == type(true) == pd.core.frame.DataFrame
         input_is_series = type(pred) == type(true) == pd.core.series.Series
@@ -100,3 +100,54 @@ class Metrics:
             pred = np.array(pred)
             true = np.array(true)
         return np.where(true != 0, (pred - true)/true, np.nan)
+
+    def bias_rel_wind_1(self, pred, true, variable=None, min_speed=1):
+        """
+        Relative bias observations > 1
+        """
+        input_is_dataframe = type(pred) == type(true) == pd.core.frame.DataFrame
+        input_is_series = type(pred) == type(true) == pd.core.series.Series
+
+        if input_is_dataframe or input_is_series:
+            pred = pred[true[variable] >= min_speed]
+            true = true[true[variable] >= min_speed]
+            return self.bias_rel(pred, true)
+        else:
+            pred = np.array(pred)
+            true = np.array(true)
+            pred = pred[true >= min_speed]
+            true = true[true >= min_speed]
+        return self.bias_rel(pred, true)
+
+    def abs_error_rel_wind_1(self, pred, true, variable=None, min_speed=1):
+        """
+        Relative bias observations > 1
+        """
+        input_is_dataframe = type(pred) == type(true) == pd.core.frame.DataFrame
+        input_is_series = type(pred) == type(true) == pd.core.series.Series
+
+        if input_is_dataframe or input_is_series:
+            pred = pred[true[variable] >= min_speed]
+            true = true[true[variable] >= min_speed]
+            return np.abs(self.bias_rel(pred, true))
+        else:
+            pred = np.array(pred)
+            true = np.array(true)
+            pred = pred[true >= min_speed]
+            true = true[true >= min_speed]
+        return np.abs(self.bias_rel(pred, true))
+
+    def bias_direction(self, pred, true, **kwargs):
+
+        input_is_dataframe = type(pred) == type(true) == pd.core.frame.DataFrame
+        input_is_series = type(pred) == type(true) == pd.core.series.Series
+
+        diff1 = np.mod((pred - true), 360)
+        diff2 = np.mod((true - pred), 360)
+
+        if input_is_dataframe or input_is_series:
+            res = pd.concat([diff1, diff2]).min(level=0)
+            return res
+        else:
+            res = np.min([diff1, diff2], axis=0)
+            return res

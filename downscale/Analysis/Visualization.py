@@ -9,6 +9,7 @@ from collections import defaultdict
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+from matplotlib.colors import LightSource
 from mpl_toolkits.mplot3d import axes3d  # Warning
 
 try:
@@ -337,6 +338,7 @@ class Visualization:
         stations = self.p.observation.stations
         nwp_name = self.p.nwp.name
         x_nwp, y_nwp = stations[f"{nwp_name}_NN_0"][stations["name"] == station_name].values[0]
+        y_nwp = y_nwp
 
         NWP_wind_speed = array_xr.NWP_wind_speed.sel(station=station_name).isel(time=time_index).data
         NWP_wind_DIR = array_xr.NWP_wind_DIR.sel(station=station_name).isel(time=time_index).data
@@ -346,7 +348,6 @@ class Visualization:
         ax.quiver(x_nwp, y_nwp, U_nwp, V_nwp, color='red')
         ax.text(x_nwp - 100, y_nwp + 100, str(np.round(NWP_wind_speed, 1)) + " m/s", color='red')
         ax.text(x_nwp + 100, y_nwp - 100, str(np.round(NWP_wind_DIR)) + '°', color='red')
-        ax.axis('equal')
 
     def _plot_arrow_for_observation_station(self, array_xr, time_index, station_name='Col du Lac Blanc'):
         # Arrow for station wind
@@ -371,7 +372,8 @@ class Visualization:
         V_observed = -np.cos((np.pi / 180) * observed_UV_DIR) * observed_UV
         ax.quiver(x_observation, y_observation, U_observed, V_observed, color='black')
 
-    def _plot_arrows_for_CNN(self, array_xr, time_index, station_name='Col du Lac Blanc'):
+    def _plot_arrows_for_CNN(self, array_xr, time_index, station_name='Col du Lac Blanc', scale=1 / 0.005,
+                             cmap="coolwarm", size_proportionnal=False, **kwargs):
         ax = plt.gca()
         U = array_xr.U.sel(station=station_name).isel(time=time_index).data
         V = array_xr.V.sel(station=station_name).isel(time=time_index).data
@@ -381,14 +383,23 @@ class Visualization:
         x = array_xr["XX"].sel(station=station_name).data
         y = array_xr["YY"].sel(station=station_name).data
         XX, YY = np.meshgrid(x, y)
+        n = 3
+        if size_proportionnal:
+            arrows = ax.quiver(XX[::n, ::n], YY[::n, ::n], U[::n, ::n], V[::n, ::n], UV[::n, ::n],
+                               scale=scale,
+                               cmap=cmap,
+                               norm=MidpointNormalize(midpoint=NWP_wind_speed),
+                               **kwargs)
+        else:
+            arrows = ax.quiver(XX[::n, ::n], YY[::n, ::n], U[::n, ::n]/UV[::n, ::n], V[::n, ::n]/UV[::n, ::n], UV[::n, ::n],
+                               scale=scale,
+                               cmap=cmap,
+                               norm=MidpointNormalize(midpoint=NWP_wind_speed),
+                               **kwargs)
 
-        arrows = ax.quiver(XX, YY, U, V, UV,
-                           scale=1 / 0.005,
-                           cmap='coolwarm',
-                           norm=MidpointNormalize(midpoint=NWP_wind_speed))
-        plt.colorbar(arrows, orientation='horizontal')
+        plt.colorbar(arrows, orientation='vertical')
 
-    def plot_predictions_2D(self, array_xr=None, stations_name=['Col du Lac Blanc']):
+    def plot_predictions_2D(self, array_xr=None, stations_name=['Col du Lac Blanc'], **kwargs):
 
         if array_xr is None:
             array_xr = self.p.predict_UV_with_CNN(self, stations_name)
@@ -423,18 +434,36 @@ class Visualization:
             else:
                 midpoint = nwp_DIR
 
-            plt.figure()
+            plt.figure(figsize=(10, 20))
             display = array_xr[variable].sel(station=random_station_name).isel(time=random_time_idx).data
             plt.contourf(XX_station, YY_station, display, cmap='bwr', norm=MidpointNormalize(midpoint=midpoint))
             plt.title(variable + '\n' + random_station_name + '\n' + str(time))
-            plt.colorbar()
-            ax = plt.gca()
-            ax.axis('equal')
 
             if variable in ["UV", "UVW"]:
+                mnt_small = self.p.observation.extract_MNT_around_station(stations_name[0], self.p.mnt, 100, 100)
+                topo = mnt_small[0][100 - 79 // 2:100 + 79 // 2 + 1, 100 - 80 // 2: 100 + 80 // 2 + 1]
+                XX = mnt_small[1][100 - 80 // 2: 100 + 80 // 2 + 1]
+                YY = mnt_small[2][100 - 79 // 2:100 + 79 // 2 + 1]
+
+                ls = LightSource(azdeg=270, altdeg=45)
+                plt.contourf(XX, YY,
+                             ls.hillshade(topo, fraction=0.01, vert_exag=10_000, dx=35, dy=35),
+                             cmap=plt.cm.gray, vmin=0.48, vmax=0.51)
+                CS = plt.contour(XX, YY, topo, colors="dimgrey", levels=15, alpha=0.75)
+                ax = plt.gca()
+                ax.clabel(CS, CS.levels, fmt="%d", inline=True, fontsize=10)
+
+                ax = plt.gca()
+                ax.set_aspect('equal', 'box')
+                ax.xaxis.set_tick_params(labelsize=12)
+                ax.yaxis.set_tick_params(labelsize=12)
+                #ax.set_xlim((943_500, 945_500))
+
+                self._plot_arrows_for_CNN(array_xr, random_time_idx, station_name=random_station_name, **kwargs)
                 self._plot_arrow_for_NWP(array_xr, random_time_idx, station_name=random_station_name)
                 self._plot_arrow_for_observation_station(array_xr, random_time_idx, station_name=random_station_name)
-                self._plot_arrows_for_CNN(array_xr, random_time_idx, station_name=random_station_name)
+
+        return random_station_name, time
 
     def _plot_3D_topography(self, XX, YY, ZZ, station_name, alpha=1, figsize=(30, 30), new_figure=True,
                             cmap='gist_earth', linewidth=2):
@@ -585,7 +614,7 @@ class Visualization:
                 midpoint = nwp_DIR
 
             display = array_xr[variable].sel(station=random_station_name).isel(time=random_time_idx).data
-            self._plot_3D_variable(XX, YY, ZZ, variable, display, time, midpoint, random_station_name)
+            self._plot_3D_variable(XX, -YY, ZZ, variable, display, time, midpoint, random_station_name)
             if variable in ["U", "UV", "UVW"]:
                 self._plot_arrow_for_NWP_3D(array_xr, random_time_idx, station_name=random_station_name)
 
@@ -593,9 +622,9 @@ class Visualization:
         V = array_xr["V"].sel(station=random_station_name).isel(time=random_time_idx).data
         W = array_xr["W"].sel(station=random_station_name).isel(time=random_time_idx).data
         UVW = array_xr["UVW"].sel(station=random_station_name).isel(time=random_time_idx).data
-        self._plot_3D_variable(XX, YY, ZZ, variable, UVW, time, nwp_speed, random_station_name, alpha=alpha)
+        self._plot_3D_variable(XX, -YY, ZZ, variable, UVW, time, nwp_speed, random_station_name, alpha=alpha)
         if arrow:
-            self._plot_arrows_for_CNN_3D(XX, YY, ZZ, U, V, W, None, nwp_speed, arrow_length_ratio=arrow_length_ratio,
+            self._plot_arrows_for_CNN_3D(XX, -YY, ZZ, U, V, W, None, nwp_speed, arrow_length_ratio=arrow_length_ratio,
                                          length_arrow_modification=length_arrow_modification)
 
     def _plot_arrows_for_CNN_3D(self, XX, YY, ZZ, U, V, W, variable_color, midpoint, cmap="coolwarm",
@@ -636,7 +665,7 @@ class Visualization:
         U_nwp = -np.sin((np.pi / 180) * NWP_wind_DIR) * NWP_wind_speed
         V_nwp = -np.cos((np.pi / 180) * NWP_wind_DIR) * NWP_wind_speed
 
-        ax.quiver(x_nwp, y_nwp, z_nwp, U_nwp, V_nwp, 0, color='green', length=length)
+        ax.quiver(x_nwp, -y_nwp, z_nwp, U_nwp, V_nwp, 0, color='green', length=length)
 
     @staticmethod
     def polygon_from_grid(grid_x, grid_y):
@@ -802,7 +831,7 @@ class Visualization:
             plt.title(station)
             plt.tight_layout()
 
-    def qc_plot_last_flagged(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)',
+    def qc_plot_last_flagged(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)', legend=True,
                              markersize_large=20, markersize_small=1, fig_to_plot=["speed", "direction_1", "direction_2"]):
         # Select time series
         time_series = self.p.observation.time_series
@@ -826,6 +855,9 @@ class Visualization:
                 list_marker_size[index_0] = markersize_small
                 sns.scatterplot(x=time_serie_station.index, y=wind_speed, data=time_serie_station, hue='last_flagged_speed',
                                 size='last_flagged_speed', sizes=list_marker_size)
+                if not legend:
+                    ax = plt.gca()
+                    ax.legend().set_visible(False)
 
             if "direction_1" in fig_to_plot:
                 fig.add_subplot(nb_subplots, 1, 2)
@@ -835,7 +867,9 @@ class Visualization:
                 list_marker_size[index_0] = markersize_small
                 sns.scatterplot(x=time_serie_station.index, y=wind_direction, data=time_serie_station,
                                 hue='last_flagged_direction', size='last_flagged_direction', sizes=list_marker_size)
-
+                if not legend:
+                    ax = plt.gca()
+                    ax.legend().set_visible(False)
             if "direction_2" in fig_to_plot:
                 fig.add_subplot(nb_subplots, 1, 3)
                 nb_categories = len(time_serie_station['last_unflagged_direction'].dropna().unique())
@@ -844,7 +878,9 @@ class Visualization:
                 list_marker_size[index_0] = markersize_small
                 sns.scatterplot(x=time_serie_station.index, y=wind_direction, data=time_serie_station,
                                 hue='last_unflagged_direction', size='last_unflagged_direction', sizes=list_marker_size)
-
+                if not legend:
+                    ax = plt.gca()
+                    ax.legend().set_visible(False)
             plt.title(station)
             plt.tight_layout()
 
@@ -971,6 +1007,48 @@ class Visualization:
         diagrams[0].texts[-1].set_color('r')
         diagrams[0].text.set_fontweight('bold')
 
+    def plot_wind_arrows_on_grid(self, nwp=None, U="U", V="V", UV="Wind", UV_DIR="Wind_DIR", x="X_L93", y="Y_L93",
+                                 ax=None, time=None, idx_time=None, size_proportionnal=False, **kwargs):
+
+        nwp = self.p.nwp if nwp is None else nwp
+
+        U_in_keys = U in nwp.keys()
+        V_in_keys = V in nwp.keys()
+        UV_in_keys = UV in nwp.keys()
+
+        if not U_in_keys and not V_in_keys and not UV_in_keys:
+            raise Exception("Wind speed or wind components need to be specified")
+
+        if not (U_in_keys and V_in_keys):
+            nwp = self.p.horizontal_wind_component(working_with_xarray=True, xarray_data=nwp, wind_name=UV,
+                                                   wind_dir_name=UV_DIR)
+        if not UV_in_keys:
+            nwp = self.p.compute_wind_speed(xarray_data=nwp, u_name="U", v_name="V")
+
+        if ax is None:
+            plt.figure()
+            ax = plt.gca()
+
+        if time is not None and idx_time is not None:
+            raise Exception("Time and idx_time can not be specified at the same time")
+
+        if time is not None:
+            nwp = nwp.sel(time=time)
+        elif idx_time is not None:
+            nwp = nwp.isel(time=idx_time)
+
+        x_coord = nwp[x].values
+        y_coord = nwp[y].values
+        u = nwp[U].values
+        v = nwp[V].values
+        uv = nwp[UV].values
+
+        if not size_proportionnal:
+            u = u/uv
+            v = v/uv
+
+        plt.quiver(x_coord, y_coord, u, v, uv, **kwargs)
+
 
 class VisualizationGaussian(Visualization):
 
@@ -992,7 +1070,7 @@ class VisualizationGaussian(Visualization):
                            scale=1 / 0.005,
                            cmap='coolwarm',
                            norm=MidpointNormalize(midpoint=midpoint))
-        plt.colorbar(arrows, orientation='horizontal')
+        plt.colorbar(arrows, orientation='vertical')
 
     def plot_gaussian_topo_and_wind_2D(self, topo, u, v, w, uv, alpha, idx_simu, arrows=True, cmap="mako"):
 

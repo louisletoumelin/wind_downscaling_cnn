@@ -76,18 +76,21 @@ def update_selected_path(prm, month_prediction, year_end=None, month_end=None, d
     return prm
 
 
-def select_path_to_file_npy(prm, GPU=False):
-    if GPU:
+def select_path_to_file_npy(prm):
+
+    if prm["GPU"]:
         prm_path = prm["selected_path"]
         path = "/".join(prm_path.split('/')[:-1]) + "/L93_npy/" + prm_path.split('/')[-1].split('.csv')[0].split('.nc')[
             0]
-        return path
+        prm["path_to_file_npy"] = path
     else:
-        return None
+        prm["path_to_file_npy"] = None
+
+    return prm
 
 
-def add_additionnal_stations(prm):
-    if not prm["add_additionnal_stations"]:
+def add_additional_stations(prm):
+    if not prm["add_additional_stations"]:
         prm["path_vallot"] = None
         prm["path_saint_sorlin"] = None
         prm["path_argentiere"] = None
@@ -110,7 +113,7 @@ def select_stations(prm, observation):
 
         stations_to_reject = ['ANTIBES-GAROUPE', 'CANNES', 'SEYNOD-AREA', 'TIGNES_SAPC', 'ST MICHEL MAUR_SAPC',
                               'FECLAZ_SAPC', 'Dome Lac Blanc', 'MERIBEL BURGIN', "VAL D'I SOLAISE", 'CAP FERRAT',
-                              'ALBERTVILLE','FREJUS', "VAL D'I BELLEVA", None]
+                              'ALBERTVILLE', 'FREJUS', "VAL D'I BELLEVA", None]
 
         for station_to_reject in stations_to_reject:
             try:
@@ -120,4 +123,60 @@ def select_stations(prm, observation):
 
         prm["stations_to_predict"] = np.array(prm["stations_to_predict"])
 
+    return prm
+
+
+def add_list_stations(prm):
+
+    prm["list_mf"] = ['BARCELONNETTE', 'DIGNE LES BAINS', 'LA MURE-ARGENS', 'ARVIEUX', 'EMBRUN',
+       'LA FAURIE', 'GAP','RISTOLAS', 'ST JEAN-ST-NICOLAS', 'TALLARD', "VILLAR D'ARENE",
+       'VILLAR ST PANCRACE', 'ANTIBES-GAROUPE', 'ASCROS', 'CANNES', 'CAUSSOLS', 'PEIRA CAVA', 'PEILLE', 'PEONE',
+       'CHAPELLE-EN-VER', 'LUS L CROIX HTE', 'TRICASTIN', 'ST ROMAN-DIOIS', 'CREYS-MALVILLE',
+       "ALPE-D'HUEZ", 'LA MURE- RADOME', 'GRENOBLE-ST GEOIRS', 'MERIBEL BURGIN',
+       'ST-ALBAN', 'ST-PIERRE-LES EGAUX', 'GRENOBLE - LVD', 'VILLARD-DE-LANS', 'CHAMROUSSE', 'ALBERTVILLE JO',
+       'MERIBEL BURGIN', 'MONT DU CHAT', 'FECLAZ_SAPC', 'COL-DES-SAISIES', 'FREJUS', 'LA MASSE',
+       'ST MICHEL MAUR_SAPC', 'TIGNES_SAPC', "VAL D'I SOLAISE", 'LE TOUR',
+       'AGUIL. DU MIDI', 'LE GRAND-BORNAND', 'MEYTHET', 'LE PLENAY', 'SEYNOD-AREA']
+
+    prm["list_nivose"] = ['RESTEFOND-NIVOSE', 'PARPAILLON-NIVOSE', 'LA MEIJE-NIVOSE', 'COL AGNEL-NIVOSE',
+       'GALIBIER-NIVOSE', 'ORCIERES-NIVOSE', 'MILLEFONTS-NIVOSE', 'AIGLETON-NIVOSE',
+       'LE GUA-NIVOSE', 'LES ECRINS-NIVOSE', 'ST HILAIRE-NIVOSE', 'BONNEVAL-NIVOSE',
+       'BELLECOTE-NIVOSE', 'GRANDE PAREI NIVOSE', 'ALLANT-NIVOSE', 'TIGNES_SAPC', 'LE CHEVRIL-NIVOSE',
+       'LES ROCHILLES-NIVOSE', 'AIGUILLES ROUGES-NIVOSE']
+
+    return prm
+
+
+def check_expose_elevation(prm):
+
+    if prm["peak_valley"]:
+        prm["scale_at_10m"] = False
+        prm["scale_at_max_altitude"] = False
+
+    if prm["scale_at_max_altitude"]:
+        prm["scale_at_10m"] = False
+
+        return prm
+
+
+def check_extract_around_station_or_interpolated(prm):
+
+    prm["interp_str"] = "_interpolated" if prm["station_similar_to_map"] else ""
+    prm["extract_around"] = "station" if not prm["centered_on_interpolated"] else "nwp_neighbor_interp"
+
+    return prm
+
+
+def create_begin_and_end_str(prm):
+
+    prm["begin"] = str(prm["year_begin"]) + "-" + str(prm["month_begin"]) + "-" + str(prm["day_begin"])
+    prm["begin_after"] = str(prm["year_begin"]) + "-" + str(prm["month_begin"]) + "-" + str(prm["day_begin"] + 1)
+    prm["end"] = str(prm["year_end"]) + "-" + str(prm["month_end"]) + "-" + str(prm["day_end"])
+
+    return prm
+
+
+def check_save_and_load(prm):
+    if prm["load_z0"] and prm["save_z0"]:
+        prm["save_z0"] = False
     return prm

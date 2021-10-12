@@ -32,7 +32,7 @@ else:
 print(BDclim.time_series["name"].unique())
 
 # Processing
-p = Processing(obs=BDclim, model_path=prm['model_path'], prm=prm)
+p = Processing(obs=BDclim, prm=prm)
 
 # Visualization
 v = Visualization(p)

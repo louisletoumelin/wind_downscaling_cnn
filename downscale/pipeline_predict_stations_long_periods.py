@@ -49,13 +49,11 @@ MNT and NWP
 
 
 # IGN
-IGN = MNT(prm["topo_path"], name="IGN")
+IGN = MNT(prm=prm)
 
 # NWP for initialization
 prm = update_selected_path(prm, month_prediction=True)
-AROME = NWP(prm["selected_path"],
-            name="AROME",
-            begin=prm["begin"],
+AROME = NWP(begin=prm["begin"],
             end=prm["begin_after"],
             save_path=prm["save_path"],
             path_Z0_2018=None,
@@ -125,7 +123,7 @@ for index, (day, month, year) in enumerate(iterator):
             results["obs"][station] = []
 
     # AROME
-    AROME = NWP(path_to_file=prm["selected_path"], name="AROME", begin=begin, end=end, prm=prm)
+    AROME = NWP(path_to_file=prm["selected_path"], begin=begin, end=end, prm=prm)
 
     # Processing
     p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)

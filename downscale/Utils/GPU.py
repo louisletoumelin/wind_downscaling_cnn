@@ -1,3 +1,5 @@
+import tensorflow as tf
+
 def connect_GPU_to_horovod():
     import horovod.tensorflow.keras as hvd
     import tensorflow as tf
@@ -22,3 +24,12 @@ def environment_GPU(GPU=True):
         physical_devices = tf.config.experimental.list_physical_devices('GPU')
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
         # tf.debugging.set_log_device_placement(True)
+
+
+def check_connection_GPU(prm):
+    """Check tensorflow is connected to GPU"""
+    if prm['GPU']:
+        device_name = tf.test.gpu_device_name()
+        if device_name != '/device:GPU:0':
+            raise SystemError('GPU device not found')
+        print('\n\nFound GPU at: {}\n\n'.format(device_name))

@@ -60,14 +60,14 @@ MNT, NWP and observations
 """
 
 
-IGN = MNT(prm["topo_path"], name="IGN")
-AROME = NWP(prm["selected_path"], name="AROME", begin=prm["begin"], end=prm["end"], prm=prm)
+DEM = MNT(prm=prm)
+AROME = NWP(prm["selected_path"], begin=prm["begin"], end=prm["end"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 
 if not(prm["GPU"]):
     number_of_neighbors = 4
-    BDclim.update_stations_with_KNN_from_NWP(number_of_neighbors, AROME)
-    BDclim.update_stations_with_KNN_from_MNT_using_cKDTree(IGN)
+    #BDclim.update_stations_with_KNN_from_NWP(number_of_neighbors=number_of_neighbors, nwp=AROME)
+    #BDclim.update_stations_with_KNN_from_MNT_using_cKDTree(DEM)
 
 """
 Processing, visualization and evaluation
@@ -75,14 +75,16 @@ Processing, visualization and evaluation
 
 
 # Processing
-p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
+p = Processing(obs=BDclim, mnt=DEM, nwp=AROME, prm=prm)
+#p.update_stations_with_neighbors(mnt=DEM, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=False)
 
 t1 = t()
 if prm["launch_predictions"]:
 
     predict = p.predict_maps
     ttest=t()
-    wind_map, acceleration_all, coords, nwp_data_initial, nwp_data, mnt_data = predict(**prm)
+    #wind_map, acceleration_all, coords, nwp_data_initial, nwp_data, mnt_data = predict(prm)
+    wind_xr = predict(prm=prm)
 
     print(f'\nDownscaling scipy in {round(ttest, t())} seconds')
 

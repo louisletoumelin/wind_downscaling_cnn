@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 
 from downscale.Utils.Utils import change_dtype_if_required, change_several_dtype_if_required
+from downscale.Utils.Decorators import print_func_executed_decorator, timer_decorator
 
 try:
     from numba import jit, guvectorize, vectorize, prange, float64, float32, int32, int64
@@ -32,6 +33,8 @@ class Topo_utils:
     def __init__(self):
         pass
 
+    @print_func_executed_decorator("normalize topo", level_begin="__", level_end="__")
+    @timer_decorator("normalize topo", unit="second", level=". . ")
     def normalize_topo(self, topo_HD, mean, std, dtype=np.float32, library="numexpr", verbose=True):
         """
         Normalize a topography with mean and std.
@@ -49,9 +52,13 @@ class Topo_utils:
         -------
         Standardized topography : array
         """
-        print(f"__Normalize done with mean {len(mean)} means and std") if verbose else None
+        if verbose:
+            print(f"________Nb means: {len(mean)}. "
+                  f"\n________Nb std: {len(std)}. "
+                  f"\n________Mean: {np.mean(mean)}. "
+                  f"\n________std: {np.mean(std)}.")
 
-        if library == 'tensorflow':
+        if library == "tensorflow":
             topo_HD = tf.constant(topo_HD, dtype=tf.float32)
             mean = tf.constant(mean, dtype=tf.float32)
             std = tf.constant(std, dtype=tf.float32)
@@ -60,12 +67,16 @@ class Topo_utils:
             return result
         else:
             topo_HD = np.array(topo_HD, dtype=dtype)
-            if library == 'numexpr' and self._numexpr:
+            if library == "numexpr" and self._numexpr:
+                print(f"________Normalize done with {library}")
                 return ne.evaluate("(topo_HD - mean) / std")
             else:
+                print(f"________Normalize done with numpy")
                 return (topo_HD - mean) / std
 
     @staticmethod
+    @print_func_executed_decorator("mean peak valley", level_begin="__", level_end="__")
+    @timer_decorator("mean peak valley", unit="second", level=". . ")
     def mean_peak_valley(topo, verbose=True):
         """
         2 * std(topography)
@@ -86,7 +97,6 @@ class Topo_utils:
             Mean peak valley height
         """
         peak_valley_height = 2 * np.nanstd(topo)
-        print("__Mean peak valley computed") if verbose else None
         return peak_valley_height.astype(np.float32)
 
     def laplacian_map(self, mnt, dx, library="numpy", helbig=True, verbose=True):

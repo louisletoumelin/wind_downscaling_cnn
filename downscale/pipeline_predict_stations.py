@@ -21,7 +21,7 @@ from downscale.Utils.GPU import connect_GPU_to_horovod
 from downscale.Utils.Utils import round
 
 """
-Stations
+#Stations
 """
 """
 ['BARCELONNETTE', 'DIGNE LES BAINS', 'RESTEFOND-NIVOSE',
@@ -46,7 +46,7 @@ Stations
 
 
 """
-Utils
+#Utils
 """
 
 
@@ -60,12 +60,12 @@ connect_GPU_to_horovod() if (prm["GPU"] and prm["horovod"]) else None
 prm = create_prm(month_prediction=True)
 
 """
-MNT, NWP and observations
+#MNT, NWP and observations
 """
 
 
-IGN = MNT(path_to_file=prm["topo_path"], name="IGN")
-AROME = NWP(path_to_file=prm["selected_path"], name="AROME", begin=prm["begin"], end=prm["end"], prm=prm)
+IGN = MNT(prm=prm)
+AROME = NWP(begin=prm["begin"], end=prm["end"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 
 # Compute nearest neighbor if CPU, load them if GPU
@@ -75,12 +75,13 @@ if not prm["GPU"]:
     BDclim.update_stations_with_KNN_from_MNT_using_cKDTree(IGN)
 
 """
-Processing, visualization and evaluation
+#Processing, visualization and evaluation
 """
 
 
 # Processing
-p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
+p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
+p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=True)
 
 t1 = t()
 if prm["launch_predictions"]:

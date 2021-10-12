@@ -27,9 +27,10 @@ connect_GPU_to_horovod() if prm["GPU"] else None
 gaussian_topo = GaussianTopo()
 topo, wind = gaussian_topo.load_data_all(prm)
 topo = topo.reshape((len(topo), 79, 69))
-
+print("Nb synthetic topographies: ", len(topo))
+"""
 down_helb = DwnscHelbig()
-IGN = MNT(prm["topo_path"], name="IGN")
+IGN = MNT(prm=prm)
 mnt = IGN.data[50:11870, 1600:7400]
 
 
@@ -71,24 +72,16 @@ sx_gau[:, -10:] = np.nan
 
 tpi_real_flat = tpi_real.flatten()
 sx_real_flat_1 = sx_real_1.flatten()
-#sx_real_flat_2 = sx_real_2.flatten()
-#sx_real_flat_3 = sx_real_3.flatten()
-#sx_real_flat_4 = sx_real_4.flatten()
+print("TPI and sx real flat calculated")
 
 tpi_gau_flat = tpi_gau.flatten()
 sx_gau_flat = sx_gau.flatten()
+print("TPI and sx gau flat calculated")
 
 df_topo_gaussian = pd.DataFrame(np.transpose([tpi_gau_flat, sx_gau_flat]), columns=["tpi", "sx"])
 df_topo_gaussian["topography"] = "gaussian"
 df_topo_real_1 = pd.DataFrame(np.transpose([tpi_real_flat, sx_real_flat_1]), columns=["tpi", "sx"])
 df_topo_real_1["topography"] = "real"
-#df_topo_real_2 = pd.DataFrame(np.transpose([tpi_real_flat, sx_real_flat_2]), columns=["tpi", "sx"]).drop_duplicates()
-#df_topo_real_2["topography"] = "real"
-#df_topo_real_3 = pd.DataFrame(np.transpose([tpi_real_flat, sx_real_flat_2]), columns=["tpi", "sx"]).drop_duplicates()
-#df_topo_real_3["topography"] = "real"
-#df_topo_real_4 = pd.DataFrame(np.transpose([tpi_real_flat, sx_real_flat_2]), columns=["tpi", "sx"]).drop_duplicates()
-#df_topo_real_4["topography"] = "real"
-#df_topo = pd.concat([df_topo_gaussian, df_topo_real_1, df_topo_real_2, df_topo_real_3, df_topo_real_4])
 df_topo = pd.concat([df_topo_gaussian, df_topo_real_1])
 
 df_topo1 = df_topo.dropna().drop_duplicates()
@@ -96,6 +89,7 @@ tpi_gau_unique = df_topo1["tpi"][df_topo1["topography"] == "gaussian"]
 sx_gau_unique = df_topo1["sx"][df_topo1["topography"] == "gaussian"]
 tpi_real_unique = df_topo1["tpi"][df_topo1["topography"] == "real"]
 sx_real_unique = df_topo1["sx"][df_topo1["topography"] == "real"]
+print("TPI and sx unique calculated")
 
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 BDclim.update_stations_with_KNN_from_MNT_using_cKDTree(IGN)
@@ -105,28 +99,41 @@ names = BDclim.stations["name"].values
 
 tpi_stations = down_helb.tpi_idx(IGN.data, idx_x=idx_x, idx_y=idx_y, radius=500, resolution=25)
 sx_stations = down_helb.sx_idx(IGN.data, idx_x, idx_y, 25, 300, 270, 5, 30)
+print("TPI and sx stations calculated")
 
-#plt.figure()
-#plt.scatter(tpi_real_unique, sx_real_unique, s=5)
-#plt.scatter(tpi_gau_unique, sx_gau_unique, s=5, alpha=0.75)
-#plt.scatter(laplacian_stations, mu_stations, s=5, alpha=1, color='red', zorder=10)
-#plt.xlabel("TPI 500m")
-#plt.ylabel("Sx 300m")
-#plt.legend(("Real topography in the french Alps", "Gaussian topography", "Observation stations"), loc='upper right', fontsize=13)
-#plt.axis("square")
 
-result = sns.jointplot(data=df_topo.dropna(), x="tpi", y="sx", hue="topography", marker="o", s=5, linewidth=0, edgecolor=None, hue_order=["real", "gaussian"], legend=False)
+plt.figure()
+plt.scatter(tpi_real_unique, sx_real_unique, s=5)
+plt.scatter(tpi_gau_unique, sx_gau_unique, s=5, alpha=0.75)
+plt.scatter(tpi_stations, sx_stations, s=5, alpha=1, color='red', zorder=10)
+plt.xlabel("Tpi 500m")
+plt.ylabel("Sx 300m")
+plt.legend(("Real topography", "Gaussian topography", "Observation stations"), loc='upper right', fontsize=13)
+plt.savefig("TPI_sx.png")
+plt.savefig("TPI_sx.svg")
+"""
+"""
+tpi_gau_unique = tpi_gau_unique.astype(np.float32)
+sx_gau_unique = sx_gau_unique.astype(np.float32)
+tpi_stations = tpi_stations.astype(np.float32)
+sx_stations = sx_stations.astype(np.float32)
+df_topo["tpi"] = df_topo["tpi"].astype(np.float32)
+df_topo["sx"] = df_topo["sx"].astype(np.float32)
+
+result = sns.jointplot(data=df_topo.dropna(), x="tpi", y="sx", hue="topography", marker="o", s=3, linewidth=0, edgecolor=None, hue_order=["real", "gaussian"], legend=False, marginal_kws=dict(bw=0.8))
 ax = result.ax_joint
-ax.scatter(tpi_gau_unique, sx_gau_unique, s=5, alpha=0.75, color="C1")
-ax.scatter(tpi_stations, sx_stations, s=5, alpha=1, color='red', zorder=10)
+ax.scatter(tpi_gau_unique, sx_gau_unique, s=3, alpha=0.75, color="C1")
+ax.scatter(tpi_stations, sx_stations, s=7, alpha=1, color='red', zorder=10)
 ax = result.ax_marg_x
 ax.scatter(tpi_stations, np.zeros_like(tpi_stations), s=5, alpha=1, color='red', zorder=10)
 ax = result.ax_marg_y
 ax.scatter(np.zeros_like(sx_stations), sx_stations, s=5, alpha=1, color='red', zorder=10)
-plt.savefig("tpi_vs_sx2.png")
-plt.savefig("tpi_vs_sx2.svg")
+plt.savefig("tpi_vs_sx3.png")
+plt.savefig("tpi_vs_sx3.svg")
 
-"""
+
+
+
 #
 #
 # Begin figure 1

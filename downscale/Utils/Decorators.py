@@ -1,11 +1,13 @@
 import numpy as np
+from time import time as t
 
-def print_func_executed_decorator(argument):
+
+def print_func_executed_decorator(argument, level_begin="", level_end="", end=""):
     def decorator(function):
         def wrapper(*args, **kwargs):
-            print(f"Begin {argument}")
+            print(f"{level_begin}Begin {argument}")
             result = function(*args, **kwargs)
-            print(f"End {argument}\n")
+            print(f"{level_end}End {argument}{end}")
             return result
         return wrapper
     return decorator

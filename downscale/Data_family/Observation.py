@@ -43,7 +43,7 @@ class Observation:
     _concurrent = _concurrent
     geopandas = _geopandas
 
-    def __init__(self, path_to_list_stations=None, path_to_time_series=None, prm=None):
+    def __init__(self, path_to_list_stations=None, path_to_time_series=None, prm=None, fast_loading=False):
         if prm is not None:
             begin = prm["begin"]
             end = prm["end"]
@@ -57,7 +57,9 @@ class Observation:
             path_Muzelle_Lac_Blanc = prm["path_Muzelle_Lac_Blanc"]
             path_Col_de_Porte = prm["path_Col_de_Porte"]
             path_Col_du_Lautaret = prm["path_Col_du_Lautaret"]
+            path_fast_loading = prm["path_fast_loading"]
             verbose = prm["verbose"]
+            fast_loading = prm["fast_loading"]
 
             if verbose:
                 print("\nBegin Observation creation")
@@ -66,6 +68,9 @@ class Observation:
             # Dates
             self.begin = begin
             self.end = end
+
+            # KNN from NWP
+            self._is_updated_with_KNN_from_NWP = False
 
             # Paths
             self._add_all_stations_paths(path_to_list_stations, path_to_time_series, path_vallot,
@@ -76,20 +81,25 @@ class Observation:
             # Quality control
             self._qc = False
             self._qc_init = False
+            self.fast_loading = fast_loading
 
             # Stations
-            self.load_observation_files(type='station', path=path_to_list_stations)
+            self.load_observation_files(type="station", path=path_to_list_stations)
 
             # Add additional stations
             self._add_all_stations(GPU=GPU)
 
             # Time series
-            self.load_observation_files(type='time_series', path=path_to_time_series)
-            if select_date_time_serie: self._select_date_time_serie()
+            if self.fast_loading:
+                self.fast_load(path=path_fast_loading, type_file="time_series")
+            else:
+                self.load_observation_files(type='time_series', path=path_to_time_series)
+                self._select_date_time_serie() if select_date_time_serie else None
 
-            # Add additional time series
-            self._add_all_time_series(GPU=GPU)
-            if select_date_time_serie: self._select_date_time_serie()
+                # Add additional time series
+                self._add_all_time_series(GPU=GPU)
+
+            self._select_date_time_serie() if select_date_time_serie else None
 
             # Reject stations
             self._assert_equal_station()
@@ -100,6 +110,34 @@ class Observation:
 
             t1 = t()
             print(f"Observation created in {np.round(t1 - t0, 2)} seconds\n")
+
+    def fast_load(self, path=None, type_file="time_series", verbose=True):
+        if type_file == "time_series":
+            self.time_series = pd.read_pickle(path)
+            print("__Used pd.read_pickle to load time series (fast method)") if verbose else None
+
+    def replace_obs_by_QC_obs(self, prm):
+        time_series_qc_all = pd.read_pickle(prm["QC_pkl"])
+        filter_validity_speed = (time_series_qc_all['validity_speed'] == 1)
+        filter_validity_direction = (time_series_qc_all['validity_direction'] == 1)
+        time_series_qc = time_series_qc_all[filter_validity_speed & filter_validity_direction]
+        assert len(time_series_qc) != len(time_series_qc_all)
+        self.time_series = time_series_qc
+        self._qc = True
+
+    def delete_obs_not_passing_QC(self):
+
+        if self._qc:
+            filter_qc_speed = (self.time_series['validity_speed'] == 1)
+            filter_qc_direction = (self.time_series['validity_direction'] == 1)
+            self.time_series = self.time_series[filter_qc_speed & filter_qc_direction]
+        else:
+            print("Need to apply QC before selecting obserations passing QC")
+
+    def select_bounding_box_around_station(self, station_name, dx, dy):
+        stations = self.stations
+        x_station, y_station = stations[["X", "Y"]][stations["name"] == station_name].values[0]
+        return x_station - dx, y_station + dy, x_station + dx, y_station - dy
 
     def _assert_equal_station(self, verbose=True):
 
@@ -115,7 +153,7 @@ class Observation:
 
     def _reject_stations(self, verbose=True):
         stations_to_reject = ['ANTIBES-GAROUPE', 'CANNES', 'SEYNOD-AREA', 'TIGNES_SAPC', 'ST MICHEL MAUR_SAPC',
-                              'FECLAZ_SAPC', 'Dome Lac Blanc', 'MERIBEL BURGIN', "VAL D'I SOLAISE", 'CAP FERRAT',
+                              'FECLAZ_SAPC', 'MERIBEL BURGIN', "VAL D'I SOLAISE", 'CAP FERRAT',
                               'ALBERTVILLE', 'FREJUS', "VAL D'I BELLEVA"]
 
         for station in stations_to_reject:
@@ -190,7 +228,10 @@ class Observation:
         if type == 'station':
             if _shapely_geometry:
                 self.stations = pd.read_csv(path)
-                if verbose: print(f"__Stations loaded using pd.read_csv")
+                filter_col_du_lac_blanc = self.stations["name"] != "Col du Lac Blanc"
+                filter_col_du_lautaret = self.stations["name"] != "Col du Lautaret"
+                self.stations = self.stations[filter_col_du_lac_blanc & filter_col_du_lautaret]
+                print(f"__Stations loaded using pd.read_csv") if verbose else None
             else:
                 self.stations = pd.read_csv(path)
                 list_variables_str = ['AROME_NN_0', 'index_AROME_NN_0_ref_AROME',
@@ -215,8 +256,20 @@ class Observation:
                                       'index_AROME_NN_1_interpolated_ref_IGN',
                                       'index_AROME_NN_2_interpolated_ref_IGN',
                                       'index_AROME_NN_3_interpolated_ref_IGN']
+
+                # Check variable that are not present
+                variable_to_remove = []
+                for variable in list_variables_str:
+                    if variable not in list(self.stations.columns):
+                        variable_to_remove.append(variable)
+
+                # Remove variable that are not present
+                for variable in variable_to_remove:
+                    list_variables_str.remove(variable)
+
                 self.stations[list_variables_str] = self.stations[list_variables_str].apply(lambda x: x.apply(eval))
-                if verbose: print(f"__Stations loaded using pd.read_csv and eval function to convert str into tuples")
+                print(
+                    f"__Stations loaded using pd.read_csv and eval function to convert str into tuples") if verbose else None
 
         if type == 'time_series':
             self.time_series = pd.read_csv(path)
@@ -327,7 +380,7 @@ class Observation:
         if name == 'La Muzelle Lac Blanc':
             path = self.path_Muzelle_Lac_Blanc
         if name == 'Col de Porte':
-            path = self.path_Muzelle_Lac_Blanc
+            path = self.path_Col_de_Porte
         if name == 'Col du Lautaret':
             path = self.path_Col_du_Lautaret
 
@@ -384,9 +437,14 @@ class Observation:
             station_df["alti"] = alti
 
         for variable in ['vwmax(m/s)', 'vw10m(m/s)', 'winddir(deg)', 'T2m(degC)', 'HTN(cm)']:
-            station_df[variable] = station_df[variable].apply(pd.to_numeric, errors='coerce', downcast='float')
+            if variable in station_df.columns:
+                station_df[variable] = station_df[variable].apply(pd.to_numeric, errors='coerce', downcast='float')
 
         station_df["date"] = station_df.index
+
+        if name == "Col de Porte":
+            station_df["HTN(cm)"] = station_df["HTN(cm)"] * 100
+            print("____Snow height expressed in cm at Col de Porte")
 
         if log_profile:
             Z0_col = 0.054
@@ -637,7 +695,7 @@ class Observation:
             print("Parallel computation worked for update_stations_with_KNN_from_NWP\n")
         except:
             print("Parallel computation using concurrent.futures didn't work, "
-                "so update_stations_with_KNN_from_NWP will not be parallelized.\n")
+                  "so update_stations_with_KNN_from_NWP will not be parallelized.\n")
             list_nearest = map(K_N_N_point, list_coord_station)
 
         # Store results as array
@@ -651,6 +709,8 @@ class Observation:
                                                                   list_nearest[:, 1, neighbor]]
             name_str = f'index_{name}_NN_{neighbor}{interp_str}_ref_{name}{interp_str}'
             self.stations[name_str] = [list_index[int(index)] for index in list_nearest[:, 1, neighbor]]
+
+        self._is_updated_with_KNN_from_NWP = True
 
     def update_stations_with_KNN_from_MNT(self, mnt):
         index_x_MNT, index_y_MNT = mnt.find_nearest_MNT_index(self.stations["X"], self.stations["Y"])
@@ -677,7 +737,6 @@ class Observation:
         nwp_name = nwp.name
 
         for neighbor in range(number_of_neighbors):
-
             x_str = self.stations[f"{nwp_name}_NN_{neighbor}{interp_str}"].str[0]
             y_str = self.stations[f"{nwp_name}_NN_{neighbor}{interp_str}"].str[1]
             _, nn_index, _ = self.search_neighbors_using_cKDTree(mnt, x_str, y_str,
@@ -2074,6 +2133,8 @@ class Observation:
 
         self.qc_true_north()
 
+        self.qc_bias()
+
         self.qc_removal_unphysical_values()
 
         self.qc_get_wind_speed_resolution()
@@ -2096,8 +2157,6 @@ class Observation:
             self.qc_ra(dict_constant_sequence, dict_all_stations)
 
         self.qc_high_variability()
-
-        self.qc_bias()
 
         self.qc_isolated_records()
 

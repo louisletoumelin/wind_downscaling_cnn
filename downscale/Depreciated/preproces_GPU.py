@@ -106,7 +106,7 @@ print(f'\nProcessing in {round(t1, t2)} seconds')
 
 # Visualization
 v = Visualization(p)
-# v.plot_predictions_2D(array_xr, ['Col du Lac Blanc'])
+# v.Fplot_predictions_2D(array_xr, ['Col du Lac Blanc'])
 # v.plot_predictions_3D(array_xr, ['Col du Lac Blanc'])
 # v.plot_comparison_topography_MNT_NWP(station_name='Col du Lac Blanc', new_figure=False)
 

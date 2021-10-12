@@ -173,9 +173,7 @@ def train_model(model, root_mse, input_dir, txt):
         print("Validation shape: ")
         print(np.shape(x_val))
         print(np.shape(y_val))
-        
-        
-        
+
         # Normalisation des features
         train_mean, train_std = np.mean(x_train), np.std(x_train)
         x_train = (x_train - train_mean)/train_std
