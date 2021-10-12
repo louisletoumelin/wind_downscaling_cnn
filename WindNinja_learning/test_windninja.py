@@ -1,3 +1,6 @@
+from netCDF4 import date2num
+from netCDF4 import stringtochar
+
 AROME2 = xr.open_dataset(prm["data_path"] + "AROME/FORCING_alp_2019060107_2019070106.nc")
 
 # Rename dimension time
@@ -58,7 +61,11 @@ if "U10" not in AROME2.data_vars or "V10" not in AROME2.data_vars:
 AROME2 = AROME2[["U10", "V10", "T2", "XLAT", "XLONG", "QCLOUD", "Times"]]
 AROME2 = AROME2.set_coords("XLAT")
 AROME2 = AROME2.set_coords("XLONG")
-AROME2 = AROME2.rename_vars({"Time":"XTime"})
+#AROME2 = AROME2.rename_vars({"Time":"XTIME"})
+#units = 'minutes since 2000-01-01 00:00:00'
+#dates = [pd.to_datetime(date).to_pydatetime() for date in AROME2["XTIME"].values]
+#AROME2["XTIME"] = (("Time"), date2num(dates,units))
+#AROME2["XTIME"].attrs["units"] = units
 
 # Select the domain
 AROME3 = AROME2.isel(Time=slice(0, 2)).isel(west_east=slice(109 - 2, 109 + 2), south_north=slice(62 - 2, 62 + 2))
@@ -68,15 +75,39 @@ AROME3["V10"] = AROME3["V10"].astype(np.float32)
 AROME3["XLAT"] = AROME3["XLAT"].astype(np.float32)
 AROME3["XLONG"] = AROME3["XLONG"].astype(np.float32)
 AROME3["QCLOUD"] = AROME3["QCLOUD"].astype(np.float32)
-#AROME3.Times.encoding.update({"char_dim_name": 'DateStrLen'})
-
-AROME3.to_netcdf('wrfout_d10_2019-06-01_07_00_00.nc',
-                 format='NETCDF4',
+"""
+AROME3.to_netcdf('wrfout_d18_2019-06-01_07_00_00.nc',
+                 format='NETCDF3_CLASSIC',
                  encoding={
                      'Times': {
-                         'zlib': True,
-                         'complevel': 5,
                          "char_dim_name": 'DateStrLen'
                      }
                  },
                  unlimited_dims={'Time': True})
+"""
+ncout = Dataset('myfile9.nc','w','NETCDF3')
+ncout.createDimension('Time',AROME3.dims["Time"])
+ncout.createDimension('DateStrLen',19)
+ncout.createDimension('south_north',AROME3.dims["south_north"])
+ncout.createDimension('west_east',AROME3.dims["west_east"])
+ncout.createDimension('bottom_top',AROME3.dims["bottom_top"])
+
+XLONG = ncout.createVariable('XLONG','float32',('Time', 'south_north', 'west_east'))
+XLONG[:] = AROME3["XLONG"].values
+
+XLAT = ncout.createVariable('XLAT','float32',('Time', 'south_north', 'west_east'))
+XLAT[:] = AROME3["XLAT"].values
+
+U10 = ncout.createVariable('U10','float32',('Time', 'south_north', 'west_east'))
+U10[:] = AROME3["U10"].values
+
+V10 = ncout.createVariable('V10','float32',('Time', 'south_north', 'west_east'))
+V10[:] = AROME3["U10"].values
+
+T2 = ncout.createVariable('T2','float32',('Time', 'south_north', 'west_east'))
+T2[:] = AROME3["T2"].values
+
+Times = ncout.createVariable('Times','S1',('Time', 'DateStrLen'))
+Times[:] = stringtochar(AROME3["Times"].values)
+
+ncout.close()
