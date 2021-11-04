@@ -79,15 +79,15 @@ def create_prm(month_prediction=True):
 
     # For map prediction
     prm["type_rotation"] = "tfa" # "indexes" or "scipy" or "tfa"
-    prm["interpolate_nwp"] = True
-    prm["interp"] = 3
-    prm["nb_pixels"] = 8 # Number of pixel extracted around each NWP pixel after prediction, default 15
+    prm["interpolate_nwp"] = False
+    prm["interp"] = 1
+    prm["nb_pixels"] = 24 # Number of pixel extracted around each NWP pixel after prediction, default 15
     prm["interpolate_final_map"] = False
     prm["dx"] = 2_000
     prm["dy"] = 2_500
     prm["centered_on_interpolated"] = True  # If you work at stations, False, if interpolated AROME True
     prm["select_area"] = "coord"
-    prm["coords_domain_for_map_prediction"] = [937875, 6439125, 973375, 6464125] #[959000, 6462000, 960000, 6464000] #[959000, 6462000, 960000, 6464000]  #[xmin, ymin, xmax, ymax]
+    prm["coords_domain_for_map_prediction"] = [959000, 6462000, 960000, 6464000] #[937875, 6439125, 973375, 6464125] #[959000, 6462000, 960000, 6464000]  #[xmin, ymin, xmax, ymax]
     prm["method"] = "linear"
     prm["nb_batch_sent_to_gpu"] = 10 # Number of batches sent from the cpu to the gpu to avoid out of memory error
     prm["batch_size_prediction"] = 2**10 # Number of batches in the gpu to accelerate computation

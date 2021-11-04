@@ -89,7 +89,8 @@ if prm["launch_predictions"]:
     predict = p.predict_maps
     wind_xr = predict(prm=prm)
     wind_xr = p.compute_speed_and_direction_xarray(xarray_data=wind_xr)
-    wind_xr = p.interpolation_mean_K_NN(wind_xr, p.mnt.data_xr, surfex, 250,
+    wind_xr = p.interpolation_mean_K_NN(high_resolution_wind=wind_xr, high_resolution_grid=p.mnt.data_xr,
+                                        low_resolution_grid=surfex, length_square=250,
                                         x_name_LR="x", y_name_LR="y", x_name_HR="x", y_name_HR="y",
                                         resolution_HR_x=30, resolution_HR_y=30)
     wind_xr.isel(time=0).U.plot()

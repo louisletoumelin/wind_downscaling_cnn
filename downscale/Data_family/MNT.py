@@ -24,17 +24,17 @@ class MNT(Data_2D):
     def __init__(self, path_to_file=None, name=None, resolution_x=25, resolution_y=25, prm=None):
         print("\nBegin MNT creation")
         t0 = t()
-
-        path_to_file = prm["topo_path"] if prm["topo_path"] is not None else path_to_file
-        name = prm["name_mnt"] if prm["name_mnt"] is not None else name
-        resolution_x = prm["resolution_mnt_x"] if prm["resolution_mnt_x"] is not None else resolution_x
-        resolution_y = prm["resolution_mnt_y"] if prm["resolution_mnt_y"] is not None else resolution_y
+        if prm is not None:
+            path_to_file = prm["topo_path"] if prm["topo_path"] is not None else path_to_file
+            name = prm["name_mnt"] if prm["name_mnt"] is not None else name
+            resolution_x = prm["resolution_mnt_x"] if prm["resolution_mnt_x"] is not None else resolution_x
+            resolution_y = prm["resolution_mnt_y"] if prm["resolution_mnt_y"] is not None else resolution_y
 
         # Inherit from Data
         super().__init__(path_to_file, name)
 
         # Load MNT with xr.open_rasterio or xr.open_dataset
-        self._mnt_loaded = False
+        self._mnt_loaded = False if prm is not None else None
         self.load_mnt_files(path_to_file, chunks=None) if path_to_file is not None else None
 
         # Corners of MNT
