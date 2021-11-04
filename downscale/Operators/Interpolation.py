@@ -12,6 +12,7 @@ except ModuleNotFoundError:
 
 from downscale.Data_family.MNT import MNT
 from downscale.Utils.Decorators import print_func_executed_decorator, timer_decorator, check_type_kwargs_inputs
+from downscale.Utils.Utils import change_dtype_if_required
 from downscale.Operators.wind_utils import Wind_utils
 
 
@@ -55,16 +56,15 @@ class Interpolation(MNT, Wind_utils):
 
     @print_func_executed_decorator("interpolating xarray", level_begin="\n__", level_end="__")
     @timer_decorator("interpolating xarray", unit="second", level=". . ")
-    def interpolate_wind_grid_xarray(self, nwp_data, interp=2, method='linear', verbose=True):
-
-        if verbose:
-            t0 = t()
+    def interpolate_wind_grid_xarray(self, nwp_data, interp=2, method='linear', u_name="U", v_name="V", verbose=True):
 
         # Calculate U_nwp and V_nwp
-        nwp_data = self.horizontal_wind_component(library="xarray", xarray_data=nwp_data, unit_direction="degree")
+        if u_name not in nwp_data.keys() and v_name not in nwp_data.keys():
+            nwp_data = self.horizontal_wind_component(library="xarray", xarray_data=nwp_data, unit_direction="degree")
 
         # Drop variables
-        nwp_data = nwp_data.drop_vars(["Wind", "Wind_DIR"])
+        if "Wind" in nwp_data.keys() and "Wind_DIR" in nwp_data.keys():
+            nwp_data = nwp_data.drop_vars(["Wind", "Wind_DIR"])
 
         # Interpolate AROME
         nwp_data = self.interpolate_xarray_grid(xarray_data=nwp_data, interp=interp, method=method)
@@ -74,18 +74,18 @@ class Interpolation(MNT, Wind_utils):
 
     @print_func_executed_decorator("final interpolation", level_begin="\n__", level_end="__")
     @timer_decorator("final interpolation", unit="second", level=". . ")
-    def interpolate_final_result(self, wind_map, library='numba', verbose=True):
+    def interpolate_nan_in_wind_map(self, wind_map, library='numba', verbose=True):
         if library == 'numba' and _numba:
-            jit_int = jit([float32[:, :, :, :](float32[:, :, :, :])], nopython=True)(self._interpolate_array)
+            jit_int = jit([float32[:, :, :, :](float32[:, :, :, :])], nopython=True)(self._interpolate_nans_in_wind_map)
             result = jit_int(wind_map)
             print("____Library: Numba") if verbose else None
         else:
-            result = self._interpolate_array(wind_map)
+            result = self._interpolate_nans_in_wind_map(wind_map)
             print("____Library: Numpy") if verbose else None
         return result
 
     @staticmethod
-    def _interpolate_array(wind_map):
+    def _interpolate_nans_in_wind_map(wind_map):
         for time_step in range(wind_map.shape[0]):
             for component in range(wind_map.shape[3]):
                 # Select component to interpolate
@@ -102,48 +102,76 @@ class Interpolation(MNT, Wind_utils):
                         wind_map[time_step, y, x, component] = np.mean(neighbors[~np.isnan(neighbors)])
         return wind_map
 
+    @staticmethod
+    def _interpolate_mean_KNN_num(array_LR_wind, U, V, W, nb_y_px, nb_x_px, indexes_x, indexes_y, nb_time_steps, nb_pixels):
+        for idx_y in range(nb_y_px):
+            for idx_x in range(nb_x_px):
+                x = indexes_x[idx_x]
+                y = indexes_y[idx_y]
+                for idx_wind_component, wind_component in enumerate([U, V, W]):
+                    for time in range(nb_time_steps):
+                        array_LR_wind[time, idx_y, idx_x, idx_wind_component] = np.mean(
+                            wind_component[time, y - nb_pixels:y + nb_pixels, x - nb_pixels:x + nb_pixels])
+        return array_LR_wind
+
+    def _interpolate_mean_KNN(self, array_LR_wind, U, V, W, nb_y_px, nb_x_px, indexes_x, indexes_y, nb_time_steps, nb_pixels,
+                              library="numba", verbose=True):
+        if library == 'numba' and _numba:
+            jit_int = jit([float32[:, :, :, :]
+                           (float32[:, :, :, :], float32[:, :, :], float32[:, :, :], float32[:, :, :],
+                            int32, int32, int32[:], int32[:],
+                            int32, int32)], nopython=True)(self._interpolate_mean_KNN_num)
+            result = jit_int(array_LR_wind, U, V, W, nb_y_px, nb_x_px, indexes_x, indexes_y, nb_time_steps, nb_pixels)
+            print("____Library: Numba") if verbose else None
+        else:
+            result = self._interpolate_mean_KNN_num(array_LR_wind, U, V, W, nb_y_px, nb_x_px,
+                                                    indexes_x, indexes_y, nb_time_steps, nb_pixels)
+            print("____Library: Numpy") if verbose else None
+        return result
+
     @print_func_executed_decorator("interpolation mean KNN", level_begin="\n__", level_end="__")
     @timer_decorator("interpolation mean KNN", unit="second", level=". . . . ")
     @check_type_kwargs_inputs({"high_resolution_wind": [xr.core.dataarray.DataArray, xr.core.dataset.Dataset],
                                "low_resolution_grid": [xr.core.dataarray.DataArray, xr.core.dataset.Dataset]})
-    def interpolation_mean_K_NN(self, high_resolution_wind=None, high_resolution_grid=None,
+    def interpolate_mean_K_NN(self, high_resolution_wind=None, high_resolution_grid=None,
                                 low_resolution_grid=None, length_square=None,
                                 x_name_LR="x", y_name_LR="y", x_name_HR="x", y_name_HR="y",
-                                resolution_HR_x=None, resolution_HR_y=None):
+                                resolution_HR_x=None, resolution_HR_y=None, library="numba", verbose=True):
 
         assert resolution_HR_x == resolution_HR_y
 
         min_mnt = np.nanmin(high_resolution_grid[x_name_HR].values)
         max_mnt = np.nanmax(high_resolution_grid[y_name_HR].values)
 
-        indexes_x, indexes_y = self.find_nearest_MNT_index(low_resolution_grid[x_name_LR],
-                                                           low_resolution_grid[y_name_LR],
+        indexes_x, indexes_y = self.find_nearest_MNT_index(low_resolution_grid[x_name_LR].values,
+                                                           low_resolution_grid[y_name_LR].values,
                                                            look_for_corners=False,
                                                            xmin_MNT=min_mnt,
                                                            ymax_MNT=max_mnt,
                                                            look_for_resolution=False,
                                                            resolution_x=resolution_HR_x)
 
-        nb_time_steps = high_resolution_wind.Wind.shape[0]
-        nb_y_px = low_resolution_grid.ZS.shape[0]
-        nb_x_px = low_resolution_grid.ZS.shape[1]
-        shape_low_resolution_wind = (nb_time_steps, nb_y_px, nb_x_px, 3)
-        array_LR_wind = np.empty(shape_low_resolution_wind)
+        # Prepare variables
+        indexes_x = change_dtype_if_required(indexes_x, np.int32)                                    #int32[:]
+        indexes_y = change_dtype_if_required(indexes_y, np.int32)                                    #int32[:]
+        nb_time_steps = np.int32(high_resolution_wind.Wind.shape[0])                                 #int32
+        nb_px_y = np.int32(low_resolution_grid.ZS.shape[0])                                          #int32
+        nb_px_x = np.int32(low_resolution_grid.ZS.shape[1])                                          #int32
+        shape_low_resolution_wind = (nb_time_steps, nb_px_y, nb_px_x, 3)
+        array_LR_wind = np.empty(shape_low_resolution_wind).astype(np.float32)                       #float32[:,:,:,:]
 
-        U = high_resolution_wind["U"]
-        V = high_resolution_wind["V"]
-        W = high_resolution_wind["W"]
+        U = high_resolution_wind["U"].values.astype(np.float32)                                      #float32[:,:,:]
+        V = high_resolution_wind["V"].values.astype(np.float32)                                      #float32[:,:,:]
+        W = high_resolution_wind["W"].values.astype(np.float32)                                      #float32[:,:,:]
 
-        nb_pixels = length_square // (2 * resolution_HR_x)
-        for idx_y in range(nb_y_px):
-            for idx_x in range(nb_x_px):
-                for idx_wind_component, wind_component in enumerate([U, V, W]):
-                    for time in range(nb_time_steps):
-                        x = indexes_x[idx_x]
-                        y = indexes_y[idx_y]
-                        array_LR_wind[time, idx_y, idx_x, idx_wind_component] = np.mean(
-                            wind_component.values[time, y - nb_pixels:y + nb_pixels, x - nb_pixels:x + nb_pixels])
+        nb_pixels = np.int32(length_square // (2 * resolution_HR_x))                                 #int32
 
+        # Interpolate
+        array_LR_wind = self._interpolate_mean_KNN(array_LR_wind, U, V, W, nb_px_y, nb_px_x, indexes_x,
+                                                   indexes_y, nb_time_steps, nb_pixels,
+                                                   library=library, verbose=verbose)
+
+        # Save results in xarray
         low_resolution_grid = low_resolution_grid.assign(U=(("time", y_name_LR, x_name_LR), array_LR_wind[:, :, :, 0]))
         low_resolution_grid = low_resolution_grid.assign(V=(("time", y_name_LR, x_name_LR), array_LR_wind[:, :, :, 1]))
         low_resolution_grid = low_resolution_grid.assign(W=(("time", y_name_LR, x_name_LR), array_LR_wind[:, :, :, 2]))

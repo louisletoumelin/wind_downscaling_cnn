@@ -1580,7 +1580,7 @@ class Processing(DwnscHelbig, MicroMet, Rotation, Interpolation):
         del prediction
 
         if interpolate_final_map:
-            wind_map = self.interpolate_final_result(wind_map, library="numba")
+            wind_map = self.interpolate_nan_in_wind_map(wind_map, library="numba")
 
         if centered_on_interpolated:
 
