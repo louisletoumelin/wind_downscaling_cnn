@@ -33,7 +33,7 @@ class Topo_utils:
     def __init__(self):
         pass
 
-    @print_func_executed_decorator("normalize topo", level_begin="__", level_end="__")
+    @print_func_executed_decorator("normalize topo", level_begin="\n__", level_end="__")
     @timer_decorator("normalize topo", unit="second", level=". . ")
     def normalize_topo(self, topo_HD, mean, std, dtype=np.float32, library="numexpr", verbose=True):
         """
@@ -53,10 +53,8 @@ class Topo_utils:
         Standardized topography : array
         """
         if verbose:
-            print(f"________Nb means: {len(mean)}. "
-                  f"\n________Nb std: {len(std)}. "
-                  f"\n________Mean: {np.mean(mean)}. "
-                  f"\n________std: {np.mean(std)}.")
+            print(f"________Nb means: {len(mean)}"
+                  f"\n________Nb std: {len(std)}")
 
         if library == "tensorflow":
             topo_HD = tf.constant(topo_HD, dtype=tf.float32)
@@ -68,16 +66,16 @@ class Topo_utils:
         else:
             topo_HD = np.array(topo_HD, dtype=dtype)
             if library == "numexpr" and self._numexpr:
-                print(f"________Normalize done with {library}")
+                print(f"________Library {library}")
                 return ne.evaluate("(topo_HD - mean) / std")
             else:
-                print(f"________Normalize done with numpy")
+                print(f"________Library numpy")
                 return (topo_HD - mean) / std
 
     @staticmethod
     @print_func_executed_decorator("mean peak valley", level_begin="__", level_end="__")
     @timer_decorator("mean peak valley", unit="second", level=". . ")
-    def mean_peak_valley(topo, verbose=True):
+    def mean_peak_valley(topo, axis=(2,3), verbose=True):
         """
         2 * std(topography)
 
@@ -96,7 +94,7 @@ class Topo_utils:
         peak_valley_height : ndarray
             Mean peak valley height
         """
-        peak_valley_height = 2 * np.nanstd(topo)
+        peak_valley_height = 2 * np.nanstd(topo, axis=axis)
         return peak_valley_height.astype(np.float32)
 
     def laplacian_map(self, mnt, dx, library="numpy", helbig=True, verbose=True):

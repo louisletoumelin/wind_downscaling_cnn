@@ -1020,10 +1020,10 @@ class Visualization:
             raise Exception("Wind speed or wind components need to be specified")
 
         if not (U_in_keys and V_in_keys):
-            nwp = self.p.horizontal_wind_component(working_with_xarray=True, xarray_data=nwp, wind_name=UV,
+            nwp = self.p.horizontal_wind_component(library="xarray", xarray_data=nwp, wind_name=UV,
                                                    wind_dir_name=UV_DIR)
         if not UV_in_keys:
-            nwp = self.p.compute_wind_speed(xarray_data=nwp, u_name="U", v_name="V")
+            nwp = self.p.compute_speed_and_direction_xarray(xarray_data=nwp, u_name="U", v_name="V")
 
         if ax is None:
             plt.figure()

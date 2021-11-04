@@ -103,12 +103,12 @@ class NWP(Data_2D):
                                              preprocess=preprocess_function,
                                              concat_dim='time',
                                              parallel=parallel).astype(np.float32, copy=False)
-            if verbose: print(f"__Used xr.open_mfdataset to open NWP and parallel is {parallel}")
+            if verbose: print(f"__Function xr.open_mfdataset. Parallel: {parallel}")
         else:
-            print("\nNot using dask to open netcdf files\n")
+            print("__Dask = False")
             self.data_xr = xr.open_dataset(path_to_file)
             self.data_xr = preprocess_function(self.data_xr)
-            if verbose: print("__Used xr.open_dataset to open NWP")
+            if verbose: print("__Function xr.open_dataset")
 
     def add_l93_coordinates(self, path_to_file_npy=None, verbose=True):
         if _pyproj:
@@ -233,7 +233,7 @@ class NWP(Data_2D):
 
     def _add_Z0(self, path_Z0_2018, path_Z0_2019, save=False, load=False, verbose=True):
 
-        if verbose: print('__Start adding Z0')
+        if verbose: print('\n__Start adding Z0')
 
         if isinstance(self.begin, str):
             year, month, day = self.begin.split('-')
@@ -289,7 +289,7 @@ class NWP(Data_2D):
         self.data_xr['Z0'] = (('time', 'yy', 'xx'), array_Z0['Z0'].values)
         self.data_xr['Z0REL'] = (('time', 'yy', 'xx'), array_Z0['Z0REL'].values)
 
-        if verbose: print('\nEnd adding Z0')
+        if verbose: print('__End adding Z0')
 
     def _select_specific_variables(self):
         try:
@@ -358,13 +358,16 @@ class NWP(Data_2D):
             end = self.end
 
         if isinstance(begin, np.datetime64) and isinstance(end, np.datetime64):
-            print("\n____Used np.datetime64 to select timeframe\n")
+            print("____Used np.datetime64 to select timeframe")
             self.data_xr = self.data_xr.sel(time=slice(np.datetime64(begin), np.datetime64(end)))
 
         elif isinstance(begin, pd._libs.tslibs.timestamps.Timestamp) and isinstance(end, pd._libs.tslibs.timestamps.Timestamp):
-            print("\nused Timestamp converted to str to select timeframe\n")
+            print("____Used Timestamp converted to str to select timeframe")
             self.data_xr = self.data_xr.sel(time=slice(str(begin), str(end)))
 
         elif isinstance(begin, str) and isinstance(end, str):
-            print("\n____Used str to select datetime to str to select timeframe\n")
+            print("____Used str to select timeframe")
             self.data_xr = self.data_xr.sel(time=slice(begin, end))
+
+        print(f"____Selected timeframe for NWP, begin: {begin}")
+        print(f"____Selected timeframe for NWP, end: {end}")

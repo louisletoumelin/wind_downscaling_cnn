@@ -14,10 +14,9 @@ def create_prm(month_prediction=True):
     """
 
     # GPU
-    prm["GPU"] = True
-    prm["horovod"] = True
-    prm["results_name"] = "Test_predict_on_maps_5"
-    prm["name_prediction"] = "Prediction_long_time_maps_5"
+    prm["GPU"] = False
+    prm["horovod"] = False
+    prm["results_name"] = "test_interpolation_final_is_false"
 
     """
     MNT, NWP and observations
@@ -48,9 +47,10 @@ def create_prm(month_prediction=True):
     prm["Z0"] = True
     prm["load_z0"] = True
     prm["save_z0"] = False
+    prm["log_profile_3m_to_10m"] = False
 
     # Exposed wind
-    prm["expose"] = "max altitude" #"peak valley", "max altitude", "10m"
+    prm["expose"] = "max altitude" #"peak valley", "max altitude", "10m", None
     prm["peak_valley"] = False
     prm["scale_at_10m"] = False # if peak_valley = True, scale_at_10m = False
     prm["scale_at_max_altitude"] = True # if peak_valley = True, scale_at_10m = False
@@ -74,32 +74,35 @@ def create_prm(month_prediction=True):
     prm["stations_to_predict"] = "all"
 
     # For predictions long periods at stations
-    prm["variable"] = ["W", "UV", "UVW", "UV_DIR_deg", "alpha_deg", "NWP_wind_speed", "exp_Wind", "acceleration_CNN", "Z0"]
+    prm["variable"] = ["W", "UV", "UVW", "UV_DIR_deg", "alpha_deg", "NWP_wind_speed", "exp_Wind", "acceleration_CNN", "Z0", "a4"]
     prm["station_similar_to_map"] = True  # If you work on interpolated AROME True, if stations False
 
     # For map prediction
-    prm["type_rotation"] = "scipy"  # 'indexes' or 'scipy'
-    prm["interp"] = 2
-    prm["nb_pixels"] = 15
-    prm["interpolate_final_map"] = True
+    prm["type_rotation"] = "tfa" # "indexes" or "scipy" or "tfa"
+    prm["interpolate_nwp"] = True
+    prm["interp"] = 3
+    prm["nb_pixels"] = 8 # Number of pixel extracted around each NWP pixel after prediction, default 15
+    prm["interpolate_final_map"] = False
     prm["dx"] = 2_000
     prm["dy"] = 2_500
     prm["centered_on_interpolated"] = True  # If you work at stations, False, if interpolated AROME True
     prm["select_area"] = "coord"
-    prm["coords_domain_for_map_prediction"] = [937875, 6439125, 973375, 6464125] #[959000, 6462000, 960000, 6464000]  #[xmin, ymin, xmax, ymax]
+    prm["coords_domain_for_map_prediction"] = [937875, 6439125, 973375, 6464125] #[959000, 6462000, 960000, 6464000] #[959000, 6462000, 960000, 6464000]  #[xmin, ymin, xmax, ymax]
     prm["method"] = "linear"
+    prm["nb_batch_sent_to_gpu"] = 10 # Number of batches sent from the cpu to the gpu to avoid out of memory error
+    prm["batch_size_prediction"] = 2**10 # Number of batches in the gpu to accelerate computation
 
     # 2 August 2017 1h
-    prm["hour_begin"] = 1
-    prm["day_begin"] = 2
-    prm["month_begin"] = 8
-    prm["year_begin"] = 2017
+    prm["hour_begin"] = 0#1
+    prm["day_begin"] = 1#2
+    prm["month_begin"] = 1#8
+    prm["year_begin"] = 2019#2017
 
     # 31 May 2020 1h
-    prm["hour_end"] = 1#1
-    prm["day_end"] = 20#31
-    prm["month_end"] = 8#5
-    prm["year_end"] = 2017#2020
+    prm["hour_end"] = 0#1
+    prm["day_end"] = 1#31
+    prm["month_end"] = 1#5
+    prm["year_end"] = 2019#2020
 
     prm["list_no_HTN"] = ["DIGNE LES BAINS", "LA MURE-ARGENS", "ARVIEUX", "EMBRUN", "LA FAURIE", "GAP", "ANTIBES-GAROUPE", "ASCROS", "CANNES", "CAUSSOLS", "PEILLE",
                           "CHAPELLE-EN-VER", "TRICASTIN", "ST ROMAN-DIOIS", "CREYS-MALVILLE", "ST-ALBAN", "ST-PIERRE-LES EGAUX", "LUS L CROIX HTE", "GRENOBLE–LVD", "ALBERTVILLE JO",
@@ -198,6 +201,8 @@ def create_prm(month_prediction=True):
     # CNN model "date_16_02_name_simu_FINAL_1_0_model_UNet/"
     prm['model_experience'] = "date_20_05_name_simu_retrain_with_mean_each_sample_0_model_UNet/"
     prm["model_path"] = prm["experience_path"] + prm['model_experience']
+
+    prm["name_prediction"] = prm["results_name"]
 
     # Do not modify
     prm = create_begin_and_end_str(prm)

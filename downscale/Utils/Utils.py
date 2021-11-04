@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import datetime
 
-from downscale.Utils.Decorators import print_func_executed_decorator, timer_decorator
+from downscale.Utils.Decorators import timer_decorator
 
 
 def select_range(month_begin, month_end, year_begin, year_end, date_begin, date_end):
@@ -16,7 +16,7 @@ def select_range(month_begin, month_end, year_begin, year_end, date_begin, date_
     return iterator
 
 
-def select_range_7days_for_long_periods_prediction(begin="2017-8-2", end="2020-6-30"):
+def select_range_7days_for_long_periods_prediction(begin="2017-8-2", end="2020-6-30", prm=None):
     """
     This function takes as input a date range (begin and end) and split it in 7-days range around excluded dates
 
@@ -32,11 +32,19 @@ def select_range_7days_for_long_periods_prediction(begin="2017-8-2", end="2020-6
     dates_shift = dates_shift.where(dates_shift <= end, [end])
 
     # Split range around selected dates
-    d1 = datetime.datetime(2017, 8, 1, 6)
-    d2 = datetime.datetime(2018, 8, 1, 6)
-    d3 = datetime.datetime(2019, 6, 1, 6)
-    d6 = datetime.datetime(2020, 7, 1, 6)
-    splitting_dates = [np.datetime64(date) for date in [d1, d2, d3, d6]]
+    if prm["GPU"]:
+        d1 = datetime.datetime(2017, 8, 1, 6)
+        d2 = datetime.datetime(2018, 8, 1, 6)
+        d3 = datetime.datetime(2019, 5, 1, 6)
+        d4 = datetime.datetime(2019, 6, 1, 6)
+        d5 = datetime.datetime(2020, 6, 2, 6)
+        splitting_dates = [np.datetime64(date) for date in [d1, d2, d3, d4, d5]]
+    else:
+        d1 = datetime.datetime(2017, 8, 1, 6)
+        d2 = datetime.datetime(2018, 8, 1, 6)
+        d3 = datetime.datetime(2019, 6, 1, 6)
+        d6 = datetime.datetime(2020, 7, 1, 6)
+        splitting_dates = [np.datetime64(date) for date in [d1, d2, d3, d6]]
 
     begins = []
     ends = []
@@ -45,6 +53,9 @@ def select_range_7days_for_long_periods_prediction(begin="2017-8-2", end="2020-6
         # Add one day to begin after first element
         begin = begin if index == 0 else begin + np.timedelta64(1, "D")
         end = end + np.timedelta64(23, "h")
+
+        if begin > end:
+            continue
 
         split = False
         for splt_date in splitting_dates:
@@ -225,3 +236,60 @@ def print_statistical_description_array(array, name="Acceleration CNN", level="_
     print(f"\n{level}{name} maximum", np.nanmax(array))
 
     return None
+
+
+def print_with_frame(text):
+    print('\n\n__________________________')
+    print('__________________________\n')
+    print(f'_______{text}_______\n')
+    print('__________________________')
+    print('__________________________\n\n')
+
+
+def print_begin_end(begin, end):
+    print('\n\n__________________________')
+    print('__________________________\n')
+    print(f'_______{begin}___________\n')
+    print(f'_______{end}___________\n')
+    print('__________________________')
+    print('__________________________\n\n')
+
+
+def print_second_begin_end(begin, end):
+    print('\n__________________________')
+    print(f'____{begin}___')
+    print(f'____{end}___')
+    print('__________________________')
+
+
+def print_intro():
+
+    intro = """
+                                            ''' '
+                                          '   ' '
+                                     ''' ''' '''
+                              + hs    ' '''''  '.' '   
+                            'shh  ho            '   '   
+                           .yhhh  hh+           ' ''  
+                          /hhhs    +hhh/         
+                          hhhh'     hhhh         '''
+                         ohhho      +hhh:       '.  '.' 
+                       'yhhh:        ohhh: ''''' ''' .  
+               .+.    -hhhy.          ohhh:  '  ''''' ''
+              -hhho' /hhhs'            ohhh:  ''''''''' 
+             :hhhhhhyhhh+               ohhh/      .' ''
+            /hhho+hhhhh:                 +hhh+    '. '.'
+           +hhh+  '+hy                    /hhho     ''  
+          ohhh/     '                       :hhhs'       
+        'shhh:                               :yhhy-      
+       gyhhhg           Wind speed            'shhh/     
+      hyhhyf                                   +hhhs'   
+     :hhhs'             Downscaling              -hhhh:  
+    +hhho                                       'ohhhsg
+    hhh/                 using CNN                  :yhhh
+    hy-                                              '+hh
+    o'              by Louis Le Toumelin               .s
+
+                     CEN - Meteo-France
+    """
+    print(intro)

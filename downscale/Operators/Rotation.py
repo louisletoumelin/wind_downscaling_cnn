@@ -1,8 +1,8 @@
 import numpy as np
-import pandas as pd
-import xarray as xr
 from scipy.ndimage import rotate
 import concurrent.futures
+import os
+import tensorflow as tf
 
 from downscale.Utils.Decorators import print_func_executed_decorator, timer_decorator
 
@@ -19,6 +19,12 @@ try:
     _numexpr = True
 except ModuleNotFoundError:
     _numexpr = False
+
+try:
+    import tensorflow_addons as tfa
+    _tfa = True
+except ModuleNotFoundError:
+    _tfa = False
 
 try:
     import dask
@@ -55,17 +61,55 @@ class Rotation:
         if clockwise:
             rotated_topography = self.rotate_vectorize_scipy(topography, -90 - wind_dir)
 
-        if verbose: print('____Used scipy to rotate')
+        if verbose: print('____Library: scipy')
         return rotated_topography
 
-    @print_func_executed_decorator("rotating", level_begin="__", level_end="__")
-    @timer_decorator("rotating", unit="second", level=". . . . ")
+    def rotate_vectorize_tfa(self, topography, wind_dir):
+        return np.vectorize(self._rotate_tfa, signature='(l,m,n,p),(l)->(l,m,n,p)')(topography, wind_dir)
+
+    @staticmethod
+    def _rotate_tfa(data, wind_dir):
+        return tfa.image.rotate(data, wind_dir, interpolation="nearest", fill_mode="constant", fill_value=np.nan)
+
+    def rotate_tfa_on_GPU(self, data, wind_dir, verbose=True):
+        rotated_images = self.rotate_vectorize_tfa(data, wind_dir)
+        print("____rotated on GPU") if verbose else None
+        return rotated_images
+
+    def rotate_tfa_on_CPU(self, data, wind_dir, verbose=True):
+        rotated_images = self.rotate_vectorize_tfa(data, wind_dir)
+        print("____rotated on CPU") if verbose else None
+        return rotated_images
+
+    def rotate_tfa(self, data, wind_dir, clockwise=False, GPU=False, verbose=True):
+        """Rotate a topography to a specified angle
+
+        If wind_dir = 270° then angle = 270+90 % 360 = 360 % 360 = 0
+        For wind coming from the West, there is no rotation
+        """
+
+        wind_dir_corrected = 90 + wind_dir if not clockwise else -90 - wind_dir
+        if GPU:
+            rotated_topography = self.rotate_tfa_on_GPU(data,
+                                             wind_dir_corrected)
+        else:
+            rotated_topography = self.rotate_tfa_on_CPU(data,
+                                             wind_dir_corrected)
+
+        if verbose: print('____Library: tfa')
+        return rotated_topography
+
+    @print_func_executed_decorator("rotating", level_begin="\n__", level_end="__")
+    @timer_decorator("rotating", unit="minute", level=". . . . ")
     def select_rotation(self, data=None, wind_dir=None, type_rotation='scipy', clockwise=False, library='numba',
                         verbose=True, all_mat=None, topo_rot=None, topo_i=None, angles=None,
-                        wind_large=None, wind=None):
+                        wind_large=None, wind=None, GPU=False, fill_value=np.nan, interp_rotate_tfa="nearest"):
 
         if type_rotation == 'scipy':
             return self.rotate_topography_scipy(data, wind_dir, clockwise=clockwise, verbose=verbose)
+
+        if type_rotation == "tfa" and _tfa:
+            return self.rotate_tfa(data, wind_dir, clockwise=clockwise, GPU=GPU, verbose=verbose)
 
         if type_rotation == 'topo_indexes':
             return self.rotate_topo_indexes(library=library, all_mat=all_mat, topo_rot=topo_rot, topo_i=topo_i,
@@ -161,3 +205,4 @@ class Rotation:
                 "Parallel computation using concurrent.futures didn't work, so rotate_topo_for_all_degrees will not be parallelized.")
             map(rotate_topo_for_all_degrees, self.observation.stations['name'].values)
         self.dict_rot_topo = dict_topo
+

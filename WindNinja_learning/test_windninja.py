@@ -53,7 +53,7 @@ wu = Wind_utils()
 
 # Compute zonal and meridional wind components
 if "U10" not in AROME2.data_vars or "V10" not in AROME2.data_vars:
-    AROME2 = wu.horizontal_wind_component(working_with_xarray=True, xarray_data=AROME2)
+    AROME2 = wu.horizontal_wind_component(library="xarray", xarray_data=AROME2)
     AROME2 = AROME2.rename({"U": "U10", "V": "V10"})
     # AROME2 = AROME2.expand_dims("DateStrLen")
 

@@ -13,7 +13,8 @@ By rule of three, this give 2 days and 2h for downscaling one year at 1h and 25m
 """
 
 import numpy as np
-
+from datetime import datetime
+import xarray as xr
 
 from downscale.Operators.Processing import Processing
 from downscale.Analysis.Visualization import Visualization
@@ -61,7 +62,10 @@ MNT, NWP and observations
 
 
 DEM = MNT(prm=prm)
-AROME = NWP(prm["selected_path"], begin=prm["begin"], end=prm["end"], prm=prm)
+begin = np.datetime64(datetime(prm["year_begin"], prm["month_begin"], prm["day_begin"], prm["hour_begin"]))
+end = np.datetime64(datetime(prm["year_end"], prm["month_end"], prm["day_end"], prm["hour_end"]+1))
+
+AROME = NWP(prm["selected_path"], begin=begin, end=end, prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 
 if not(prm["GPU"]):
@@ -77,16 +81,18 @@ Processing, visualization and evaluation
 # Processing
 p = Processing(obs=BDclim, mnt=DEM, nwp=AROME, prm=prm)
 #p.update_stations_with_neighbors(mnt=DEM, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=False)
+surfex = xr.open_dataset(prm["path_SURFEX"])
 
 t1 = t()
 if prm["launch_predictions"]:
 
     predict = p.predict_maps
-    ttest=t()
-    #wind_map, acceleration_all, coords, nwp_data_initial, nwp_data, mnt_data = predict(prm)
     wind_xr = predict(prm=prm)
-
-    print(f'\nDownscaling scipy in {round(ttest, t())} seconds')
+    wind_xr = p.compute_speed_and_direction_xarray(xarray_data=wind_xr)
+    wind_xr = p.interpolation_mean_K_NN(wind_xr, p.mnt.data_xr, surfex, 250,
+                                        x_name_LR="x", y_name_LR="y", x_name_HR="x", y_name_HR="y",
+                                        resolution_HR_x=30, resolution_HR_y=30)
+    wind_xr.isel(time=0).U.plot()
 
 print(f'\nPredictions in {round(t1, t())} seconds')
 

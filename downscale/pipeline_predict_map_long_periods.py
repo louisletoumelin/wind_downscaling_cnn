@@ -1,4 +1,6 @@
+import pandas as pd
 from time import time as t
+import os
 
 t_init = t()
 
@@ -13,6 +15,7 @@ By rule of three, this give 2 days and 2h for downscaling one year at 1h and 25m
 """
 
 import xarray as xr
+import numpy as np
 
 from downscale.Operators.Processing import Processing
 from downscale.Analysis.Visualization import Visualization
@@ -20,36 +23,32 @@ from downscale.Data_family.MNT import MNT
 from downscale.Data_family.NWP import NWP
 from downscale.Analysis.Evaluation import Evaluation
 from PRM_predict import create_prm
-from downscale.Utils.GPU import connect_GPU_to_horovod, check_connection_GPU
-from downscale.Utils.Utils import round, select_range_7days_for_long_periods_prediction, select_range_30_days_for_long_periods_prediction
+from downscale.Utils.GPU import connect_GPU_to_horovod, check_connection_GPU, connect_on_GPU
+from downscale.Utils.Utils import round, select_range_7days_for_long_periods_prediction, print_begin_end, \
+    print_second_begin_end, print_intro
 from downscale.Utils.prm import update_selected_path_for_long_periods
 
 # Create prm, horovod and GPU
 prm = create_prm(month_prediction=True)
-connect_GPU_to_horovod() if prm["GPU"] else None
-check_connection_GPU(prm) if prm["GPU"] else None
+connect_on_GPU(prm)
 
 IGN = MNT(prm=prm)
+
 AROME = NWP(begin=prm["begin"], end=prm["end"], prm=prm)
 p = Processing(mnt=IGN, nwp=AROME, prm=prm)
 
-"""
-Processing, visualization and evaluation
-"""
+print_begin_end(prm['begin'], prm['end'])
 
 datasets = []
-
-t1 = t()
 if prm["launch_predictions"]:
 
     # Iterate on weeks
-    begins, ends = select_range_7days_for_long_periods_prediction(begin=prm["begin"], end=prm["end"])
+    begins, ends = select_range_7days_for_long_periods_prediction(begin=prm["begin"], end=prm["end"], prm=prm)
     surfex = xr.open_dataset(prm["path_SURFEX"])
 
     for index, (begin, end) in enumerate(zip(begins, ends)):
-
-        print(f"\n\nBegin: {begin}")
-        print(f"End: {end}")
+        t1 = t()
+        print_second_begin_end(begin, end)
 
         # Update the name of the file to load
         prm = update_selected_path_for_long_periods(begin, end, prm)
@@ -68,11 +67,16 @@ if prm["launch_predictions"]:
         print(f"\n Prediction between {begin} and {end} in {round(t1, t()) / 60} minutes")
 
     wind_xr = xr.concat(datasets, dim="time")
+    wind_xr = p.compute_speed_and_direction_xarray(xarray_data=wind_xr).drop(["U", "V", "W"]).astype(np.float32)
     wind_xr.to_netcdf(prm["path_save_prediction_on_surfex_grid"] + prm["results_name"] + ".nc")
 
     # Visualization and evaluation
     v = Visualization(p)
     e = Evaluation(v)
 
+    path_to_prm_csv = prm["path_save_prediction_on_surfex_grid"] + "prm_" + prm['results_name'] + ".csv"
+    pd.DataFrame.from_dict(data=prm, orient='index').to_csv(path_to_prm_csv, header=False)
+
     print(f"\n All prediction in {round(t_init, t()) / 60} minutes")
+    print_intro()
 

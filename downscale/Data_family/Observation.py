@@ -2045,7 +2045,7 @@ class Observation:
 
     def _qc_isolated_records(self, time_series_station, variable, max_time=24, min_time=12, type="speed", verbose=True):
 
-        # to detect isolated records after he qc process, we need to apply the result of the qc to the time series
+        # to detect isolated records after the qc process, we need to apply the result of the qc to the time series
         wind = time_series_station.copy()
         filter_last_flagged = wind["last_flagged_speed"] != 0
         wind[variable][filter_last_flagged] = np.nan
