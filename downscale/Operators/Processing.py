@@ -1200,7 +1200,7 @@ class Processing(DwnscHelbig, MicroMet, Rotation, Interpolation):
 
     @print_func_executed_decorator("cnn prediction map", level_begin="\n__", level_end="__")
     @timer_decorator("cnn prediction map", unit="second", level="..")
-    def cnn_prediction_map(self, input_, GPU=False):
+    def cnn_prediction_map(self, input_, GPU=False, batch_size=2**10):
 
         device = '/gpu:0' if GPU else '/cpu:0'
 
@@ -1210,7 +1210,7 @@ class Processing(DwnscHelbig, MicroMet, Rotation, Interpolation):
         for batch_1 in topo_generator:
 
             callable_generator = self.create_callable_generator(batch_1)
-            batch_1 = tf.data.Dataset.from_generator(callable_generator, tf.float32).batch(2**10)
+            batch_1 = tf.data.Dataset.from_generator(callable_generator, tf.float32).batch(batch_size)
 
             with tf.device(device):
                 batch_1 = self.model.predict(batch_1)
@@ -1379,6 +1379,7 @@ class Processing(DwnscHelbig, MicroMet, Rotation, Interpolation):
         coords_domain_for_map_prediction = kwargs.get("coords_domain_for_map_prediction")
         select_area = kwargs.get("select_area")
         GPU = kwargs.get("GPU")
+        batch_size_prediction = kwargs.get("batch_size_prediction")
         ten_m_array = None
         three_m_array = None
 
@@ -1470,7 +1471,7 @@ class Processing(DwnscHelbig, MicroMet, Rotation, Interpolation):
 
         # Predictions
         topo_rot = topo_rot.reshape((nb_time_step * nb_px_nwp_x * nb_px_nwp_y, self.n_rows, self.n_col, 1))
-        prediction = self.cnn_prediction_map(topo_rot, GPU=GPU)
+        prediction = self.cnn_prediction_map(topo_rot, GPU=GPU, batch_size=batch_size_prediction)
 
         # Reshape predictions for analysis and broadcasting
         prediction = prediction.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, self.n_rows, self.n_col, 3)).astype(
