@@ -36,6 +36,7 @@ except ModuleNotFoundError:
 
 from downscale.Data_family.Data_2D import Data_2D
 from downscale.Utils.Decorators import print_func_executed_decorator, timer_decorator
+from downscale.Utils.context_managers import print_all_context
 
 
 class Observation:
@@ -43,45 +44,36 @@ class Observation:
     _concurrent = _concurrent
     geopandas = _geopandas
 
-    def __init__(self, path_to_list_stations=None, path_to_time_series=None, prm=None, fast_loading=False):
-        if prm is not None:
-            begin = prm["begin"]
-            end = prm["end"]
-            select_date_time_serie = prm["select_date_time_serie"]
-            GPU = prm["GPU"]
-            path_vallot = prm["path_vallot"]
-            path_saint_sorlin = prm["path_saint_sorlin"]
-            path_argentiere = prm["path_argentiere"]
-            path_Dome_Lac_Blanc = prm["path_Dome_Lac_Blanc"]
-            path_Col_du_Lac_Blanc = prm["path_Col_du_Lac_Blanc"]
-            path_Muzelle_Lac_Blanc = prm["path_Muzelle_Lac_Blanc"]
-            path_Col_de_Porte = prm["path_Col_de_Porte"]
-            path_Col_du_Lautaret = prm["path_Col_du_Lautaret"]
-            path_fast_loading = prm["path_fast_loading"]
-            verbose = prm["verbose"]
-            fast_loading = prm["fast_loading"]
+    def __init__(self, path_to_list_stations=None, path_to_time_series=None, prm={}):
 
-            if verbose:
-                print("\nBegin Observation creation")
-                t0 = t()
+        select_date_time_serie = prm.get("select_date_time_serie")
+        GPU = prm.get("GPU")
+
+        with print_all_context("Observation", level=0, unit="second", verbose=prm.get("verbose", None)):
 
             # Dates
-            self.begin = begin
-            self.end = end
+            self.begin = prm.get("begin")
+            self.end = prm.get("end")
 
             # KNN from NWP
             self._is_updated_with_KNN_from_NWP = False
 
             # Paths
-            self._add_all_stations_paths(path_to_list_stations, path_to_time_series, path_vallot,
-                                         path_saint_sorlin, path_argentiere, path_Dome_Lac_Blanc,
-                                         path_Col_du_Lac_Blanc, path_Muzelle_Lac_Blanc,
-                                         path_Col_de_Porte, path_Col_du_Lautaret, GPU=GPU)
+            self._add_all_stations_paths(path_to_list_stations, path_to_time_series,
+                                         prm.get("path_vallot"),
+                                         prm.get("path_saint_sorlin"),
+                                         prm.get("path_argentiere"),
+                                         prm.get("path_Dome_Lac_Blanc"),
+                                         prm.get("path_Col_du_Lac_Blanc"),
+                                         prm.get("path_Muzelle_Lac_Blanc"),
+                                         prm.get("path_Col_de_Porte"),
+                                         prm.get("path_Col_du_Lautaret"),
+                                         GPU=GPU)
 
             # Quality control
             self._qc = False
             self._qc_init = False
-            self.fast_loading = fast_loading
+            self.fast_loading = prm.get("fast_loading")
 
             # Stations
             self.load_observation_files(type="station", path=path_to_list_stations)
@@ -91,7 +83,7 @@ class Observation:
 
             # Time series
             if self.fast_loading:
-                self.fast_load(path=path_fast_loading, type_file="time_series")
+                self.fast_load(path=prm.get("path_fast_loading"), type_file="time_series")
             else:
                 self.load_observation_files(type='time_series', path=path_to_time_series)
                 self._select_date_time_serie() if select_date_time_serie else None
@@ -107,9 +99,6 @@ class Observation:
 
             # float32
             self._downcast_dtype(oldtype='float64', newtype='float32')
-
-            t1 = t()
-            print(f"Observation created in {np.round(t1 - t0, 2)} seconds\n")
 
     def fast_load(self, path=None, type_file="time_series", verbose=True):
         if type_file == "time_series":
