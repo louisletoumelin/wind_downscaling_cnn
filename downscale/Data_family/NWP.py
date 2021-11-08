@@ -23,6 +23,7 @@ except ModuleNotFoundError:
     _shapely_geometry = False
 
 from downscale.Data_family.Data_2D import Data_2D
+from downscale.Utils.context_managers import print_all_context
 
 
 class NWP(Data_2D):
@@ -31,63 +32,54 @@ class NWP(Data_2D):
     _shapely_geometry = _shapely_geometry
 
     def __init__(self, path_to_file=None, begin=None, end=None,
-                 variables_of_interest=['Wind', 'Wind_DIR', 'LAT', 'LON', 'ZS'], prm=None):
+                 variables_of_interest=['Wind', 'Wind_DIR', 'LAT', 'LON', 'ZS'], prm={}):
 
-        path_to_file = prm["selected_path"] if prm is not None else path_to_file
-        save_path = prm["save_path"] if prm is not None else None
-        path_Z0_2018 = prm["path_Z0_2018"] if prm is not None else None
-        path_Z0_2019 = prm["path_Z0_2019"] if prm is not None else None
-        path_to_file_npy = prm["path_to_file_npy"] if prm is not None else None
-        verbose = prm["verbose"] if prm is not None else None
-        load_z0 = prm["load_z0"] if prm is not None else None
-        save = prm["save_z0"] if prm is not None else None
-        name = prm["name_nwp"] if prm is not None else None
+        path_to_file = path_to_file if path_to_file is not None else prm.get("selected_path", None)
+        save_path = prm.get("save_path", None)
+        path_Z0_2018 = prm.get("path_Z0_2018", None)
+        path_Z0_2019 = prm.get("path_Z0_2019", None)
+        path_to_file_npy = prm.get("path_to_file_npy", None)
+        load_z0 = prm.get("load_z0", None)
+        save = prm.get("save_z0", None)
+        name = prm.get("name_nwp", None)
 
-        if verbose:
-            print("\nBegin NWP creation")
-            t0 = t()
+        with print_all_context("NWP", level=0, unit="second", verbose=prm.get("verbose", None)):
 
-        # inherit from data
-        super().__init__(path_to_file, name)
+            # inherit from data
+            super().__init__(path_to_file, name)
 
-        # List of variables
-        self.variables_of_interest = variables_of_interest
+            # List of variables
+            self.variables_of_interest = variables_of_interest
+            self.save_path = save_path
+            self.begin = begin
+            self.end = end
 
-        # save_path
-        self.save_path = save_path
-        self.begin = begin
-        self.end = end
+            # Path to file can be a string or a list of strings
+            self.load_nwp_files(path_to_file=path_to_file,
+                                preprocess_function=self._preprocess_ncfile)
 
-        # Path to file can be a string or a list of strings
-        self.load_nwp_files(path_to_file=path_to_file,
-                            preprocess_function=self._preprocess_ncfile)
+            # Select timeframe
+            self.select_timeframe(begin=begin, end=end)
 
-        # Select timeframe
-        self.select_timeframe()
+            # Select variables of interest
+            self._select_specific_variables()
 
-        # Select variables of interest
-        self._select_specific_variables()
+            # Compute
+            self.compute_array_dask()
 
-        # Compute
-        self.compute_array_dask()
+            # Add L93 coordinates
+            self.add_l93_coordinates(path_to_file_npy=path_to_file_npy)
 
-        # Add L93 coordinates
-        self.add_l93_coordinates(path_to_file_npy=path_to_file_npy)
+            # Modify variables of interest
+            self.variables_of_interest = variables_of_interest + ['X_L93', 'Y_L93']
+            self._select_specific_variables()
 
-        # Modify variables of interest
-        self.variables_of_interest = variables_of_interest + ['X_L93', 'Y_L93']
-        self._select_specific_variables()
+            # Add z0 variables
+            if (path_Z0_2018 is not None) and (path_Z0_2019 is not None):
+                self._add_Z0(path_Z0_2018, path_Z0_2019, save=save, load=load_z0, verbose=True)
 
-        # Add z0 variables
-        if (path_Z0_2018 is not None) and (path_Z0_2019 is not None):
-            self._add_Z0(path_Z0_2018, path_Z0_2019, save=save, load=load_z0, verbose=True)
-
-        # float32
-        self.data_xr = self.data_xr.astype("float32", copy=False)
-
-        if verbose:
-            t1 = t()
-            print(f"NWP created in {np.round(t1 - t0, 2)} seconds\n")
+            # float32
+            self.data_xr = self.data_xr.astype("float32", copy=False)
 
     def compute_array_dask(self):
         try:

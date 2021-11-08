@@ -3,6 +3,7 @@ import xarray as xr
 from time import time as t
 
 from downscale.Data_family.Data_2D import Data_2D
+from downscale.Utils.context_managers import print_all_context
 
 try:
     import dask
@@ -21,28 +22,28 @@ class MNT(Data_2D):
     _dask = _dask
     _rasterio = _rasterio
 
-    def __init__(self, path_to_file=None, name=None, resolution_x=25, resolution_y=25, prm=None):
-        print("\nBegin MNT creation")
-        t0 = t()
-        if prm is not None:
-            path_to_file = prm["topo_path"] if prm["topo_path"] is not None else path_to_file
-            name = prm["name_mnt"] if prm["name_mnt"] is not None else name
-            resolution_x = prm["resolution_mnt_x"] if prm["resolution_mnt_x"] is not None else resolution_x
-            resolution_y = prm["resolution_mnt_y"] if prm["resolution_mnt_y"] is not None else resolution_y
+    def __init__(self, path_to_file=None, name=None, prm={}):
 
-        # Inherit from Data
-        super().__init__(path_to_file, name)
+        with print_all_context("MNT", level=0, unit="second", verbose=prm.get("verbose", None)):
+            path_to_file = path_to_file if path_to_file is not None else prm.get("topo_path", path_to_file)
+            name = name if name is not None else prm.get("name_mnt", name)
+
+            # Inherit from Data
+            super().__init__(path_to_file, name)
+
+            self._load_data(path_to_file=path_to_file, name=name, prm=prm)
+
+    def _load_data(self, path_to_file=None, name=None, prm={}):
 
         # Load MNT with xr.open_rasterio or xr.open_dataset
-        self._mnt_loaded = False if prm is not None else None
-        self.load_mnt_files(path_to_file, chunks=None) if path_to_file is not None else None
+        self._mnt_loaded = False
+        if path_to_file is not None:
+            self.load_mnt_files(path_to_file, chunks=None) if path_to_file is not None else None
 
         # Corners of MNT
         if self._mnt_loaded:
-            self.get_mnt_characteristics(resolution_x=resolution_x, resolution_y=resolution_y, name=name,
-                                        path_to_file=path_to_file, verbose=True)
-
-        print(f"MNT created in {np.round(t()-t0, 2)} seconds\n")
+            self.get_mnt_characteristics(resolution_x=prm["resolution_mnt_x"], resolution_y=prm["resolution_mnt_y"],
+                                         name=name, path_to_file=path_to_file, verbose=True)
 
     def get_mnt_characteristics(self, resolution_x=None, resolution_y=None, name=None, verbose=False, path_to_file=None):
 
