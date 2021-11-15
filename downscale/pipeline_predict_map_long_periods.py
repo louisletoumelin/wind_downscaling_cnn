@@ -1,6 +1,5 @@
 import pandas as pd
 from time import time as t
-import os
 
 t_init = t()
 
@@ -17,16 +16,16 @@ By rule of three, this give 2 days and 2h for downscaling one year at 1h and 25m
 import xarray as xr
 import numpy as np
 
-from downscale.Operators.Processing import Processing
-from downscale.Analysis.Visualization import Visualization
-from downscale.Data_family.MNT import MNT
-from downscale.Data_family.NWP import NWP
-from downscale.Analysis.Evaluation import Evaluation
+from downscale.operators.devine import Devine
+from visu.visualization import Visualization
+from downscale.data_source.MNT import MNT
+from downscale.data_source.NWP import NWP
+from eval.evaluation import Evaluation
 from PRM_predict import create_prm
-from downscale.Utils.GPU import connect_GPU_to_horovod, check_connection_GPU, connect_on_GPU
-from downscale.Utils.Utils import round, select_range_7days_for_long_periods_prediction, print_begin_end, \
+from downscale.utils.GPU import connect_on_GPU
+from downscale.utils.utils_func import round, select_range_7days_for_long_periods_prediction, print_begin_end, \
     print_second_begin_end, print_intro
-from downscale.Utils.prm import update_selected_path_for_long_periods
+from downscale.utils.prm import update_selected_path_for_long_periods
 
 # Create prm, horovod and GPU
 prm = create_prm(month_prediction=True)
@@ -35,7 +34,7 @@ connect_on_GPU(prm)
 IGN = MNT(prm=prm)
 
 AROME = NWP(begin=prm["begin"], end=prm["end"], prm=prm)
-p = Processing(mnt=IGN, nwp=AROME, prm=prm)
+p = Devine(mnt=IGN, nwp=AROME, prm=prm)
 
 print_begin_end(prm['begin'], prm['end'])
 

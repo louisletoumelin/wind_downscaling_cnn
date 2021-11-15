@@ -2,23 +2,21 @@ from time import time as t
 
 t_init = t()
 
-import numpy as np
-
 try:
     import matplotlib.pyplot as plt
 except ModuleNotFoundError:
     pass
 
 
-from downscale.Operators.Processing import Processing
-from downscale.Analysis.Visualization import Visualization
-from downscale.Data_family.MNT import MNT
-from downscale.Data_family.NWP import NWP
-from downscale.Data_family.Observation import Observation
-from downscale.Analysis.Evaluation import Evaluation
+from downscale.operators.devine import Devine
+from visu.visualization import Visualization
+from downscale.data_source.MNT import MNT
+from downscale.data_source.NWP import NWP
+from downscale.data_source.observation import Observation
+from eval.evaluation import Evaluation
 from downscale.PRM_predict import create_prm
-from downscale.Utils.GPU import connect_GPU_to_horovod
-from downscale.Utils.Utils import round
+from downscale.utils.GPU import connect_GPU_to_horovod
+from downscale.utils.utils_func import round
 
 """
 #Stations
@@ -46,7 +44,7 @@ from downscale.Utils.Utils import round
 
 
 """
-#Utils
+#utils
 """
 
 
@@ -80,7 +78,7 @@ if not prm["GPU"]:
 
 
 # Processing
-p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
+p = Devine(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
 p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=True)
 
 t1 = t()

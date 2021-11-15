@@ -4,8 +4,8 @@ import warnings
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-from downscale.Operators.topo_utils import *
-from downscale.Operators.Helbig import *
+from downscale.operators.topo_utils import *
+from downscale.operators.helbig import *
 
 
 def test_std_slicing_numpy():

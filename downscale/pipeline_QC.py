@@ -1,16 +1,15 @@
 from time import time as t
-import numpy as np
 import pandas as pd
 
 t_init = t()
 
-from downscale.Data_family.Observation import Observation
-from downscale.Analysis.Visualization import Visualization
-from downscale.Operators.Processing import Processing
-from downscale.Analysis.Evaluation import Evaluation
+from downscale.data_source.observation import Observation
+from visu.visualization import Visualization
+from downscale.operators.devine import Devine
+from eval.evaluation import Evaluation
 from PRM_predict import create_prm
-from downscale.Utils.Utils import round
-from downscale.Utils.GPU import connect_GPU_to_horovod
+from downscale.utils.utils_func import round
+from downscale.utils.GPU import connect_GPU_to_horovod
 
 # Create prm
 prm = create_prm(month_prediction=True)
@@ -32,7 +31,7 @@ else:
 print(BDclim.time_series["name"].unique())
 
 # Processing
-p = Processing(obs=BDclim, prm=prm)
+p = Devine(obs=BDclim, prm=prm)
 
 # Visualization
 v = Visualization(p)

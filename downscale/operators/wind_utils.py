@@ -1,10 +1,10 @@
 import numpy as np
 from time import time as t
 
-from downscale.Utils.Utils import change_dtype_if_required
-from downscale.Utils.Decorators import print_func_executed_decorator, timer_decorator, \
+from downscale.utils.utils_func import change_dtype_if_required
+from downscale.utils.decorators import print_func_executed_decorator, timer_decorator, \
     change_dtype_if_required_decorator
-from downscale.Utils.context_managers import timer_context
+from downscale.utils.context_managers import timer_context
 
 try:
     from numba import jit, prange, float64, float32, int32, int64

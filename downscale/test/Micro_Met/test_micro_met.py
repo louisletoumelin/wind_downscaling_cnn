@@ -6,7 +6,7 @@ import pytest
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-from downscale.Operators.Micro_Met import MicroMet
+from downscale.operators.micro_met import MicroMet
 
 
 @pytest.fixture

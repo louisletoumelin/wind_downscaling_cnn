@@ -1,16 +1,10 @@
 import numpy as np
 import pandas as pd
-import xarray as xr
-from scipy.spatial import cKDTree
-from scipy.ndimage import rotate
 import random  # Warning
-from time import time as t
-from collections import defaultdict
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib.colors import LightSource
-from mpl_toolkits.mplot3d import axes3d  # Warning
 
 try:
     import seaborn as sns
@@ -43,21 +37,24 @@ try:
 except ModuleNotFoundError:
     _cartopy = False
 
-from downscale.Analysis.MidpointNormalize import MidpointNormalize
+from downscale.visu.MidpointNormalize import MidpointNormalize
+from downscale.operators.devine import Devine
+from downscale.utils.context_managers import print_all_context
 
 
-class Visualization:
+class Visualization(Devine):
     _shapely_geometry = _shapely_geometry
     _geopandas = _geopandas
     _cartopy = _cartopy
 
-    def __init__(self, p=None):
-        t0 = t()
-        self.p = p
-        if _cartopy:
-            self.l93 = ccrs.epsg(2154)
-        t1 = t()
-        print(f"\nVizualisation created in {np.round(t1 - t0, 2)} seconds\n")
+    def __init__(self, p=None, prm={"verbose": True}):
+
+        with print_all_context("Vizualization", level=0, unit="second", verbose=prm.get("verbose")):
+            super().__init__()
+            self.p = p
+            if _cartopy:
+                self.l93 = ccrs.epsg(2154)
+
 
     @staticmethod
     def density_scatter(x, y, ax=None, sort=True, use_power_norm=1, bins=20, **kwargs):
@@ -66,8 +63,7 @@ class Visualization:
         """
         import numpy as np
         import matplotlib.pyplot as plt
-        from matplotlib import cm
-        from matplotlib.colors import Normalize, PowerNorm
+        from matplotlib.colors import PowerNorm
         from scipy.interpolate import interpn
         if ax is None:
             fig, ax = plt.subplots()
@@ -94,13 +90,13 @@ class Visualization:
 
     def _plot_observation_station(self):
         ax = plt.gca()
-        self.p.observation.stations_to_gdf(from_epsg=self.l93, x="X", y="Y")
-        self.p.observation.stations.plot(ax=ax, markersize=1, color='C3', label='observation stations')
+        self.observation.stations_to_gdf(from_epsg=self.l93, x="X", y="Y")
+        self.observation.stations.plot(ax=ax, markersize=1, color='C3', label='observation stations')
 
     def _plot_station_names(self):
         # Plot stations name
         ax = plt.gca()
-        stations = self.p.observation.stations
+        stations = self.observation.stations
         nb_stations = len(stations['X'].values)
         for idx_station in range(nb_stations):
             X = list(stations['X'].values)[idx_station]
@@ -110,7 +106,7 @@ class Visualization:
 
     def plot_model(self):
         # Load model
-        self.p.load_model(dependencies=True)
+        self.load_cnn(dependencies=True)
 
         import visualkeras
         from tensorflow.python.keras.layers import Dense, Conv2D, Flatten, Dropout, MaxPooling2D, ZeroPadding2D, \
@@ -152,8 +148,8 @@ class Visualization:
         ax.set_xlim(207_775, 1_207_775)
         ax.set_ylim(6_083_225.0, 6_783_225.0)
 
-        MNT_polygon = self.polygon_from_grid(self.p.mnt.data_xr.x.data, self.p.mnt.data_xr.y.data)
-        NWP_polygon = self.polygon_from_grid(self.p.nwp.data_xr["X_L93"], self.p.nwp.data_xr["Y_L93"])
+        MNT_polygon = self.polygon_from_grid(self.mnt.data_xr.x.data, self.mnt.data_xr.y.data)
+        NWP_polygon = self.polygon_from_grid(self.nwp.data_xr["X_L93"], self.nwp.data_xr["Y_L93"])
 
         ax.plot(*MNT_polygon.exterior.xy, label='MNT')
         ax.plot(*NWP_polygon.exterior.xy, label='NWP')
@@ -169,9 +165,9 @@ class Visualization:
 
         # Plot AROME grid
         ax = plt.gca()
-        x_l93, y_l93 = self.p.nwp.data_xr["X_L93"], self.p.nwp.data_xr["Y_L93"]
-        stacked_xy = self.p.mnt.x_y_to_stacked_xy(x_l93, y_l93)
-        x_y_flat = self.p.mnt.grid_to_flat(stacked_xy)
+        x_l93, y_l93 = self.nwp.data_xr["X_L93"], self.nwp.data_xr["Y_L93"]
+        stacked_xy = self.mnt.x_y_to_stacked_xy(x_l93, y_l93)
+        x_y_flat = self.mnt.grid_to_flat(stacked_xy)
         NWP_flat_gpd = gpd.GeoDataFrame(geometry=[Point(cell) for cell in x_y_flat],
                                         crs=self.l93)
         NWP_flat_gpd.plot(ax=ax, markersize=5, label='NWP grid')
@@ -186,9 +182,9 @@ class Visualization:
 
         # Plot NWP nearest neighbors to stations
         ax = plt.gca()
-        self.p.observation.update_stations_with_KNN_from_NWP(number_of_neighbors, self.p.nwp)
-        nwp_neighbors = self.p.observation.stations.copy()
-        nwp_name = self.p.nwp.name
+        self.observation.update_stations_with_KNN_from_NWP(number_of_neighbors, self.nwp)
+        nwp_neighbors = self.observation.stations.copy()
+        nwp_name = self.nwp.name
         for neighbor in range(number_of_neighbors):
             geometry_knn_i = gpd.GeoDataFrame(geometry=nwp_neighbors[f'{nwp_name}_NN_{neighbor}'])
             geometry_knn_i.plot(ax=ax, label=f'{nwp_name}_NN_{neighbor}')
@@ -204,9 +200,9 @@ class Visualization:
 
         # Plot MNT nearest neighbors to stations
         ax = plt.gca()
-        self.p.observation.update_stations_with_KNN_from_MNT_using_cKDTree(self.p.mnt)
-        mnt_neighbors = self.p.observation.stations.copy()
-        mnt_name = self.p.mnt.name
+        self.observation.update_stations_with_KNN_from_MNT_using_cKDTree(self.mnt)
+        mnt_neighbors = self.observation.stations.copy()
+        mnt_name = self.mnt.name
         for neighbor in range(number_of_neighbors):
             geometry_knn_i = gpd.GeoDataFrame(geometry=mnt_neighbors[f'{mnt_name}_NN_{neighbor}_cKDTree'].apply(Point))
             geometry_knn_i.plot(ax=ax, label=f'{mnt_name}_NN_{neighbor}_cKDTree')
@@ -214,7 +210,7 @@ class Visualization:
 
     def _plot_single_observation_station(self, station_name):
         ax = plt.gca()
-        stations = self.p.observation.stations
+        stations = self.observation.stations
         stations = stations[stations["name"] == station_name]
         ax.plot(stations['X'].values[0],
                 stations['Y'].values[0],
@@ -224,9 +220,9 @@ class Visualization:
 
     def _plot_single_NWP_nearest_neighbor(self, station_name):
         ax = plt.gca()
-        stations = self.p.observation.stations
+        stations = self.observation.stations
         stations = stations[stations["name"] == station_name]
-        nwp_name = self.p.nwp.name
+        nwp_name = self.nwp.name
         ax.plot(stations[f"{nwp_name}_NN_0"].values[0][0],
                 stations[f"{nwp_name}_NN_0"].values[0][1],
                 marker='x',
@@ -235,9 +231,9 @@ class Visualization:
 
     def _plot_single_MNT_nearest_neighbor(self, station_name):
         ax = plt.gca()
-        stations = self.p.observation.stations
+        stations = self.observation.stations
         stations = stations[stations["name"] == station_name]
-        mnt_name = self.p.mnt.name
+        mnt_name = self.mnt.name
         ax.plot(stations[f"{mnt_name}_NN_0_cKDTree"].values[0][0],
                 stations[f"{mnt_name}_NN_0_cKDTree"].values[0][1],
                 marker='x',
@@ -246,7 +242,7 @@ class Visualization:
 
     def _plot_single_station_name(self, station_name):
         ax = plt.gca()
-        stations = self.p.observation.stations
+        stations = self.observation.stations
         stations = stations[stations["name"] == station_name]
         X = stations['X'].values[0]
         Y = stations['Y'].values[0]
@@ -254,8 +250,8 @@ class Visualization:
         ax.text(X, Y, name)
 
     def plot_topography_around_station_2D(self, station_name, nb_pixel_x=100, nb_pixel_y=100, create_figure=True):
-        MNT_data, MNT_x, MNT_y = self.p.observation.extract_MNT_around_station(station_name,
-                                                                               self.p.mnt,
+        MNT_data, MNT_x, MNT_y = self.observation.extract_MNT_around_station(station_name,
+                                                                               self.mnt,
                                                                                nb_pixel_x,
                                                                                nb_pixel_y)
         if create_figure:
@@ -280,8 +276,8 @@ class Visualization:
 
     def plot_multiple_topographies_2D(self, centered_station_name, nb_pixel_x=1000, nb_pixel_y=1000):
 
-        MNT_data, MNT_x, MNT_y = self.p.observation.extract_MNT_around_station(centered_station_name,
-                                                                               self.p.mnt,
+        MNT_data, MNT_x, MNT_y = self.observation.extract_MNT_around_station(centered_station_name,
+                                                                               self.mnt,
                                                                                nb_pixel_x,
                                                                                nb_pixel_y)
         plt.contourf(MNT_x, MNT_y, MNT_data, cmap='gist_earth')
@@ -291,7 +287,7 @@ class Visualization:
         max_x = np.max(MNT_x)
         min_y = np.min(MNT_y)
         max_y = np.max(MNT_y)
-        stations = self.p.observation.stations
+        stations = self.observation.stations
         for station_name in stations["name"].values:
             station = stations[stations["name"] == station_name]
             if (min_x < station["X"].values[0] < max_x) and (min_y < station["Y"].values[0] < max_y):
@@ -311,15 +307,15 @@ class Visualization:
         plt.title(centered_station_name)
 
     def plot_rotated_topo(self, station_name, wind_direction, type="large", nb_pixel_large_x=400, nb_pixel_large_y=400):
-        MNT_data, MNT_x, MNT_y = self.p.observation.extract_MNT_around_station(station_name,
-                                                                               self.p.mnt,
+        MNT_data, MNT_x, MNT_y = self.observation.extract_MNT_around_station(station_name,
+                                                                               self.mnt,
                                                                                nb_pixel_large_x,
                                                                                nb_pixel_large_y)
         # Initial topography
         plt.contourf(MNT_x, MNT_y, MNT_data, cmap='gist_earth')
 
         # Rotate topography
-        rotated_topo_large = self.p.rotate_topography(MNT_data, wind_direction)
+        rotated_topo_large = self.rotate_topography(MNT_data, wind_direction)
         rotated_topo = rotated_topo_large[nb_pixel_large_x // 2 - 39:nb_pixel_large_x // 2 + 40,
                        nb_pixel_large_y // 2 - 34:nb_pixel_large_y // 2 + 35]
         if type == "large":
@@ -335,8 +331,8 @@ class Visualization:
     def _plot_arrow_for_NWP(self, array_xr, time_index, station_name='Col du Lac Blanc'):
         # Arrow for NWP wind
         ax = plt.gca()
-        stations = self.p.observation.stations
-        nwp_name = self.p.nwp.name
+        stations = self.observation.stations
+        nwp_name = self.nwp.name
         x_nwp, y_nwp = stations[f"{nwp_name}_NN_0"][stations["name"] == station_name].values[0]
         y_nwp = y_nwp
 
@@ -352,8 +348,8 @@ class Visualization:
     def _plot_arrow_for_observation_station(self, array_xr, time_index, station_name='Col du Lac Blanc'):
         # Arrow for station wind
         ax = plt.gca()
-        stations = self.p.observation.stations
-        time_series = self.p.observation.time_series
+        stations = self.observation.stations
+        time_series = self.observation.time_series
         x_observation = stations["X"][stations["name"] == station_name].values[0]
         y_observation = stations["Y"][stations["name"] == station_name].values[0]
         dates = pd.DatetimeIndex([array_xr.time.data[time_index]])
@@ -402,7 +398,7 @@ class Visualization:
     def plot_predictions_2D(self, array_xr=None, stations_name=['Col du Lac Blanc'], **kwargs):
 
         if array_xr is None:
-            array_xr = self.p.predict_UV_with_CNN(self, stations_name)
+            array_xr = self.predict_UV_with_CNN(self, stations_name)
 
         random_time_idx = random.choice(list(range(len(array_xr.time.data))))
         random_station_name = random.choice(stations_name)
@@ -440,7 +436,7 @@ class Visualization:
             plt.title(variable + '\n' + random_station_name + '\n' + str(time))
 
             if variable in ["UV", "UVW"]:
-                mnt_small = self.p.observation.extract_MNT_around_station(stations_name[0], self.p.mnt, 100, 100)
+                mnt_small = self.observation.extract_MNT_around_station(stations_name[0], self.mnt, 100, 100)
                 topo = mnt_small[0][100 - 79 // 2:100 + 79 // 2 + 1, 100 - 80 // 2: 100 + 80 // 2 + 1]
                 XX = mnt_small[1][100 - 80 // 2: 100 + 80 // 2 + 1]
                 YY = mnt_small[2][100 - 79 // 2:100 + 79 // 2 + 1]
@@ -505,18 +501,18 @@ class Visualization:
                 array_xr : file with predictions
                 station_name : ex: 'Col du Lac Blanc'
         """
-        stations = self.p.observation.stations
-        nwp_name = self.p.nwp.name
+        stations = self.observation.stations
+        nwp_name = self.nwp.name
         idx_nwp_x, idx_nwp_y = stations[f"index_{nwp_name}_NN_0"][stations["name"] == station_name].values[0]
 
         shift_x = (length_x_km // 1.3) + 1
         shift_y = (length_y_km // 1.3) + 1
 
-        XX = self.p.nwp.data_xr.X_L93.data[int(idx_nwp_x - shift_x):int(idx_nwp_x + shift_x),
+        XX = self.nwp.data_xr.X_L93.data[int(idx_nwp_x - shift_x):int(idx_nwp_x + shift_x),
              int(idx_nwp_y - shift_y):int(idx_nwp_y + shift_y)]
-        YY = self.p.nwp.data_xr.Y_L93.data[int(idx_nwp_x - shift_x):int(idx_nwp_x + shift_x),
+        YY = self.nwp.data_xr.Y_L93.data[int(idx_nwp_x - shift_x):int(idx_nwp_x + shift_x),
              int(idx_nwp_y - shift_y):int(idx_nwp_y + shift_y)]
-        ZZ = self.p.nwp.data_xr.ZS.data[int(idx_nwp_x - shift_x):int(idx_nwp_x + shift_x),
+        ZZ = self.nwp.data_xr.ZS.data[int(idx_nwp_x - shift_x):int(idx_nwp_x + shift_x),
              int(idx_nwp_y - shift_y):int(idx_nwp_y + shift_y)]
 
         self._plot_3D_topography(XX, YY, ZZ, station_name, alpha=alpha, new_figure=new_figure, cmap=cmap,
@@ -528,7 +524,7 @@ class Visualization:
         Display the topographic map of a large area in 3D
         """
 
-        MNT_data, MNT_x, MNT_y = self.p.observation.extract_MNT_around_station(station_name, self.p.mnt, nb_pixel_x,
+        MNT_data, MNT_x, MNT_y = self.observation.extract_MNT_around_station(station_name, self.mnt, nb_pixel_x,
                                                                                nb_pixel_y)
         XX, YY = np.meshgrid(MNT_x, MNT_y)
         self._plot_3D_topography(XX, YY, MNT_data, station_name, new_figure=new_figure, cmap=cmap, alpha=alpha)
@@ -537,8 +533,8 @@ class Visualization:
                                            alpha_nwp=1, alpha_mnt=1, linewidth=2,
                                            new_figure=True, cmap_nwp='cividis', cmap_mnt='gist_earth'):
         # Converting km to number of pixel for mnt
-        nb_pixel_x = int(length_x_km * 1000 // self.p.mnt.resolution_x)
-        nb_pixel_y = int(length_y_km * 1000 // self.p.mnt.resolution_y)
+        nb_pixel_x = int(length_x_km * 1000 // self.mnt.resolution_x)
+        nb_pixel_y = int(length_y_km * 1000 // self.mnt.resolution_y)
 
         self.plot_3D_topography_large_domain(station_name=station_name, nb_pixel_x=nb_pixel_x, nb_pixel_y=nb_pixel_y,
                                              new_figure=new_figure, cmap=cmap_mnt, alpha=alpha_mnt)
@@ -654,11 +650,11 @@ class Visualization:
         # Arrow for NWP wind
         fig = plt.gcf()
         ax = fig.gca(projection='3d')
-        stations = self.p.observation.stations
-        nwp_name = self.p.nwp.name
+        stations = self.observation.stations
+        nwp_name = self.nwp.name
         x_nwp, y_nwp = stations[f"{nwp_name}_NN_0"][stations["name"] == station_name].values[0]
-        index_x_MNT, index_y_MNT = self.p.mnt.find_nearest_MNT_index(x_nwp, y_nwp)
-        z_nwp = self.p.mnt.data[int(index_x_MNT), int(index_y_MNT)]
+        index_x_MNT, index_y_MNT = self.mnt.find_nearest_MNT_index(x_nwp, y_nwp)
+        z_nwp = self.mnt.data[int(index_x_MNT), int(index_y_MNT)]
 
         NWP_wind_speed = array_xr.NWP_wind_speed.sel(station=station_name).isel(time=time_index).data
         NWP_wind_DIR = array_xr.NWP_wind_DIR.sel(station=station_name).isel(time=time_index).data
@@ -706,7 +702,7 @@ class Visualization:
                          markersize_valid=10, markersize_not_valid=20):
 
         # Select time series
-        time_series = self.p.observation.time_series
+        time_series = self.observation.time_series
 
         if stations == 'all':
             stations = time_series["name"].unique()
@@ -742,7 +738,7 @@ class Visualization:
     def qc_plot_resolution(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
 
         # Select time series
-        time_series = self.p.observation.time_series
+        time_series = self.observation.time_series
 
         if stations == 'all':
             stations = time_series["name"].unique()
@@ -788,7 +784,7 @@ class Visualization:
     def qc_plot_constant(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
 
         # Select time series
-        time_series = self.p.observation.time_series
+        time_series = self.observation.time_series
 
         if stations == 'all':
             stations = time_series["name"].unique()
@@ -834,7 +830,7 @@ class Visualization:
     def qc_plot_last_flagged(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)', legend=True,
                              markersize_large=20, markersize_small=1, fig_to_plot=["speed", "direction_1", "direction_2"]):
         # Select time series
-        time_series = self.p.observation.time_series
+        time_series = self.observation.time_series
 
         if stations == 'all':
             stations = time_series["name"].unique()
@@ -888,7 +884,7 @@ class Visualization:
                            figsize=(10, 10), fontsize=12, update_file=True, df=None):
 
         # Select time series
-        time_series = self.p.observation.time_series
+        time_series = self.observation.time_series
 
         if stations == 'all':
             stations = time_series["name"].unique()
@@ -914,17 +910,17 @@ class Visualization:
 
         for correct_factor in list_correct_factor:
             if metric == 'mean':
-                time_serie_station = self.p.observation.qc_bias(stations=[station], correct_factor_mean=correct_factor,
+                time_serie_station = self.observation.qc_bias(stations=[station], correct_factor_mean=correct_factor,
                                                                 update_file=False)
                 self.qc_plot_bias_speed(stations=[station], update_file=False, df=time_serie_station)
                 plt.title(f'{metric} threshold divided by {correct_factor}')
             elif metric == 'std':
-                time_serie_station = self.p.observation.qc_bias(stations=[station], correct_factor_std=correct_factor,
+                time_serie_station = self.observation.qc_bias(stations=[station], correct_factor_std=correct_factor,
                                                                 update_file=False)
                 self.qc_plot_bias_speed(stations=[station], update_file=False, df=time_serie_station)
                 plt.title(f'{metric} threshold divided by {correct_factor}')
             else:
-                time_serie_station = self.p.observation.qc_bias(stations=[station],
+                time_serie_station = self.observation.qc_bias(stations=[station],
                                                                 correct_factor_coeff_var=correct_factor,
                                                                 update_file=False)
                 self.qc_plot_bias_speed(stations=[station], update_file=False, df=time_serie_station)
@@ -934,7 +930,7 @@ class Visualization:
         from matplotlib.sankey import Sankey
         import matplotlib.pylab as pl
 
-        time_series = self.p.observation.time_series
+        time_series = self.observation.time_series
 
         if stations == 'all':
             scale = 0.0000001
@@ -1010,7 +1006,7 @@ class Visualization:
     def plot_wind_arrows_on_grid(self, nwp=None, U="U", V="V", UV="Wind", UV_DIR="Wind_DIR", x="X_L93", y="Y_L93",
                                  ax=None, time=None, idx_time=None, size_proportionnal=False, **kwargs):
 
-        nwp = self.p.nwp if nwp is None else nwp
+        nwp = self.nwp if nwp is None else nwp
 
         U_in_keys = U in nwp.keys()
         V_in_keys = V in nwp.keys()
@@ -1020,10 +1016,10 @@ class Visualization:
             raise Exception("Wind speed or wind components need to be specified")
 
         if not (U_in_keys and V_in_keys):
-            nwp = self.p.horizontal_wind_component(library="xarray", xarray_data=nwp, wind_name=UV,
+            nwp = self.horizontal_wind_component(library="xarray", xarray_data=nwp, wind_name=UV,
                                                    wind_dir_name=UV_DIR)
         if not UV_in_keys:
-            nwp = self.p.compute_speed_and_direction_xarray(xarray_data=nwp, u_name="U", v_name="V")
+            nwp = self.compute_speed_and_direction_xarray(xarray_data=nwp, u_name="U", v_name="V")
 
         if ax is None:
             plt.figure()
@@ -1052,13 +1048,13 @@ class Visualization:
     def plot_features_maps(self, dem, station="Col du Lac Blanc", dependencies=True):
         import tensorflow as tf
 
-        self.p.load_cnn(dependencies=dependencies)
-        model = self.p.model
+        self.load_cnn(dependencies=dependencies)
+        model = self.model
         model.trainable = False
         successive_outputs = [layer.output for layer in model.layers[1:]]
         visualization_model = tf.keras.models.Model(inputs=model.input, outputs=successive_outputs)
 
-        observation = self.p.observation
+        observation = self.observation
         x = observation.extract_MNT_around_station("Col du Lac Blanc", station, dem, 69//2+1, 79//2+1)[0][:79,:69]
         x = x.reshape((1, 79, 69, 1))
         successive_feature_maps = visualization_model.predict(x)
@@ -1084,169 +1080,4 @@ class Visualization:
                 ax.set_yticks([])
 
 
-class VisualizationGaussian(Visualization):
-
-    def __init__(self, p=None):
-        super().__init__(p=p)
-
-    @staticmethod
-    def plot_gaussian_wind_arrows(U, V, UV, nb_col=69, nb_lin=79, midpoint=3, new_fig=True):
-
-        x = np.arange(nb_col)
-        y = np.arange(nb_lin)
-
-        XX, YY = np.meshgrid(x, y)
-
-        plt.figure() if new_fig else None
-
-        ax = plt.gca()
-        arrows = ax.quiver(XX, YY, U, V, UV,
-                           scale=1 / 0.005,
-                           cmap='coolwarm',
-                           norm=MidpointNormalize(midpoint=midpoint))
-        plt.colorbar(arrows, orientation='vertical')
-
-    def plot_gaussian_topo_and_wind_2D(self, topo, u, v, w, uv, alpha, idx_simu, arrows=True, cmap="mako"):
-
-        u = u[idx_simu, :, :]
-        v = v[idx_simu, :, :]
-        w = w[idx_simu, :, :]
-        uv = uv[idx_simu, :, :]
-        alpha = alpha[idx_simu, :, :]
-        topo = topo[idx_simu, :, :]
-
-        plt.figure()
-        plt.imshow(topo, cmap=cmap)
-        self.plot_gaussian_wind_arrows(u, v, uv, new_fig=False) if arrows else None
-        plt.colorbar()
-        plt.title("Topography")
-
-        plt.figure()
-        plt.imshow(uv, cmap=cmap)
-        self.plot_gaussian_wind_arrows(u, v, uv, new_fig=False) if arrows else None
-        plt.colorbar()
-        plt.title("Wind speed")
-
-        plt.figure()
-        plt.imshow(u, cmap=cmap)
-        self.plot_gaussian_wind_arrows(u, v, uv, new_fig=False) if arrows else None
-        plt.colorbar()
-        plt.title("U")
-
-        plt.figure()
-        plt.imshow(v, cmap=cmap)
-        self.plot_gaussian_wind_arrows(u, v, uv, new_fig=False) if arrows else None
-        plt.colorbar()
-        plt.title("V")
-
-        plt.figure()
-        plt.imshow(w, cmap=cmap)
-        self.plot_gaussian_wind_arrows(u, v, uv, new_fig=False) if arrows else None
-        plt.colorbar()
-        plt.title("W")
-
-        plt.figure()
-        plt.imshow(alpha, cmap=cmap)
-        self.plot_gaussian_wind_arrows(u, v, uv, new_fig=False) if arrows else None
-        plt.colorbar()
-        plt.title("Angular deviation")
-
-    @staticmethod
-    def plot_gaussian_distrib(data_1=None, data_2=None, type_plot="acceleration"):
-
-        if type_plot == "acceleration":
-            xlabel = "Acceleration distribution []"
-        elif type_plot == "wind speed":
-            xlabel = "Wind speed distribution []"
-        elif type_plot == "angular deviation":
-            xlabel = "Wind speed distribution []"
-        else:
-            xlabel=""
-
-        if type_plot in ["acceleration", "wind speed"]:
-            # Flatten matrixes
-            data_1_flat = data_1.flatten() if data_1 is not None else None
-            data_2_flat = data_2.flatten() if data_2 is not None else None
-
-            # Create DataFrame
-            df = pd.DataFrame()
-            if data_1_flat is not None:
-                df["UV"] = data_1_flat
-            if data_2_flat is not None:
-                df["UVW"] = data_2_flat
-
-            # melt DataFrame
-            UV_in_df = "UV" in list(df.columns.values)
-            UVW_in_df = "UVW" in list(df.columns.values)
-
-            if UV_in_df and UVW_in_df:
-                df = df.melt(value_vars=["UV", "UVW"])
-                print(df)
-                sns.displot(data=df, x="value", hue="variable", kind='kde', fill=True)
-                plt.xlabel(xlabel)
-            elif UV_in_df:
-                sns.displot(data_1_flat, kde=True)
-                plt.xlabel(xlabel)
-            else:
-                sns.displot(data_2_flat, kde=True)
-                plt.xlabel(xlabel)
-
-        if type_plot == "angular deviation":
-            sns.displot(data_1.flatten(), kde=True)
-            plt.xlabel(xlabel)
-
-
-    def plot_gaussian_distrib_by_degree_or_xi(self, dict_gaussian, degree_or_xi="degree", type_plot="acceleration",
-                                              type_of_wind="uv", fill=True, fontsize=20, cmap="viridis"):
-        """
-        To obtain the input dict_gaussian DataFrame, use the command:
-        gaussian_topo_instance.load_data_by_degree_or_xi(prm, degree_or_xi="degree")
-        """
-        dict_all_degree_or_xi = pd.DataFrame(columns=["value", degree_or_xi])
-        for deg_or_xi in dict_gaussian["wind"].keys():
-
-            # Wind components
-            u = dict_gaussian["wind"][deg_or_xi][:, :, 0]
-            v = dict_gaussian["wind"][deg_or_xi][:, :, 1]
-            w = dict_gaussian["wind"][deg_or_xi][:, :, 2]
-
-            # Compute wind speed and reformat
-            uv = self.p.compute_wind_speed(u, v)
-            uvw = self.p.compute_wind_speed(u, v, w)
-            uv_flat = uv.flatten()
-            uvw_flat = uvw.flatten()
-
-            if type_plot == "acceleration" and type_of_wind == "uv":
-                acc_uv = self.p.wind_speed_ratio(num=uv_flat, den=np.full(uv_flat.shape, 3))
-                var = acc_uv
-                label = "Acceleration distribution"
-
-            if type_plot == "acceleration" and type_of_wind == "uvw":
-                acc_uvw = self.p.wind_speed_ratio(num=uv_flat, den=np.full(uv_flat.shape, 3))
-                var = acc_uvw
-                label = "Acceleration distribution"
-
-            if type_plot == "wind speed" and type_of_wind == "uv":
-                var = uv_flat
-                label = "Wind speed distribution"
-
-            if type_plot == "wind speed" and type_of_wind == "uvw":
-                var = uvw_flat
-                label = "Wind speed distribution"
-
-            if type_plot == "angular deviation":
-                var = np.rad2deg(self.p.angular_deviation(u, v)).flatten()
-                label = "Angular deviation"
-
-            if type_plot == "test":
-                var = uv_flat[:1000]
-                label = "Wind speed distribution test"
-
-            # List of degrees to append to DataFrame
-            list_deg_or_xi = [deg_or_xi] * len(var)
-            df_deg_or_xi_i = pd.DataFrame(np.transpose([var, list_deg_or_xi]), columns=dict_all_degree_or_xi.columns)
-            dict_all_degree_or_xi = dict_all_degree_or_xi.append(df_deg_or_xi_i, ignore_index=True)
-
-        sns.displot(data=dict_all_degree_or_xi, x="value", hue=degree_or_xi, kind='kde', fill=fill, palette=cmap)
-        plt.xlabel(label, fontsize=fontsize)
 

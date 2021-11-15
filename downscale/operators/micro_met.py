@@ -6,8 +6,8 @@ Journal of Hydrometeorology, 7(2), 217-234.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from downscale.Operators.topo_utils import Topo_utils
-from downscale.Utils.Utils import change_dtype_if_required, lists_to_arrays_if_required
+from downscale.operators.topo_utils import Topo_utils
+from downscale.utils.utils_func import change_dtype_if_required, lists_to_arrays_if_required
 
 
 class MicroMet(Topo_utils):

@@ -1,5 +1,3 @@
-import numpy as np
-import pandas as pd
 import pickle
 
 try:
@@ -9,14 +7,13 @@ try:
 except ImportError:
     pass
 
-from downscale.Analysis.Visualization import Visualization
-from downscale.Operators.Processing import Processing
-from downscale.Analysis.Evaluation import EvaluationFromDict
-from downscale.Data_family.MNT import MNT
-from downscale.Data_family.NWP import NWP
-from downscale.Data_family.Observation import Observation
+from visu.visualization import Visualization
+from downscale.operators.devine import Devine
+from downscale.eval.eval_from_dict import EvaluationFromDict
+from downscale.data_source.MNT import MNT
+from downscale.data_source.NWP import NWP
+from downscale.data_source.observation import Observation
 from PRM_predict import create_prm
-from downscale.Utils.GPU import connect_GPU_to_horovod
 
 prm = create_prm(month_prediction=True)
 #connect_GPU_to_horovod() if prm["GPU"] else None
@@ -37,7 +34,7 @@ QC = BDclim.time_series
 with open('../../Data/3_Predictions/unexposed_wind_not_activated_Arctan_30_2.pickle', 'rb') as handle:
     results = pickle.load(handle)
 
-p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
+p = Devine(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
 p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=False)
 
 v = Visualization(p)

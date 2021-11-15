@@ -7,25 +7,22 @@ import numpy as np
 import pandas as pd
 
 import os
-from collections import defaultdict
 
 try:
     os.chdir("//home/mrmn/letoumelinl")
 except FileNotFoundError:
     pass
 
-from downscale.Operators.Processing import Processing
-from downscale.Analysis.Visualization import Visualization
-from downscale.Data_family.MNT import MNT
-from downscale.Data_family.NWP import NWP
-from downscale.Data_family.Observation import Observation
-from downscale.Analysis.Evaluation import Evaluation
-from downscale.Analysis.Evaluation import EvaluationFromArrayXr
-from downscale.Analysis.Evaluation import EvaluationFromDict
+from downscale.operators.devine import Devine
+from visu.visualization import Visualization
+from downscale.data_source.MNT import MNT
+from downscale.data_source.NWP import NWP
+from downscale.data_source.observation import Observation
+from eval.evaluation import Evaluation
 from PRM_predict import create_prm
-from downscale.Utils.GPU import connect_GPU_to_horovod
-from downscale.Utils.Utils import round, select_range_30_days_for_long_periods_prediction
-from downscale.Utils.prm import update_selected_path_for_long_periods, select_stations
+from downscale.utils.GPU import connect_GPU_to_horovod
+from downscale.utils.utils_func import select_range_30_days_for_long_periods_prediction
+from downscale.utils.prm import update_selected_path_for_long_periods, select_stations
 
 """
 ['BARCELONNETTE', 'DIGNE LES BAINS', 'RESTEFOND-NIVOSE',
@@ -57,7 +54,7 @@ AROME = NWP(prm["AROME_path_1"], begin=prm["begin"], end=prm["begin_after"], prm
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 prm = select_stations(prm, BDclim)
 
-p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
+p = Devine(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
 p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=False)
 
 data_xr_interp = p.interpolate_wind_grid_xarray(AROME.data_xr.isel(time=0),

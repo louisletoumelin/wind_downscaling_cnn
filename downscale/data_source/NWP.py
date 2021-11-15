@@ -22,8 +22,8 @@ try:
 except ModuleNotFoundError:
     _shapely_geometry = False
 
-from downscale.Data_family.Data_2D import Data_2D
-from downscale.Utils.context_managers import print_all_context
+from downscale.data_source.data_2D import Data_2D
+from downscale.utils.context_managers import print_all_context
 
 
 class NWP(Data_2D):
@@ -35,13 +35,13 @@ class NWP(Data_2D):
                  variables_of_interest=['Wind', 'Wind_DIR', 'LAT', 'LON', 'ZS'], prm={}):
 
         path_to_file = path_to_file if path_to_file is not None else prm.get("selected_path", None)
-        save_path = prm.get("save_path", None)
-        path_Z0_2018 = prm.get("path_Z0_2018", None)
-        path_Z0_2019 = prm.get("path_Z0_2019", None)
-        path_to_file_npy = prm.get("path_to_file_npy", None)
-        load_z0 = prm.get("load_z0", None)
-        save = prm.get("save_z0", None)
-        name = prm.get("name_nwp", None)
+        save_path = prm.get("save_path")
+        path_Z0_2018 = prm.get("path_Z0_2018")
+        path_Z0_2019 = prm.get("path_Z0_2019")
+        path_to_file_npy = prm.get("path_to_file_npy")
+        load_z0 = prm.get("load_z0")
+        save = prm.get("save_z0")
+        name = prm.get("name_nwp")
 
         with print_all_context("NWP", level=0, unit="second", verbose=prm.get("verbose", None)):
 

@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 import pickle
 import matplotlib.pyplot as plt
@@ -10,14 +9,14 @@ try:
 except ImportError:
     pass
 
-from downscale.Analysis.Visualization import Visualization
-from downscale.Operators.Processing import Processing
-from downscale.Analysis.Evaluation import EvaluationFromDict
-from downscale.Data_family.MNT import MNT
-from downscale.Data_family.NWP import NWP
-from downscale.Data_family.Observation import Observation
+from visu.visualization import Visualization
+from downscale.operators.devine import Devine
+from downscale.eval.eval_from_dict import EvaluationFromDict
+from downscale.data_source.MNT import MNT
+from downscale.data_source.NWP import NWP
+from downscale.data_source.observation import Observation
 from PRM_predict import create_prm
-from downscale.Utils.GPU import connect_GPU_to_horovod
+from downscale.utils.GPU import connect_GPU_to_horovod
 
 prm = create_prm(month_prediction=True)
 connect_GPU_to_horovod() if prm["GPU"] else None
@@ -33,7 +32,7 @@ BDclim.replace_obs_by_QC_obs(prm)
 with open('../../Data/3_Predictions/wind_exposed_at_max_elevation_Arctan_30_2.pickle', 'rb') as handle:
     results_1 = pickle.load(handle)
 
-with open('../../Data/3_Predictions/unexposed_wind_not_activated_Arctan_30_2.pickle ', 'rb') as handle:
+with open('../../Data/3_Predictions/unexposed_wind_not_activated_Arctan_30_2.pickle', 'rb') as handle:
     results_2 = pickle.load(handle)
 """
 with open('../../Data/3_Predictions/linear_activation_norm_each_topography.pickle', 'rb') as handle:
@@ -45,7 +44,7 @@ with open('../../Data/3_Predictions/not_get_closer_and_linear_and_exposed.pickle
 results_list = [results_1, results_2]
 title = ["Best predictions", "Not exposing wind", "Reference"]
 
-p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
+p = Devine(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
 p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=False)
 
 v = Visualization(p)

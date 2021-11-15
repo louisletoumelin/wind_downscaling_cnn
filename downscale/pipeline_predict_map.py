@@ -1,4 +1,5 @@
 from time import time as t
+import xarray as xr
 
 t_init = t()
 
@@ -14,51 +15,20 @@ By rule of three, this give 2 days and 2h for downscaling one year at 1h and 25m
 
 import numpy as np
 from datetime import datetime
-import xarray as xr
 
-from downscale.Operators.Processing import Processing
-from downscale.Analysis.Visualization import Visualization
-from downscale.Data_family.MNT import MNT
-from downscale.Data_family.NWP import NWP
-from downscale.Data_family.Observation import Observation
-from downscale.Analysis.Evaluation import Evaluation
-from PRM_predict import create_prm
-from downscale.Utils.GPU import connect_GPU_to_horovod
-from downscale.Utils.Utils import round
+from downscale.operators.devine import Devine
+from downscale.data_source.MNT import MNT
+from downscale.data_source.NWP import NWP
+from downscale.data_source.observation import Observation
+from downscale.PRM_predict import create_prm
+from downscale.utils.GPU import connect_GPU_to_horovod
 
-"""
-Stations
-"""
-"""
-['BARCELONNETTE', 'DIGNE LES BAINS', 'RESTEFOND-NIVOSE',
-       'LA MURE-ARGENS', 'ARVIEUX', 'PARPAILLON-NIVOSE', 'EMBRUN',
-       'LA FAURIE', 'GAP', 'LA MEIJE-NIVOSE', 'COL AGNEL-NIVOSE',
-       'GALIBIER-NIVOSE', 'ORCIERES-NIVOSE', 'RISTOLAS',
-       'ST JEAN-ST-NICOLAS', 'TALLARD', "VILLAR D'ARENE",
-       'VILLAR ST PANCRACE', 'ASCROS', 'PEIRA CAVA', 'PEONE',
-       'MILLEFONTS-NIVOSE', 'CHAPELLE-EN-VER', 'LUS L CROIX HTE',
-       'ST ROMAN-DIOIS', 'AIGLETON-NIVOSE', 'CREYS-MALVILLE',
-       'LE GUA-NIVOSE', "ALPE-D'HUEZ", 'LA MURE- RADOME',
-       'LES ECRINS-NIVOSE', 'GRENOBLE-ST GEOIRS', 'ST HILAIRE-NIVOSE',
-       'ST-PIERRE-LES EGAUX', 'GRENOBLE - LVD', 'VILLARD-DE-LANS',
-       'CHAMROUSSE', 'ALBERTVILLE JO', 'BONNEVAL-NIVOSE', 'MONT DU CHAT',
-       'BELLECOTE-NIVOSE', 'GRANDE PAREI NIVOSE', 'FECLAZ_SAPC',
-       'COL-DES-SAISIES', 'ALLANT-NIVOSE', 'LA MASSE',
-       'ST MICHEL MAUR_SAPC', 'TIGNES_SAPC', 'LE CHEVRIL-NIVOSE',
-       'LES ROCHILLES-NIVOSE', 'LE TOUR', 'AGUIL. DU MIDI',
-       'AIGUILLES ROUGES-NIVOSE', 'LE GRAND-BORNAND', 'MEYTHET',
-       'LE PLENAY', 'SEYNOD-AREA', 'Col du Lac Blanc', 'Col du Lautaret', 'Vallot', 'Saint-Sorlin', 'Argentiere']
-"""
 
 # Create prm
 prm = create_prm(month_prediction=True)
 
 # Initialize horovod and GPU
 connect_GPU_to_horovod() if prm["GPU"] else None
-
-"""
-MNT, NWP and observations
-"""
 
 DEM = MNT(prm=prm)
 
@@ -74,8 +44,8 @@ if not (prm["GPU"]):
     BDclim.update_stations_with_KNN_from_MNT_using_cKDTree(DEM)
 
 # Processing
-p = Processing(obs=BDclim, mnt=DEM, nwp=AROME, prm=prm)
-
+p = Devine(obs=BDclim, mnt=DEM, nwp=AROME, prm=prm)
+"""
 """
 # p.update_stations_with_neighbors(mnt=DEM, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=False)
 surfex = xr.open_dataset(prm["path_SURFEX"])
@@ -100,7 +70,7 @@ v = Visualization(p)
 e = Evaluation(v, array_xr=None) if prm["launch_predictions"] else None
 
 print(f"\n All prediction in  {round(t_init, t()) / 60} minutes")
-"""
+
 
 """
 

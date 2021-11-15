@@ -2,12 +2,11 @@ import numpy as np
 import pandas as pd
 from collections import defaultdict
 
-from downscale.Utils.Utils import print_current_line
-from downscale.Operators.wind_utils import Wind_utils
-from downscale.Operators.topo_utils import Topo_utils
-from downscale.Operators.Helbig import DwnscHelbig
-from downscale.Operators.Micro_Met import MicroMet
-from downscale.Operators.Processing import Processing
+from downscale.utils.utils_func import print_current_line
+from downscale.operators.wind_utils import Wind_utils
+from downscale.operators.helbig import DwnscHelbig
+from downscale.operators.micro_met import MicroMet
+from downscale.operators.processing import Processing
 
 
 class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):

@@ -1,5 +1,3 @@
-import numpy as np
-import pandas as pd
 import pickle
 
 try:
@@ -9,15 +7,14 @@ try:
 except ImportError:
     pass
 
-from downscale.Analysis.Visualization import Visualization
-from downscale.Operators.Processing import Processing
-from downscale.Analysis.Evaluation import EvaluationFromDict
-from downscale.Data_family.MNT import MNT
-from downscale.Data_family.NWP import NWP
-from downscale.Data_family.Observation import Observation
+from visu.visualization import Visualization
+from downscale.operators.devine import Devine
+from downscale.eval.eval_from_dict import EvaluationFromDict
+from downscale.data_source.MNT import MNT
+from downscale.data_source.NWP import NWP
+from downscale.data_source.observation import Observation
 from PRM_predict import create_prm
-from downscale.Utils.GPU import connect_GPU_to_horovod
-from downscale.scripts.synthetic_topographies import GaussianTopo
+from eval.synthetic_topographies import GaussianTopo
 
 
 prm = create_prm(month_prediction=True)
@@ -25,7 +22,7 @@ prm = create_prm(month_prediction=True)
 IGN = MNT(prm=prm)
 AROME = NWP(prm["AROME_path_1"], begin=prm["begin"], end=prm["begin_after"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
-p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
+p = Devine(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
 p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=False)
 v = Visualization(p)
 e = EvaluationFromDict(v)

@@ -1,6 +1,4 @@
-import datetime
-
-from downscale.Utils.prm import update_selected_path, select_path_to_file_npy,\
+from downscale.utils.prm import update_selected_path, select_path_to_file_npy,\
     add_additional_stations, add_list_stations, check_expose_elevation, \
     check_extract_around_station_or_interpolated, create_begin_and_end_str, check_save_and_load
 

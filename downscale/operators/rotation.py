@@ -4,7 +4,7 @@ import concurrent.futures
 import os
 import tensorflow as tf
 
-from downscale.Utils.Decorators import print_func_executed_decorator, timer_decorator
+from downscale.utils.decorators import print_func_executed_decorator, timer_decorator
 
 try:
     from numba import jit, prange, float64, float32, int32, int64

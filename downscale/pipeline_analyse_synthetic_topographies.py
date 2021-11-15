@@ -1,7 +1,5 @@
-import numpy as np
-import pandas as pd
 import matplotlib
-import matplotlib.pyplot as plt
+
 matplotlib.use('Agg')
 
 try:
@@ -13,12 +11,8 @@ except ImportError:
     pass
 
 from downscale.PRM_predict import create_prm
-from downscale.Utils.GPU import connect_GPU_to_horovod
-from downscale.Data_family.MNT import MNT
-from downscale.Data_family.Observation import Observation
-from downscale.scripts.synthetic_topographies import GaussianTopo
-from downscale.Analysis.Visualization import VisualizationGaussian
-from downscale.Operators.Processing import DwnscHelbig
+from downscale.utils.GPU import connect_GPU_to_horovod
+from eval.synthetic_topographies import GaussianTopo
 
 prm = create_prm(month_prediction=True)
 connect_GPU_to_horovod() if prm["GPU"] else None

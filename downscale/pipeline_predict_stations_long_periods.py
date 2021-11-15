@@ -22,21 +22,21 @@ from PRM_predict import create_prm, update_selected_path, select_path_to_file_np
 def round(t1, t2):  return (np.round(t2 - t1, 2))
 
 
-from downscale.Operators.Processing import Processing
-from downscale.Analysis.Visualization import Visualization
-from downscale.Data_family.MNT import MNT
-from downscale.Data_family.NWP import NWP
-from downscale.Data_family.Observation import Observation
-from downscale.Analysis.Evaluation import Evaluation
-from downscale.Utils.Utils import select_range
-from downscale.Utils.GPU import connect_GPU_to_horovod
+from downscale.operators.devine import Devine
+from visu.visualization import Visualization
+from downscale.data_source.MNT import MNT
+from downscale.data_source.NWP import NWP
+from downscale.data_source.observation import Observation
+from eval.evaluation import Evaluation
+from downscale.utils.utils_func import select_range
+from downscale.utils.GPU import connect_GPU_to_horovod
 
 
 # Create prm
 prm = create_prm(month_prediction=True)
 
 """
-Utils
+utils
 """
 
 
@@ -126,7 +126,7 @@ for index, (day, month, year) in enumerate(iterator):
     AROME = NWP(path_to_file=prm["selected_path"], begin=begin, end=end, prm=prm)
 
     # Processing
-    p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
+    p = Devine(obs=BDclim, mnt=IGN, nwp=AROME, model_path=prm['model_path'], prm=prm)
 
     # Predictions
     array_xr = p.predict_at_stations(prm["stations_to_predict"], prm=prm)

@@ -3,9 +3,9 @@ import matplotlib as mpl
 mpl.rcParams['agg.path.chunksize'] = 2_000_000
 from time import time as t
 
-from downscale.Data_family.MNT import MNT
-from downscale.Data_family.NWP import NWP
-from downscale.Data_family.Observation import Observation
+from downscale.data_source.MNT import MNT
+from downscale.data_source.NWP import NWP
+from downscale.data_source.observation import Observation
 from PRM_predict import create_prm
 
 # Create prm

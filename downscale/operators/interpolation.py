@@ -10,10 +10,10 @@ try:
 except ModuleNotFoundError:
     _numba = False
 
-from downscale.Data_family.MNT import MNT
-from downscale.Utils.Decorators import print_func_executed_decorator, timer_decorator, check_type_kwargs_inputs
-from downscale.Utils.Utils import change_dtype_if_required
-from downscale.Operators.wind_utils import Wind_utils
+from downscale.data_source.MNT import MNT
+from downscale.utils.decorators import print_func_executed_decorator, timer_decorator, check_type_kwargs_inputs
+from downscale.utils.utils_func import change_dtype_if_required
+from downscale.operators.wind_utils import Wind_utils
 
 
 class Interpolation(MNT, Wind_utils):

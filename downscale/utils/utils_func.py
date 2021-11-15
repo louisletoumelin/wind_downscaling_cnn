@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import datetime
 
-from downscale.Utils.Decorators import timer_decorator
+from downscale.utils.decorators import timer_decorator
 
 
 def select_range(month_begin, month_end, year_begin, year_end, date_begin, date_end):

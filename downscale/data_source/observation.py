@@ -34,9 +34,9 @@ try:
 except ModuleNotFoundError:
     _dask = False
 
-from downscale.Data_family.Data_2D import Data_2D
-from downscale.Utils.Decorators import print_func_executed_decorator, timer_decorator
-from downscale.Utils.context_managers import print_all_context
+from downscale.data_source.data_2D import Data_2D
+from downscale.utils.decorators import print_func_executed_decorator, timer_decorator
+from downscale.utils.context_managers import print_all_context
 
 
 class Observation:
