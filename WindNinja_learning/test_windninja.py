@@ -47,7 +47,7 @@ if "QCLOUD" not in AROME2.data_vars:
 AROME2["XLAT"] = (("Time", "south_north", "west_east"), (np.array([AROME2["LAT"].values for k in range(len(AROME2["Times"].values))])))
 AROME2["XLONG"] = (("Time", "south_north", "west_east"), (np.array([AROME2["LON"].values for k in range(len(AROME2["Times"].values))])))
 
-from downscale.operators.processing import Wind_utils
+from downscale_.operators.processing import Wind_utils
 
 wu = Wind_utils()
 
