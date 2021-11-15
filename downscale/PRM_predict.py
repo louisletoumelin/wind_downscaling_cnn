@@ -125,7 +125,8 @@ def create_prm(month_prediction=True):
         prm["experience_path"] = working_directory + "Models/ARPS/"
         # Topography
         #prm["topo_path"] = prm["data_path"] + "MNT/IGN_25m/ign_L93_25m_alpesIG.tif"
-        prm["topo_path"] = prm["data_path"] + "MNT/CEN/grandes_rousses.tif"
+        prm["topo_path"] = prm["data_path"] + "MNT/CEN/DEM_FRANCE_L93_30m_bilinear.tif"
+        #prm["topo_path"] = prm["data_path"] + "MNT/CEN/grandes_rousses.tif"
         # Observations
         prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/precise_localisation/liste_postes_alps_l93.csv"
         prm["height_sensor_path"] = prm["data_path"] + "BDclim/height_sensors.pkl"

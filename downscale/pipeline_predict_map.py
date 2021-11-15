@@ -61,6 +61,7 @@ MNT, NWP and observations
 """
 
 DEM = MNT(prm=prm)
+
 begin = np.datetime64(datetime(prm["year_begin"], prm["month_begin"], prm["day_begin"], prm["hour_begin"]))
 end = np.datetime64(datetime(prm["year_end"], prm["month_end"], prm["day_end"], prm["hour_end"] + 1))
 
@@ -69,15 +70,13 @@ BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=p
 
 if not (prm["GPU"]):
     number_of_neighbors = 4
-    # BDclim.update_stations_with_KNN_from_NWP(number_of_neighbors=number_of_neighbors, nwp=AROME)
-    # BDclim.update_stations_with_KNN_from_MNT_using_cKDTree(DEM)
-
-"""
-Processing, visualization and evaluation
-"""
+    BDclim.update_stations_with_KNN_from_NWP(number_of_neighbors=number_of_neighbors, nwp=AROME)
+    BDclim.update_stations_with_KNN_from_MNT_using_cKDTree(DEM)
 
 # Processing
 p = Processing(obs=BDclim, mnt=DEM, nwp=AROME, prm=prm)
+
+"""
 # p.update_stations_with_neighbors(mnt=DEM, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=False)
 surfex = xr.open_dataset(prm["path_SURFEX"])
 
@@ -101,6 +100,7 @@ v = Visualization(p)
 e = Evaluation(v, array_xr=None) if prm["launch_predictions"] else None
 
 print(f"\n All prediction in  {round(t_init, t()) / 60} minutes")
+"""
 
 """
 

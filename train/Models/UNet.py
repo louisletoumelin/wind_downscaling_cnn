@@ -41,7 +41,7 @@ def build_Unet(prm):
     pool2 = MaxPooling2D(pool_size=prm['pool_size'], name='pool2')(conv2)
 
     '''
-    3rd conv/pool
+    3rd conv/poolextract_MNT_around_station
     '''
     conv3 = Conv2D(4 * prm['nb_filters'], prm['kernel_size'], activation=prm['activation'],
                    padding=prm['padding'], kernel_initializer=prm['initializer_func'], name='conv3_0')(pool2)

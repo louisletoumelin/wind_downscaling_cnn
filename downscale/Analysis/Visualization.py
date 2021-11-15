@@ -1049,6 +1049,40 @@ class Visualization:
 
         plt.quiver(x_coord, y_coord, u, v, uv, **kwargs)
 
+    def plot_features_maps(self, dem, station="Col du Lac Blanc", dependencies=True):
+        import tensorflow as tf
+
+        self.p.load_cnn(dependencies=dependencies)
+        model = self.p.model
+        model.trainable = False
+        successive_outputs = [layer.output for layer in model.layers[1:]]
+        visualization_model = tf.keras.models.Model(inputs=model.input, outputs=successive_outputs)
+
+        observation = self.p.observation
+        x = observation.extract_MNT_around_station("Col du Lac Blanc", station, dem, 69//2+1, 79//2+1)[0][:79,:69]
+        x = x.reshape((1, 79, 69, 1))
+        successive_feature_maps = visualization_model.predict(x)
+        layer_names = np.array([layer.name for layer in model.layers[1:]])
+
+        for index, (layer_name, feature_map) in enumerate(zip(layer_names, successive_feature_maps)):
+
+            # if (("conv" in layer_name) or ("pool" in layer_name)) and (index <= 100) and (index >= 0):
+            #print(index, feature_map.shape, layer_name)
+
+            n_features = feature_map.shape[-1]
+
+            fig = plt.figure()
+            plt.title(f"{layer_name}")
+            for i in range(n_features):
+                ax = plt.gca()
+                fig.add_subplot(np.int32(np.sqrt(n_features)) + 1, np.int32(np.sqrt(n_features)) + 1, i + 1)
+                x = feature_map[0, :, :, i]
+                x = x - np.nanmean(x)
+                x = x / np.where(np.std(x) == 0, 0.01, np.std(x))
+                plt.imshow(x)
+                ax.set_xticks([])
+                ax.set_yticks([])
+
 
 class VisualizationGaussian(Visualization):
 
@@ -1160,6 +1194,7 @@ class VisualizationGaussian(Visualization):
         if type_plot == "angular deviation":
             sns.displot(data_1.flatten(), kde=True)
             plt.xlabel(xlabel)
+
 
     def plot_gaussian_distrib_by_degree_or_xi(self, dict_gaussian, degree_or_xi="degree", type_plot="acceleration",
                                               type_of_wind="uv", fill=True, fontsize=20, cmap="viridis"):
