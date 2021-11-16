@@ -1,8 +1,8 @@
 import numpy as np
 import tensorflow as tf
 
-from ..utils.utils_func import change_dtype_if_required, change_several_dtype_if_required
-from ..utils.decorators import print_func_executed_decorator, timer_decorator
+from downscale.utils.utils_func import change_dtype_if_required, change_several_dtype_if_required
+from downscale.utils.decorators import print_func_executed_decorator, timer_decorator
 
 try:
     from numba import jit, guvectorize, vectorize, prange, float64, float32, int32, int64

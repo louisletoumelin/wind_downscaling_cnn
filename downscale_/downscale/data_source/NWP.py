@@ -22,8 +22,8 @@ try:
 except ModuleNotFoundError:
     _shapely_geometry = False
 
-from .data_2D import Data_2D
-from ..utils.context_managers import print_all_context
+from downscale.data_source.data_2D import Data_2D
+from downscale.utils.context_managers import print_all_context
 
 
 class NWP(Data_2D):

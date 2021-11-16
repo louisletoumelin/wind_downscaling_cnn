@@ -2,8 +2,8 @@ import numpy as np
 import xarray as xr
 from time import time as t
 
-from .data_2D import Data_2D
-from ..utils.context_managers import print_all_context
+from downscale.data_source.data_2D import Data_2D
+from downscale.utils.context_managers import print_all_context
 
 try:
     import dask

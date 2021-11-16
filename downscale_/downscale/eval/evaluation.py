@@ -6,8 +6,8 @@ try:
 except ModuleNotFoundError:
     pass
 
-from .metrics import Metrics
-from ..utils.context_managers import print_all_context
+from downscale.eval.metrics import Metrics
+from downscale.utils.context_managers import print_all_context
 
 
 class Evaluation(Metrics):

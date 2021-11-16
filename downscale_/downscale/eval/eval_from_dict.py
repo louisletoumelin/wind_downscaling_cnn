@@ -7,8 +7,8 @@ try:
 except ModuleNotFoundError:
     pass
 
-from ..visu.MidpointNormalize import MidpointNormalize
-from .evaluation import Evaluation
+from downscale.visu.MidpointNormalize import MidpointNormalize
+from downscale.eval.evaluation import Evaluation
 
 
 class EvaluationFromDict(Evaluation):

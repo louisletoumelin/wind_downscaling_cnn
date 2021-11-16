@@ -43,9 +43,9 @@ except ModuleNotFoundError:
     _dask = False
 
 # Local imports
-from ..utils.utils_func import assert_equal_shapes, reshape_list_array
-from ..utils.decorators import print_func_executed_decorator, timer_decorator
-from .processing import Processing
+from downscale.utils.utils_func import assert_equal_shapes, reshape_list_array
+from downscale.utils.decorators import print_func_executed_decorator, timer_decorator
+from downscale.operators.processing import Processing
 
 
 class Devine(Processing):

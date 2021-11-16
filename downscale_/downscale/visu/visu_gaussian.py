@@ -33,8 +33,8 @@ try:
 except ModuleNotFoundError:
     _cartopy = False
 
-from .MidpointNormalize import MidpointNormalize
-from .visualization import Visualization
+from downscale.visu.MidpointNormalize import MidpointNormalize
+from downscale.visu.visualization import Visualization
 
 class VisualizationGaussian(Visualization):
 

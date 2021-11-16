@@ -37,9 +37,9 @@ try:
 except ModuleNotFoundError:
     _cartopy = False
 
-from .MidpointNormalize import MidpointNormalize
-from ..operators.devine import Devine
-from ..utils.context_managers import print_all_context
+from downscale.visu.MidpointNormalize import MidpointNormalize
+from downscale.operators.devine import Devine
+from downscale.utils.context_managers import print_all_context
 
 
 class Visualization():

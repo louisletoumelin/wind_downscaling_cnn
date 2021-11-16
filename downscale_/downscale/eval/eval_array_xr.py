@@ -7,7 +7,7 @@ try:
 except ModuleNotFoundError:
     pass
 
-from .evaluation import Evaluation
+from downscale.eval.evaluation import Evaluation
 
 
 

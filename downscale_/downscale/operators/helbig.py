@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from .topo_utils import Topo_utils
-from ..utils.utils_func import change_dtype_if_required, change_several_dtype_if_required
+from downscale.operators.topo_utils import Topo_utils
+from downscale.utils.utils_func import change_dtype_if_required, change_several_dtype_if_required
 
 try:
     from numba import jit, guvectorize, vectorize, prange, float64, float32, int32, int64

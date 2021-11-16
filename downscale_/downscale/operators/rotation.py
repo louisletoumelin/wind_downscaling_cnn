@@ -2,7 +2,7 @@ import numpy as np
 from scipy.ndimage import rotate
 import concurrent.futures
 
-from ..utils.decorators import print_func_executed_decorator, timer_decorator
+from downscale.utils.decorators import print_func_executed_decorator, timer_decorator
 
 try:
     from numba import jit, prange, float64, float32, int32, int64

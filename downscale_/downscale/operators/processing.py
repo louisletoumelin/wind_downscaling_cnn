@@ -6,13 +6,13 @@ import datetime
 from time import time as t
 
 # Local imports
-from ..utils.GPU import environment_GPU
-from ..utils.decorators import print_func_executed_decorator, timer_decorator, check_type_kwargs_inputs
-from .rotation import Rotation
-from .helbig import DwnscHelbig
-from .micro_met import MicroMet
-from .interpolation import Interpolation
-from .generators import Generators
+from downscale.utils.GPU import environment_GPU
+from downscale.utils.decorators import print_func_executed_decorator, timer_decorator, check_type_kwargs_inputs
+from downscale.operators.rotation import Rotation
+from downscale.operators.helbig import DwnscHelbig
+from downscale.operators.micro_met import MicroMet
+from downscale.operators.interpolation import Interpolation
+from downscale.operators.generators import Generators
 
 # try importing optional modules
 try:
