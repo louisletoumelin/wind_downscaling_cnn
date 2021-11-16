@@ -1,5 +1,4 @@
 from time import time as t
-import xarray as xr
 
 t_init = t()
 
@@ -14,18 +13,21 @@ By rule of three, this give 2 days and 2h for downscaling one year at 1h and 25m
 """
 
 import numpy as np
+import xarray as xr
 from datetime import datetime
+
+# Create prm
+from PRM_predict import create_prm
+prm = create_prm(month_prediction=True)
 
 from downscale.operators.devine import Devine
 from downscale.data_source.MNT import MNT
 from downscale.data_source.NWP import NWP
 from downscale.data_source.observation import Observation
-from downscale.PRM_predict import create_prm
 from downscale.utils.GPU import connect_GPU_to_horovod
 
 
-# Create prm
-prm = create_prm(month_prediction=True)
+"""
 
 # Initialize horovod and GPU
 connect_GPU_to_horovod() if prm["GPU"] else None
@@ -71,7 +73,7 @@ e = Evaluation(v, array_xr=None) if prm["launch_predictions"] else None
 
 print(f"\n All prediction in  {round(t_init, t()) / 60} minutes")
 
-
+"""
 """
 
 plt.figure()

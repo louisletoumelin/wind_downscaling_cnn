@@ -7,8 +7,8 @@ import concurrent.futures
 import os
 from time import time as t
 
-from downscale_.data_source.observation import Observation
-from downscale_.data_source.data_2D import Data_2D
+from downscale.data_source.observation import Observation
+from downscale.data_source.data_2D import Data_2D
 from WindNinja_learning.prm_windninja import create_prm
 from WindNinja_learning.dem_processing import crop_dem, find_nearest_neighbor_in_grid
 

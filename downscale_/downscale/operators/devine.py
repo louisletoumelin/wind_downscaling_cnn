@@ -105,7 +105,7 @@ class Devine(Processing):
 
         if dependencies:
 
-            from downscale_.utils.dependencies import root_mse
+            from downscale.utils.dependencies import root_mse
 
             dependencies = {'root_mse': root_mse}
             # model = load_model(self.model_path+"model_weights.h5", custom_objects=dependencies)

@@ -180,3 +180,8 @@ def check_save_and_load(prm):
     if prm["load_z0"] and prm["save_z0"]:
         prm["save_z0"] = False
     return prm
+
+
+def append_module_path(prm):
+    import sys
+    sys.path.append(prm["path_module"])

@@ -1,6 +1,6 @@
-from downscale_.utils.prm import update_selected_path, select_path_to_file_npy,\
+from prm import update_selected_path, select_path_to_file_npy,\
     add_additional_stations, add_list_stations, check_expose_elevation, \
-    check_extract_around_station_or_interpolated, create_begin_and_end_str, check_save_and_load
+    check_extract_around_station_or_interpolated, create_begin_and_end_str, check_save_and_load, append_module_path
 
 
 def create_prm(month_prediction=True):
@@ -146,6 +146,9 @@ def create_prm(month_prediction=True):
 
         prm["path_to_synthetic_topo"] = working_directory + "Data/2_Pre_processed/ARPS/fold/df_all.csv"
 
+        # Path to python module downscale
+        prm["path_module"] = working_directory + "src/downscale_/"
+
     if prm["GPU"]:
         # Data
         prm["data_path"] = "//scratch/mrmn/letoumelinl/predict_real/"
@@ -174,6 +177,9 @@ def create_prm(month_prediction=True):
 
         prm["AROME_path"] = [prm["AROME_path_1"], prm["AROME_path_2"], prm["AROME_path_3"], prm["AROME_path_4"]]
 
+        # Path to python module downscale
+        prm["path_module"] = "//home/mrmn/letoumelinl/downscale_"
+
     # Z0
     prm["path_Z0_2018"] = prm["data_path"] + "AROME/Z0/Z0_alp_2018010100_2018120700.nc" if prm["Z0"] else None
     prm["path_Z0_2019"] = prm["data_path"] + "AROME/Z0/Z0_alp_20190103_20191227.nc" if prm["Z0"] else None
@@ -201,9 +207,12 @@ def create_prm(month_prediction=True):
     prm['model_experience'] = "date_20_05_name_simu_retrain_with_mean_each_sample_0_model_UNet/"
     prm["model_path"] = prm["experience_path"] + prm['model_experience']
 
+    # Module path
+
     prm["name_prediction"] = prm["results_name"]
 
     # Do not modify
+    append_module_path(prm)
     prm = create_begin_and_end_str(prm)
     prm = check_save_and_load(prm)
     prm = update_selected_path(prm, month_prediction)
