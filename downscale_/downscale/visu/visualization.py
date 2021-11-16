@@ -183,9 +183,9 @@ class Visualization():
 
         # Plot NWP nearest neighbors to stations
         ax = plt.gca()
-        self.observation.update_stations_with_KNN_from_NWP(number_of_neighbors, self.nwp)
-        nwp_neighbors = self.observation.stations.copy()
-        nwp_name = self.nwp.name
+        self.p.observation.update_stations_with_KNN_from_NWP(number_of_neighbors, self.p.nwp)
+        nwp_neighbors = self.p.observation.stations.copy()
+        nwp_name = self.p.nwp.name
         for neighbor in range(number_of_neighbors):
             geometry_knn_i = gpd.GeoDataFrame(geometry=nwp_neighbors[f'{nwp_name}_NN_{neighbor}'])
             geometry_knn_i.plot(ax=ax, label=f'{nwp_name}_NN_{neighbor}')

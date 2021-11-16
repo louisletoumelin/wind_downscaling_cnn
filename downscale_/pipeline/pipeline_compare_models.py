@@ -58,7 +58,7 @@ for index, result in enumerate(results_list):
     print(f"Result: {title[index]}")
 
     # Integrated results
-    cnn, nwp, obs = e.create_three_df_results(result, variable=variable, use_QC=True, time_series_qc=BDclim.time_series)
+    cnn, nwp, obs = e.results_to_three_arrays(result, variable=variable, use_QC=True, time_series_qc=BDclim.time_series)
     all_predictions.append(cnn)
     print("\nRMSE CNN", e.RMSE(cnn, obs))
     print("\nRMSE NWP", e.RMSE(nwp, obs))

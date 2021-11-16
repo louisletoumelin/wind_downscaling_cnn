@@ -151,3 +151,21 @@ class Metrics:
         else:
             res = np.min([diff1, diff2], axis=0)
             return res
+
+    def _select_metric(self, metric):
+        if metric == "abs_error":
+            metric_func = self.absolute_error
+        elif metric == "bias":
+            metric_func = self.bias
+        elif metric == "abs_error_rel":
+            metric_func = self.absolute_error_relative
+        elif metric == "bias_rel":
+            metric_func = self.bias_rel
+        elif metric == "bias_rel_wind_1":
+            metric_func = self.bias_rel_wind_1
+        elif metric == "bias_direction":
+            metric_func = self.bias_direction
+        else:
+            raise NotImplementedError(f"{metric} is not defined")
+
+        return metric_func

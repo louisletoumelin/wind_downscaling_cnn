@@ -17,7 +17,20 @@ class EvaluationFromDict(Evaluation):
         super().__init__(v, prm=prm)
 
     @staticmethod
-    def intersection_model_obs_on_results(results, variables=["UV"],
+    def _drop_nans_and_duplicates_at_station_results(df):
+
+        # Drop Nans
+        df = df.dropna()
+
+        # Drop duplicates
+        df = df[~df.index.duplicated(keep='first')]
+
+        # Convert dictionary values to DataFrame (if necessary)
+        df = df.to_frame() if isinstance(df, pd.core.series.Series) else df
+
+        return df
+
+    def intersection_model_obs_on_results(self, results, variables=["UV"],
                                           use_QC=False, time_series_qc=None, variable_qc="vw10m(m/s)"):
         """
         Keep only data were we have simultaneously model and observed data
@@ -28,33 +41,17 @@ class EvaluationFromDict(Evaluation):
 
         for variable in variables:
             for station in results[variable]["cnn"].keys():
-
-                # Drop Nans
-                nwp = results[variable]["nwp"][station].dropna()
-                cnn = results[variable]["cnn"][station].dropna()
-                obs = results[variable]["obs"][station].dropna()
-
-                # Drop duplicates
-                obs = obs[~obs.index.duplicated(keep='first')]
-                cnn = cnn[~cnn.index.duplicated(keep='first')]
-                nwp = nwp[~nwp.index.duplicated(keep='first')]
-
-                # Convert dictionary values to DataFrame (if necessary)
-                obs = obs.to_frame() if isinstance(obs, pd.core.series.Series) else obs
-                nwp = nwp.to_frame() if isinstance(nwp, pd.core.series.Series) else nwp
-                cnn = cnn.to_frame() if isinstance(cnn, pd.core.series.Series) else cnn
+                nwp, cnn, obs = [self._drop_nans_and_duplicates_at_station_results(results[variable][data_key][station])
+                                 for data_key in ["nwp", "cnn", "obs"]]
 
                 # Keep index intersection
                 index_intersection = obs.index.intersection(nwp.index).intersection(cnn.index)
                 if use_QC:
-                    qc = time_series_qc[variable_qc][time_series_qc["name"] == station].dropna()
-                    qc = qc[~qc.index.duplicated(keep='first')]
-                    qc = qc.to_frame() if isinstance(qc, pd.core.series.Series) else qc
+                    qc_filter_station = time_series_qc["name"] == station
+                    qc = self._drop_nans_and_duplicates_at_station_results(time_series_qc[variable_qc][qc_filter_station])
                     index_intersection = index_intersection.intersection(qc.index)
 
-                obs = obs[obs.index.isin(index_intersection)]
-                nwp = nwp[nwp.index.isin(index_intersection)]
-                cnn = cnn[cnn.index.isin(index_intersection)]
+                obs, nwp, cnn = [df[df.index.isin(index_intersection)] for df in [obs, nwp, cnn]]
 
                 results[variable]["nwp"][station] = nwp
                 results[variable]["cnn"][station] = cnn
@@ -103,7 +100,7 @@ class EvaluationFromDict(Evaluation):
 
         return result_df
 
-    def update_df(self, df, variables=["laplacian", "alti", "mu", "tpi_2000", "tpi_500", "curvature"]):
+    def update_df_with_topo_carac(self, df, variables=["laplacian", "alti", "mu", "tpi_2000", "tpi_500", "curvature"]):
         """update result DataFrame with topographical information"""
         if not self.is_updated_with_topo_characteristics:
             self.update_station_with_topo_characteristics()
@@ -122,49 +119,47 @@ class EvaluationFromDict(Evaluation):
         return df
 
     @staticmethod
-    def _group_metric_result_by_alti_category(metric_result):
+    def _group_metric_result_by_alti_category(metric_result, z0=1030, z1=1675, z2=2500):
         metric_result["group_alti"] = np.nan
 
-        filter_low = metric_result["alti"] < 1030
-        metric_result["group_alti"][filter_low] = "Station altitude <= 1030m"
+        filter_low = metric_result["alti"] < z0
+        metric_result["group_alti"][filter_low] = f"Station altitude <= {z0}m"
 
-        filter_low = 1030 < metric_result["alti"]
-        filter_high = metric_result["alti"] <= 1675
-        metric_result["group_alti"][filter_low & filter_high] = "1030m < Station altitude <= 1675m"
+        filter_low = z0 < metric_result["alti"]
+        filter_high = metric_result["alti"] <= z1
+        metric_result["group_alti"][filter_low & filter_high] = f"{z0}m < Station altitude <= {z1}m"
 
-        filter_low = 1675 < metric_result["alti"]
-        filter_high = metric_result["alti"] <= 2500
-        metric_result["group_alti"][filter_low & filter_high] = "1675m < Station altitude <= 2500m"
+        filter_low = z1 < metric_result["alti"]
+        filter_high = metric_result["alti"] <= z2
+        metric_result["group_alti"][filter_low & filter_high] = f"{z1}m < Station altitude <= {z2}m"
 
-        filter_low = metric_result["alti"] > 2500
-        metric_result["group_alti"][filter_low] = "2500m < Station altitude"
+        filter_low = metric_result["alti"] > z2
+        metric_result["group_alti"][filter_low] = f"{z2}m < Station altitude"
 
         return metric_result
 
     @staticmethod
-    def _group_metric_result_by_wind_category(metric_result, variable):
+    def _group_metric_result_by_wind_category(metric_result, variable, w1=5, w2=10, w3=15):
         metric_result[f"group_{variable}_nwp"] = np.nan
 
-        filter_low = metric_result[f"nwp_{variable}"] < 5
-        metric_result[f"group_{variable}_nwp"][filter_low] = "NWP wind speed < 5 m/s"
-        print(f"NWP wind speed < 5 m/s: {len(metric_result[f'group_{variable}_nwp'][filter_low])} ")
+        filter_low = metric_result[f"nwp_{variable}"] < w1
+        metric_result[f"group_{variable}_nwp"][filter_low] = f"NWP wind speed < {w1} m/s"
+        print(f"NWP wind speed < {w1} m/s: {len(metric_result[f'group_{variable}_nwp'][filter_low])} ")
 
-        filter_low = metric_result[f"nwp_{variable}"] >= 5
-        filter_high = metric_result[f"nwp_{variable}"] < 10
-        metric_result[f"group_{variable}_nwp"][filter_low & filter_high] = "5 m/s <= NWP wind speed < 10 m/s"
+        filter_low = metric_result[f"nwp_{variable}"] >= w1
+        filter_high = metric_result[f"nwp_{variable}"] < w2
+        metric_result[f"group_{variable}_nwp"][filter_low & filter_high] = f"{w1} m/s <= NWP wind speed < {w2} m/s"
         print(
-            f"5 m/s <= NWP wind speed < 10 m/s: {len(metric_result[f'group_{variable}_nwp'][filter_low & filter_high])} ")
+            f"{w1} m/s <= NWP wind speed < {w2} m/s: {len(metric_result[f'group_{variable}_nwp'][filter_low & filter_high])} ")
 
-        filter_low = metric_result[f"nwp_{variable}"] >= 10
-        filter_high = metric_result[f"nwp_{variable}"] < 15
-        metric_result[f"group_{variable}_nwp"][filter_low & filter_high] = "10 m/s <= NWP wind speed < 15 m/s"
-        print(
-            f"10 m/s <= NWP wind speed < 15 m/s: {len(metric_result[f'group_{variable}_nwp'][filter_low & filter_high])} ")
+        filter_low = metric_result[f"nwp_{variable}"] >= w2
+        filter_high = metric_result[f"nwp_{variable}"] < w3
+        metric_result[f"group_{variable}_nwp"][filter_low & filter_high] = f"{w2} m/s <= NWP wind speed < {w3} m/s"
+        print(f"{w2} m/s <= NWP wind speed < {w3} m/s: {len(metric_result[f'group_{variable}_nwp'][filter_low & filter_high])} ")
 
-        filter_low = metric_result[f"nwp_{variable}"] >= 15
-        filter_high = metric_result[f"nwp_{variable}"] < 20
-        metric_result[f"group_{variable}_nwp"][filter_low & filter_high] = "15 m/s <= NWP wind speed"
-        print(f"15 m/s <= NWP wind speed: {len(metric_result[f'group_{variable}_nwp'][filter_low & filter_high])} ")
+        filter_low = metric_result[f"nwp_{variable}"] >= w3
+        metric_result[f"group_{variable}_nwp"][filter_low] = f"{w3} m/s <= NWP wind speed"
+        print(f"{w3} m/s <= NWP wind speed: {len(metric_result[f'group_{variable}_nwp'][filter_low])} ")
 
         return metric_result
 
@@ -177,9 +172,8 @@ class EvaluationFromDict(Evaluation):
                                                          use_QC=use_QC, time_series_qc=time_series_qc)
 
         # Create DataFrame
-        cnn = self.create_df_from_dict(results, data_type="cnn", variables=variables)
-        nwp = self.create_df_from_dict(results, data_type="nwp", variables=variables)
-        obs = self.create_df_from_dict(results, data_type="obs", variables=variables)
+        cnn, nwp, obs = [self.create_df_from_dict(results, data_type=data_type, variables=variables)
+                         for data_type in ["cnn", "nwp", "obs"]]
         cnn["hour"] = cnn.index.hour
         cnn["month"] = cnn.index.month
 
@@ -188,29 +182,21 @@ class EvaluationFromDict(Evaluation):
             for metric in metrics:
 
                 metric_result = cnn.copy()
+                metric_func = self._select_metric(metric)
 
-                if metric == "abs_error":
-                    metric_func = self.absolute_error
-                if metric == "bias":
-                    metric_func = self.bias
-                if metric == "abs_error_rel":
-                    metric_func = self.absolute_error_relative
-                if metric == "bias_rel":
-                    metric_func = self.bias_rel
                 if metric == "bias_rel_wind_1":
-                    metric_func = self.bias_rel_wind_1
                     metric_result = metric_result[obs[variable] >= 1]
                     nwp = nwp[obs[variable] >= 1]
                     cnn = cnn[obs[variable] >= 1]
                     obs = obs[obs[variable] >= 1]
-                if metric == "bias_direction":
-                    metric_func = self.bias_direction
 
+                # Result CNN
                 metric_result[metric] = metric_func(cnn[variable].values, obs[variable].values)
+                # NWP variable
                 metric_result[f"nwp_{variable}"] = nwp[variable].values
-
+                # Result NWP
                 metric_result[f"nwp_{metric}"] = metric_func(nwp[variable].values, obs[variable].values)
-                metric_result = self.update_df(metric_result)
+                metric_result = self.update_df_with_topo_carac(metric_result)
 
                 """
                 # Classic
@@ -280,7 +266,7 @@ class EvaluationFromDict(Evaluation):
         acceleration[variable] = cnn[variable] / nwp[variable]
         acceleration = acceleration[nwp[variable] >= 1]
 
-        acceleration = self.update_df(acceleration)
+        acceleration = self.update_df_with_topo_carac(acceleration)
 
         """
         # Boxplot
@@ -332,7 +318,7 @@ class EvaluationFromDict(Evaluation):
         acceleration["acceleration_exposed"] = cnn['exp_Wind'] / cnn['NWP_wind_speed']
         acceleration = acceleration[cnn['NWP_wind_speed'] >= 1]
 
-        acceleration = self.update_df(acceleration)
+        acceleration = self.update_df_with_topo_carac(acceleration)
         sns.displot(data=acceleration, x="acceleration_exposed", kind='kde', fill=True, bw_adjust=3, cut=0)
 
     def plot_distribution_all_stations(self, results, variables=["UV"], models=["cnn", "nwp", "obs"],
@@ -466,7 +452,7 @@ class EvaluationFromDict(Evaluation):
 
                 metric_result[f"nwp_{metric}"] = metric_func(nwp[variable].values, obs[variable].values,
                                                              min_speed=min_speed)
-                metric_result = self.update_df(metric_result)
+                metric_result = self.update_df_with_topo_carac(metric_result)
 
                 metric_result[f"diff_cnn_nwp_{metric}"] = np.abs(metric_result[metric]) - np.abs(
                     metric_result[f"nwp_{metric}"])
@@ -576,8 +562,23 @@ class EvaluationFromDict(Evaluation):
         ax.tick_params(axis="y", size=20)
         sns.despine(ax=ax, trim=True, left=True)
 
-    def create_three_df_results(self, results, variable="UV", use_QC=False, time_series_qc=None):
+    def results_to_three_arrays(self, results, variable="UV", use_QC=False, time_series_qc=None):
+        """
+        Return nwp, cnn and obs arrays from resuts
 
+        Parameters
+        ----------
+        results : dict
+        variable : str
+        use_QC : boolean
+        time_series_qc : pd.DataFrame
+
+        Returns
+        -------
+        cnn_values : ndarray
+        nwp_values : ndarray
+        obs_values : ndarray
+        """
         results = self.intersection_model_obs_on_results(results, variables=[variable],
                                                          use_QC=use_QC, time_series_qc=time_series_qc)
 
