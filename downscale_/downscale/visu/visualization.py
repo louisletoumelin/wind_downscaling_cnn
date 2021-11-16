@@ -42,7 +42,7 @@ from ..operators.devine import Devine
 from ..utils.context_managers import print_all_context
 
 
-class Visualization(Devine):
+class Visualization():
     _shapely_geometry = _shapely_geometry
     _geopandas = _geopandas
     _cartopy = _cartopy
@@ -50,7 +50,6 @@ class Visualization(Devine):
     def __init__(self, p=None, prm={"verbose": True}):
 
         with print_all_context("Vizualization", level=0, unit="second", verbose=prm.get("verbose")):
-            super().__init__()
             self.p = p
             if _cartopy:
                 self.l93 = ccrs.epsg(2154)
@@ -90,8 +89,8 @@ class Visualization(Devine):
 
     def _plot_observation_station(self):
         ax = plt.gca()
-        self.observation.stations_to_gdf(from_epsg=self.l93, x="X", y="Y")
-        self.observation.stations.plot(ax=ax, markersize=1, color='C3', label='observation stations')
+        self.p.observation.stations_to_gdf(from_epsg=self.l93, x="X", y="Y")
+        self.p.observation.stations.plot(ax=ax, markersize=1, color='C3', label='observation stations')
 
     def _plot_station_names(self):
         # Plot stations name
@@ -106,7 +105,7 @@ class Visualization(Devine):
 
     def plot_model(self):
         # Load model
-        self.load_cnn(dependencies=True)
+        self.p.load_cnn(dependencies=True)
 
         import visualkeras
         from tensorflow.python.keras.layers import Dense, Conv2D, Flatten, Dropout, MaxPooling2D, ZeroPadding2D, \
@@ -134,7 +133,8 @@ class Visualization(Devine):
         # tf.keras.utils.plot_model(self.model, to_file='Model1.png')
         # tf.keras.utils.plot_model(self.model, to_file='Model2.png', show_shapes=True)
 
-    def plot_area(self):
+    def plot_area(self, set_lim=True):
+        """Updated 16/11/2021"""
         fig = plt.figure()
 
         ax = fig.add_subplot(111, projection=self.l93)
@@ -145,11 +145,12 @@ class Visualization(Devine):
         ax.add_feature(cfeature.COASTLINE)
         ax.add_feature(cfeature.BORDERS, linestyle=':')
 
-        ax.set_xlim(207_775, 1_207_775)
-        ax.set_ylim(6_083_225.0, 6_783_225.0)
+        if set_lim:
+            ax.set_xlim(207_775, 1_207_775)
+            ax.set_ylim(6_083_225.0, 6_783_225.0)
 
-        MNT_polygon = self.polygon_from_grid(self.mnt.data_xr.x.data, self.mnt.data_xr.y.data)
-        NWP_polygon = self.polygon_from_grid(self.nwp.data_xr["X_L93"], self.nwp.data_xr["Y_L93"])
+        MNT_polygon = self.polygon_from_grid(self.p.mnt.data_xr.x.data, self.p.mnt.data_xr.y.data)
+        NWP_polygon = self.polygon_from_grid(self.p.nwp.data_xr["X_L93"], self.p.nwp.data_xr["Y_L93"])
 
         ax.plot(*MNT_polygon.exterior.xy, label='MNT')
         ax.plot(*NWP_polygon.exterior.xy, label='NWP')
@@ -160,14 +161,14 @@ class Visualization(Devine):
         plt.show()
 
     def plot_nwp_grid(self):
-
+        """Updated 16/11/2021"""
         self.plot_area()
 
         # Plot AROME grid
         ax = plt.gca()
-        x_l93, y_l93 = self.nwp.data_xr["X_L93"], self.nwp.data_xr["Y_L93"]
-        stacked_xy = self.mnt.x_y_to_stacked_xy(x_l93, y_l93)
-        x_y_flat = self.mnt.grid_to_flat(stacked_xy)
+        x_l93, y_l93 = self.p.nwp.data_xr["X_L93"], self.p.nwp.data_xr["Y_L93"]
+        stacked_xy = self.p.mnt.x_y_to_stacked_xy(x_l93, y_l93)
+        x_y_flat = self.p.mnt.grid_to_flat(stacked_xy)
         NWP_flat_gpd = gpd.GeoDataFrame(geometry=[Point(cell) for cell in x_y_flat],
                                         crs=self.l93)
         NWP_flat_gpd.plot(ax=ax, markersize=5, label='NWP grid')

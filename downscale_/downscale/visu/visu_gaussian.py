@@ -38,8 +38,8 @@ from .visualization import Visualization
 
 class VisualizationGaussian(Visualization):
 
-    def __init__(self, p=None):
-        super().__init__(p=p)
+    def __init__(self, p=None, prm={"verbose": True}):
+        super().__init__(p=p, prm=prm)
 
     @staticmethod
     def plot_gaussian_wind_arrows(U, V, UV, nb_col=69, nb_lin=79, midpoint=3, new_fig=True):

@@ -25,9 +25,7 @@ from downscale.data_source.MNT import MNT
 from downscale.data_source.NWP import NWP
 from downscale.data_source.observation import Observation
 from downscale.utils.GPU import connect_GPU_to_horovod
-
-
-"""
+from downscale.visu import Visualization
 
 # Initialize horovod and GPU
 connect_GPU_to_horovod() if prm["GPU"] else None
@@ -39,7 +37,10 @@ end = np.datetime64(datetime(prm["year_end"], prm["month_end"], prm["day_end"], 
 
 AROME = NWP(prm["selected_path"], begin=begin, end=end, prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
+p = Devine(obs=BDclim, mnt=DEM, nwp=AROME, prm=prm)
+v = Visualization(p=p, prm=prm)
 
+"""
 if not (prm["GPU"]):
     number_of_neighbors = 4
     BDclim.update_stations_with_KNN_from_NWP(number_of_neighbors=number_of_neighbors, nwp=AROME)
@@ -73,9 +74,9 @@ e = Evaluation(v, array_xr=None) if prm["launch_predictions"] else None
 
 print(f"\n All prediction in  {round(t_init, t()) / 60} minutes")
 
-"""
-"""
 
+"""
+"""
 plt.figure()
 plt.imshow(mnt_data[0,:,:])
 

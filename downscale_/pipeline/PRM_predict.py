@@ -1,4 +1,4 @@
-from prm import update_selected_path, select_path_to_file_npy,\
+from utils_prm import update_selected_path, select_path_to_file_npy,\
     add_additional_stations, add_list_stations, check_expose_elevation, \
     check_extract_around_station_or_interpolated, create_begin_and_end_str, check_save_and_load, append_module_path
 
