@@ -6,13 +6,6 @@ t0 = t()
 import numpy as np
 import pandas as pd
 
-import os
-
-try:
-    os.chdir("//home/mrmn/letoumelinl")
-except FileNotFoundError:
-    pass
-
 from downscale.operators.devine import Devine
 from downscale.visu.visualization import Visualization
 from downscale.data_source.MNT import MNT

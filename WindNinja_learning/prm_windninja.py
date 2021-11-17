@@ -12,9 +12,9 @@ def create_prm():
 
     # 31 May 2020 1h
     prm["hour_end"] = 1
-    prm["day_end"] = 31
-    prm["month_end"] = 5
-    prm["year_end"] = 2020
+    prm["day_end"] = 5
+    prm["month_end"] = 8
+    prm["year_end"] = 2017
 
     prm["begin"] = f"{prm['year_begin']}-{prm['month_begin']}-{prm['day_begin']}"
     prm["end"] = f"{prm['year_end']}-{prm['month_end']}-{prm['day_end']}"
@@ -28,6 +28,10 @@ def create_prm():
     # Topography
     prm["topo_path"] = prm["data_path"] + "MNT/Copernicus/COP30_L93_cropped.tif"
     prm["windninja_topo"] = 'C:/Users/louis/git/wind_downscaling_CNN/Data/2_Pre_processed/WindNinja/'
+
+    # WindNinja
+    prm["output_path"] = 'C:/Users/louis/git/wind_downscaling_CNN/Data/2_Pre_processed/WindNinja/'
+    prm["path_to_WindNinja"] = "C:/WindNinja/WindNinja-3.7.2/bin/"
 
     # Observations
     prm["BDclim_stations_path"] = working_directory + "Data/2_Pre_processed/WindNinja/" + "stations_with_nearest_neighbors.csv"

@@ -18,7 +18,7 @@ def create_prm_dict():
         # 'VCD' or 'UNet'
         'model': ['UNet'],
         # Specify only one name even if multiple prm are contained in prms
-        'name_simu': ['classic_all_v2'],
+        'name_simu': ['classic_all_v3'],
         # 'fold', 'class', 'degree', 'xi', 'all'
         'type_of_training': ['all'],
 

@@ -71,7 +71,8 @@ for index, prm in enumerate(list_prm):
     trained_model, history = train_model(prm)
 
     # Test
-    test_pipeline.predict_test(prm)
+    if prm['type_of_training'] != 'all':
+        test_pipeline.predict_test(prm)
 
     finish_prm = time.perf_counter()
     print(f'\nPRM finished in {round((start_prm - finish_prm) / 60, 2)} minute(s)')

@@ -2,8 +2,6 @@ import numpy as np
 import pyproj
 from scipy.spatial import cKDTree
 from osgeo import gdal
-import os
-from time import time
 import concurrent.futures
 
 
