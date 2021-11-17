@@ -76,15 +76,15 @@ def update_selected_path(prm, month_prediction, year_end=None, month_end=None, d
     return prm
 
 
-def select_path_to_file_npy(prm):
+def select_path_to_coord_L93(prm):
 
     if prm["GPU"]:
         prm_path = prm["selected_path"]
         path = "/".join(prm_path.split('/')[:-1]) + "/L93_npy/" + prm_path.split('/')[-1].split('.csv')[0].split('.nc')[
             0]
-        prm["path_to_file_npy"] = path
+        prm["path_to_coord_L93"] = path
     else:
-        prm["path_to_file_npy"] = None
+        prm["path_to_coord_L93"] = None
 
     return prm
 
@@ -185,3 +185,78 @@ def check_save_and_load(prm):
 def append_module_path(prm):
     import sys
     sys.path.append(prm["path_module"])
+
+
+def try_import_modules(prm):
+
+    try:
+        import dask
+        prm["_dask"] = True
+    except ModuleNotFoundError:
+        prm["_dask"] = False
+
+    try:
+        import rasterio
+        prm["_rasterio"] = True
+    except ModuleNotFoundError:
+        prm["_rasterio"] = False
+
+    try:
+        import pyproj
+        prm["_pyproj"] = True
+    except ModuleNotFoundError:
+        prm["_pyproj"] = False
+
+    try:
+        from shapely.geometry import Point
+        prm["_shapely_geometry"] = True
+    except ModuleNotFoundError:
+        prm["_shapely_geometry"] = False
+
+    try:
+        import concurrent.futures
+        prm["_concurrent"] = True
+    except:
+        prm["_concurrent"] = False
+
+    try:
+        import geopandas as gpd
+        prm["_geopandas"] = True
+    except:
+        prm["_geopandas"] = False
+
+    try:
+        import seaborn as sns
+        sns.set(font_scale=2)
+        sns.set_style("white")
+        prm["_seaborn"] = True
+    except ModuleNotFoundError:
+        prm["_seaborn"] = False
+
+    try:
+        from numba import jit, prange, float64, float32, int32, int64
+
+        prm["_numba"] = True
+    except ModuleNotFoundError:
+        prm["_numba"] = False
+
+    try:
+        import numexpr as ne
+
+        prm["_numexpr"] = True
+    except ModuleNotFoundError:
+        prm["_numexpr"] = False
+
+    try:
+        import cartopy.crs as ccrs
+        import cartopy.feature as cfeature
+        prm["_cartopy"] = True
+    except ModuleNotFoundError:
+        prm["_cartopy"] = False
+
+    try:
+        from shapely.geometry import Point
+        from shapely.geometry import Polygon
+        prm["_shapely_geometry"] = True
+    except ModuleNotFoundError:
+        prm["_shapely_geometry"] = False

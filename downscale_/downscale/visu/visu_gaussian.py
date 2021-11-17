@@ -10,31 +10,9 @@ try:
 except ModuleNotFoundError:
     _seaborn = False
 
-try:
-    from shapely.geometry import Point
-    from shapely.geometry import Polygon
-
-    _shapely_geometry = True
-except ModuleNotFoundError:
-    _shapely_geometry = False
-
-try:
-    import geopandas as gpd
-
-    _geopandas = True
-except ModuleNotFoundError:
-    _geopandas = False
-
-try:
-    import cartopy.crs as ccrs
-    import cartopy.feature as cfeature
-
-    _cartopy = True
-except ModuleNotFoundError:
-    _cartopy = False
-
 from downscale.visu.MidpointNormalize import MidpointNormalize
 from downscale.visu.visualization import Visualization
+
 
 class VisualizationGaussian(Visualization):
 

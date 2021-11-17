@@ -5,24 +5,10 @@ from time import time as t
 from downscale.data_source.data_2D import Data_2D
 from downscale.utils.context_managers import print_all_context
 
-try:
-    import dask
-    _dask = True
-except ModuleNotFoundError:
-    _dask = False
-
-try:
-    import rasterio
-    _rasterio = True
-except ModuleNotFoundError:
-    _rasterio = False
-
 
 class MNT(Data_2D):
-    _dask = _dask
-    _rasterio = _rasterio
 
-    def __init__(self, path_to_file=None, name=None, prm={}):
+    def __init__(self, path_to_file=None, name=None, prm={"verbose": True}):
 
         with print_all_context("MNT", level=0, unit="second", verbose=prm.get("verbose", None)):
             path_to_file = path_to_file if path_to_file is not None else prm.get("topo_path", path_to_file)
@@ -38,7 +24,7 @@ class MNT(Data_2D):
         # Load MNT with xr.open_rasterio or xr.open_dataset
         self._mnt_loaded = False
         if path_to_file is not None:
-            self.load_mnt_files(path_to_file, chunks=None) if path_to_file is not None else None
+            self.load_mnt_files(path_to_file, chunks=None, prm=prm) if path_to_file is not None else None
 
         # Corners of MNT
         if self._mnt_loaded:
@@ -60,9 +46,9 @@ class MNT(Data_2D):
             print(f"________________________ Name :{name}")
             print(f"________________________ File found at :{path_to_file}")
 
-    def load_mnt_files(self, path_to_file, verbose=True, chunks=None):
-        if _rasterio:
-            if not _dask:
+    def load_mnt_files(self, path_to_file, verbose=True, chunks=None, prm={}):
+        if prm["_rasterio"]:
+            if not prm["_dask"]:
                 chunks = None
             self.data_xr = xr.open_rasterio(path_to_file, chunks=chunks).astype(np.float32, copy=False)
             self.data = self.data_xr.values[0, :, :]
@@ -91,12 +77,13 @@ class MNT(Data_2D):
 
         return index_x_MNT, index_y_MNT
 
-    def _get_mnt_data_and_shape(self, mnt_data):
+    @staticmethod
+    def _get_mnt_data_and_shape(mnt_data, prm={}):
         """
         This function takes as input a mnt and returns data, coordinates and shape
         """
 
-        if self._dask:
+        if prm["_dask"]:
             shape_x_mnt, shape_y_mnt = mnt_data.data.shape[1:]
             mnt_data_x = mnt_data.x.data.astype(np.float32)
             mnt_data_y = mnt_data.y.data.astype(np.float32)

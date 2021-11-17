@@ -9,38 +9,15 @@ import random
 # try importing optional modules
 try:
     from numba import jit, prange, float64, float32, int32, int64
-
     _numba = True
 except ModuleNotFoundError:
     _numba = False
 
 try:
     import numexpr as ne
-
     _numexpr = True
 except ModuleNotFoundError:
     _numexpr = False
-
-try:
-    from shapely.geometry import Point
-
-    _shapely_geometry = True
-except ModuleNotFoundError:
-    _shapely_geometry = False
-
-try:
-    import geopandas as gpd
-
-    _geopandas = True
-except ModuleNotFoundError:
-    _geopandas = False
-
-try:
-    import dask
-
-    _dask = True
-except ModuleNotFoundError:
-    _dask = False
 
 # Local imports
 from downscale.utils.utils_func import assert_equal_shapes, reshape_list_array
@@ -260,6 +237,8 @@ class Devine(Processing):
         scale_at_10m = kwargs.get("scale_at_10m")
         scale_at_max_altitude = kwargs.get("scale_at_max_altitude")
         get_closer_learning_condition = kwargs.get("get_closer_learning_condition")
+        type_rotation = kwargs.get("type_rotation")
+        GPU = kwargs.get("GPU")
 
         # Select timeframe
         self._select_timeframe_nwp(ideal_case=ideal_case, verbose=True)
@@ -311,7 +290,7 @@ class Devine(Processing):
 
             # Extract topography
             extract_around = "station" if not centered_on_interpolated else "nwp_neighbor_interp"
-            nwp = None if not centered_on_interpolated else self.nwp
+            nwp = self.nwp if centered_on_interpolated else None
             topo_HD, topo_x_l93, topo_y_l93 = self.observation.extract_MNT(self.mnt,
                                                                            nb_pixel,
                                                                            nb_pixel,
@@ -322,7 +301,9 @@ class Devine(Processing):
             # Rotate topographies
             topo[idx_station, :, :, :, 0] = self.select_rotation(data=topo_HD,
                                                                  wind_dir=wind_dir_all[idx_station, :],
-                                                                 clockwise=False)[:, y_offset_left:y_offset_right,
+                                                                 clockwise=False,
+                                                                 type_rotation=type_rotation,
+                                                                 GPU=GPU)[:, y_offset_left:y_offset_right,
                                             x_offset_left:x_offset_right]
 
             # Store results
@@ -433,6 +414,7 @@ class Devine(Processing):
             # Apply log profile: 3m => 10m
             prediction = self.apply_log_profile(z_in=ten_m_array, z_out=three_m_array, wind_in=prediction, z0=Z0_all,
                                                 verbose=verbose, z_in_verbose="3m", z_out_verbose="10m")
+
         # Acceleration a4
         a4 = self.wind_speed_ratio(num=prediction, den=wind4)
         del wind4
@@ -468,6 +450,8 @@ class Devine(Processing):
         prediction = self.select_rotation(data=prediction[:, :, :, :, :],
                                           wind_dir=wind_dir_all[:, :, :],
                                           clockwise=True,
+                                          type_rotation=type_rotation,
+                                          GPU=GPU,
                                           verbose=False)
         prediction = np.moveaxis(prediction, 2, -1)
 
@@ -879,7 +863,8 @@ class Devine(Processing):
         mnt_data = self.mnt.data_xr
         # Select MNT data characteristics
         xmin_mnt, ymax_mnt, resolution_x, resolution_y = self.get_characteristics_mnt(mnt_data)
-        mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt = self.mnt._get_mnt_data_and_shape(mnt_data)
+        mnt_data, mnt_data_x, mnt_data_y, shape_x_mnt, shape_y_mnt = self.mnt._get_mnt_data_and_shape(mnt_data,
+                                                                                                      prm=kwargs)
         coord = [mnt_data_x, mnt_data_y]
 
         # Initialize wind map

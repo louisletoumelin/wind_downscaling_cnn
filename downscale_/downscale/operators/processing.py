@@ -29,32 +29,9 @@ try:
 except ModuleNotFoundError:
     _numexpr = False
 
-try:
-    from shapely.geometry import Point
-
-    _shapely_geometry = True
-except ModuleNotFoundError:
-    _shapely_geometry = False
-
-try:
-    import geopandas as gpd
-
-    _geopandas = True
-except ModuleNotFoundError:
-    _geopandas = False
-
-try:
-    import dask
-
-    _dask = True
-except ModuleNotFoundError:
-    _dask = False
-
 
 class Processing(DwnscHelbig, MicroMet, Rotation, Interpolation, Generators):
     n_rows, n_col = 79, 69
-    _geopandas = _geopandas
-    _shapely_geometry = _shapely_geometry
 
     def __init__(self, obs=None, mnt=None, nwp=None, prm=None):
 

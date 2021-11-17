@@ -4,44 +4,12 @@ from scipy.spatial import cKDTree
 from datetime import datetime
 from collections import defaultdict
 
-try:
-    from shapely.geometry import Point
-    from shapely.geometry import Polygon
-
-    _shapely_geometry = True
-except ModuleNotFoundError:
-    _shapely_geometry = False
-
-try:
-    import concurrent.futures
-
-    _concurrent = True
-except:
-    _concurrent = False
-
-try:
-    import geopandas as gpd
-
-    _geopandas = True
-except:
-    _geopandas = False
-
-try:
-    import dask
-
-    _dask = True
-except ModuleNotFoundError:
-    _dask = False
-
 from downscale.data_source.data_2D import Data_2D
 from downscale.utils.decorators import print_func_executed_decorator, timer_decorator
 from downscale.utils.context_managers import print_all_context
 
 
 class Observation:
-    _shapely_geometry = _shapely_geometry
-    _concurrent = _concurrent
-    geopandas = _geopandas
 
     def __init__(self, path_to_list_stations=None, path_to_time_series=None, prm={}):
 
@@ -169,12 +137,18 @@ class Observation:
             self.path_Col_de_Porte = path_Col_de_Porte
             self.path_Col_du_Lautaret = path_Col_du_Lautaret
 
+
     @staticmethod
     def import_delayed_dask(use_dask=False):
 
+        try:
+            import dask
+            _dask = True
+        except:
+            _dask = False
+
         if _dask and use_dask:
             from dask import delayed
-
         else:
             def delayed(func):
                 return func
@@ -927,7 +901,7 @@ class Observation:
 
     @print_func_executed_decorator("get_wind_speed_resolution")
     @timer_decorator("get_wind_speed_resolution", unit="minute")
-    def qc_get_wind_speed_resolution(self, wind_speed='vw10m(m/s)', use_dask=False, verbose=True):
+    def qc_get_wind_speed_resolution(self, wind_speed='vw10m(m/s)', verbose=True):
         """
         Quality control
 

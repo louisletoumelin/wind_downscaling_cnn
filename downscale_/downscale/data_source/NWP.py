@@ -1,35 +1,12 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
-from time import time as t
-
-try:
-    import pyproj
-
-    _pyproj = True
-except ModuleNotFoundError:
-    _pyproj = False
-try:
-    import dask
-
-    _dask = True
-except ModuleNotFoundError:
-    _dask = False
-try:
-    from shapely.geometry import Point
-
-    _shapely_geometry = True
-except ModuleNotFoundError:
-    _shapely_geometry = False
 
 from downscale.data_source.data_2D import Data_2D
 from downscale.utils.context_managers import print_all_context
 
 
 class NWP(Data_2D):
-    _dask = _dask
-    _pyproj = _pyproj
-    _shapely_geometry = _shapely_geometry
 
     def __init__(self, path_to_file=None, begin=None, end=None,
                  variables_of_interest=['Wind', 'Wind_DIR', 'LAT', 'LON', 'ZS'], prm={}):
@@ -38,7 +15,7 @@ class NWP(Data_2D):
         save_path = prm.get("save_path")
         path_Z0_2018 = prm.get("path_Z0_2018")
         path_Z0_2019 = prm.get("path_Z0_2019")
-        path_to_file_npy = prm.get("path_to_file_npy")
+        path_to_coord_L93 = prm.get("path_to_coord_L93")
         load_z0 = prm.get("load_z0")
         save = prm.get("save_z0")
         name = prm.get("name_nwp")
@@ -56,7 +33,8 @@ class NWP(Data_2D):
 
             # Path to file can be a string or a list of strings
             self.load_nwp_files(path_to_file=path_to_file,
-                                preprocess_function=self._preprocess_ncfile)
+                                preprocess_function=self._preprocess_ncfile,
+                                prm=prm)
 
             # Select timeframe
             self.select_timeframe(begin=begin, end=end)
@@ -68,15 +46,14 @@ class NWP(Data_2D):
             self.compute_array_dask()
 
             # Add L93 coordinates
-            self.add_l93_coordinates(path_to_file_npy=path_to_file_npy)
+            self.add_l93_coordinates(path_to_coord_L93=path_to_coord_L93, prm=prm)
 
             # Modify variables of interest
             self.variables_of_interest = variables_of_interest + ['X_L93', 'Y_L93']
             self._select_specific_variables()
 
             # Add z0 variables
-            if (path_Z0_2018 is not None) and (path_Z0_2019 is not None):
-                self._add_Z0(path_Z0_2018, path_Z0_2019, save=save, load=load_z0, verbose=True)
+            self._add_Z0(path_Z0_2018, path_Z0_2019, save=save, load=load_z0, prm=prm, verbose=True)
 
             # float32
             self.data_xr = self.data_xr.astype("float32", copy=False)
@@ -88,36 +65,36 @@ class NWP(Data_2D):
             print('Did not use compute method on xarray')
 
     def load_nwp_files(self, path_to_file=None, preprocess_function=None, parallel=False,
-                       verbose=True):  # self._preprocess_ncfile
-        if _dask:
+                       prm=None, verbose=True):  # self._preprocess_ncfile
+        if prm["_dask"]:
             # Open netcdf file
             self.data_xr = xr.open_mfdataset(path_to_file,
                                              preprocess=preprocess_function,
                                              concat_dim='time',
                                              parallel=parallel).astype(np.float32, copy=False)
-            if verbose: print(f"__Function xr.open_mfdataset. Parallel: {parallel}")
+            print(f"__Function xr.open_mfdataset. Parallel: {parallel}") if verbose else None
         else:
             print("__Dask = False")
             self.data_xr = xr.open_dataset(path_to_file)
             self.data_xr = preprocess_function(self.data_xr)
-            if verbose: print("__Function xr.open_dataset")
+            print("__Function xr.open_dataset") if verbose else None
 
-    def add_l93_coordinates(self, path_to_file_npy=None, verbose=True):
-        if _pyproj:
+    def add_l93_coordinates(self, path_to_coord_L93=None, verbose=True, prm={}):
+        if prm["_pyproj"]:
             self.data_xr = self.gps_to_l93(data_xr=self.data_xr,
                                            shape=self.shape,
                                            lon='LON',
                                            lat='LAT',
                                            height=self.height,
                                            length=self.length)
-            if verbose: print("__Projected lat/lon coordinates into l93 with pyproj")
+            print("__Projected lat/lon coordinates into l93 with pyproj") if verbose else None
         else:
-            self._add_X_Y_L93(path_to_file_npy)
-            if verbose: print("__Added l93 coordinates from npy. Did not project lat/lon")
+            self._add_X_Y_L93(path_to_coord_L93)
+            print("__Added l93 coordinates from npy. Did not project lat/lon") if verbose else None
 
-    def _add_X_Y_L93(self, path_to_file_npy):
-        X_L93 = np.load(path_to_file_npy + '_X_L93.npy')
-        Y_L93 = np.load(path_to_file_npy + '_Y_L93.npy')
+    def _add_X_Y_L93(self, path_to_coord_L93):
+        X_L93 = np.load(path_to_coord_L93 + '_X_L93.npy')
+        Y_L93 = np.load(path_to_coord_L93 + '_Y_L93.npy')
         try:
             self.data_xr['X_L93'] = (('yy', 'xx'), X_L93[0:225, 0:175])
             self.data_xr['Y_L93'] = (('yy', 'xx'), Y_L93[0:225, 0:175])
@@ -223,7 +200,10 @@ class NWP(Data_2D):
         if save: Z0_1h_2020.to_netcdf(self.save_path + 'processed_Z0.nc')
         return array_Z0
 
-    def _add_Z0(self, path_Z0_2018, path_Z0_2019, save=False, load=False, verbose=True):
+    def _add_Z0(self, path_Z0_2018, path_Z0_2019, save=False, load=False, prm={}, verbose=True):
+
+        if (path_Z0_2018 is None) and (path_Z0_2019 is None):
+            return
 
         if verbose: print('\n__Start adding Z0')
 
@@ -245,7 +225,7 @@ class NWP(Data_2D):
             day = day.lstrip("0")
 
         if load:
-            chunks = {"time": 12} if _dask else None
+            chunks = {"time": 12} if prm["_dask"] else None
             array_Z0 = xr.open_dataset(self.save_path + f'processed_Z0_{year}_32bits.nc', chunks=chunks).astype(
                 "float32", copy=False)
         else:
@@ -322,6 +302,8 @@ class NWP(Data_2D):
     @staticmethod
     def gps_to_l93(data_xr=None, shape=None, lon='LON', lat='LAT', height=None, length=None):
         """Converts LAT/LON information from a NWP to L93"""
+
+        import pyproj
 
         # Initialization
         X_L93 = np.zeros(shape)

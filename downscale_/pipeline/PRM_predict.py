@@ -1,4 +1,4 @@
-from utils_prm import update_selected_path, select_path_to_file_npy,\
+from utils_prm import update_selected_path, select_path_to_coord_L93,\
     add_additional_stations, add_list_stations, check_expose_elevation, \
     check_extract_around_station_or_interpolated, create_begin_and_end_str, check_save_and_load, append_module_path
 
@@ -12,8 +12,8 @@ def create_prm(month_prediction=True):
     """
 
     # GPU
-    prm["GPU"] = False
-    prm["horovod"] = False
+    prm["GPU"] = True
+    prm["horovod"] = True
     prm["results_name"] = "test_interpolation_final_is_false"
 
     """
@@ -98,7 +98,7 @@ def create_prm(month_prediction=True):
 
     # 31 May 2020 1h
     prm["hour_end"] = 0#1
-    prm["day_end"] = 1#31
+    prm["day_end"] = 10#31
     prm["month_end"] = 1#5
     prm["year_end"] = 2019#2020
 
@@ -216,7 +216,7 @@ def create_prm(month_prediction=True):
     prm = create_begin_and_end_str(prm)
     prm = check_save_and_load(prm)
     prm = update_selected_path(prm, month_prediction)
-    prm = select_path_to_file_npy(prm)
+    prm = select_path_to_coord_L93(prm)
     prm = add_additional_stations(prm)
     prm = add_list_stations(prm)
     prm = check_expose_elevation(prm)

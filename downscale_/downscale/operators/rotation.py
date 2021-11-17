@@ -6,14 +6,12 @@ from downscale.utils.decorators import print_func_executed_decorator, timer_deco
 
 try:
     from numba import jit, prange, float64, float32, int32, int64
-
     _numba = True
 except ModuleNotFoundError:
     _numba = False
 
 try:
     import numexpr as ne
-
     _numexpr = True
 except ModuleNotFoundError:
     _numexpr = False
@@ -24,18 +22,7 @@ try:
 except ModuleNotFoundError:
     _tfa = False
 
-try:
-    import dask
-
-    _dask = True
-except ModuleNotFoundError:
-    _dask = False
-
-
 class Rotation:
-    _numexpr = _numexpr
-    _numba = _numba
-    _dask = _dask
 
     def __init__(self):
         pass

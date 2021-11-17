@@ -12,7 +12,7 @@ from Metrics import metrics
 from Prm import choose_optimizer, save_prm, create_prm, choose_initializer
 from Models import choose_model
 from Type_of_training import choose_training
-from utils import check_GPU, new_folders, print_prm_info
+from Utils import check_GPU, new_folders, print_prm_info
 from Test import test_pipeline
 
 '''

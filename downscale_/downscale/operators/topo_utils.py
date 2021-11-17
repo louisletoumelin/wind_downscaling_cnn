@@ -16,17 +16,8 @@ try:
 except ModuleNotFoundError:
     _numexpr = False
 
-try:
-    import dask
-    _dask = True
-except ModuleNotFoundError:
-    _dask = False
-
 
 class Topo_utils:
-    _numexpr = _numexpr
-    _numba = _numba
-    _dask = _dask
 
     def __init__(self):
         pass

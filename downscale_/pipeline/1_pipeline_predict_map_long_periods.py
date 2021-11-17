@@ -16,6 +16,10 @@ By rule of three, this give 2 days and 2h for downscaling one year at 1h and 25m
 import xarray as xr
 import numpy as np
 
+# Create prm
+from PRM_predict import create_prm
+prm = create_prm(month_prediction=True)
+
 from downscale.operators.devine import Devine
 from downscale.visu.visualization import Visualization
 from downscale.data_source.MNT import MNT
@@ -25,11 +29,7 @@ from PRM_predict import create_prm
 from downscale.utils.GPU import connect_on_GPU
 from downscale.utils.utils_func import round, select_range_7days_for_long_periods_prediction, print_begin_end, \
     print_second_begin_end, print_intro
-from downscale.utils.prm import update_selected_path_for_long_periods
-
-# Create prm, horovod and GPU
-prm = create_prm(month_prediction=True)
-connect_on_GPU(prm)
+from utils_prm import update_selected_path_for_long_periods
 
 IGN = MNT(prm=prm)
 
@@ -58,7 +58,7 @@ if prm["launch_predictions"]:
                     prm=prm)
 
         # Processing
-        p = Processing(mnt=IGN, nwp=AROME, prm=prm)
+        p = Devine(mnt=IGN, nwp=AROME, prm=prm)
         wind_xr = p.predict_maps(prm=prm)
         wind_xr = wind_xr.interp_like(surfex, method="linear")
         datasets.append(wind_xr)

@@ -14,12 +14,12 @@ def create_prm_dict():
     """
     prms = {
         # Necessary
-        'date': ['08_02'],
+        'date': ['17_11_2021'],
         # 'VCD' or 'UNet'
-        'model': ['VCD'],
+        'model': ['UNet'],
         # Specify only one name even if multiple prm are contained in prms
-        'name_simu': ['VCD_opt'],
-        # 'fold', 'class', 'degree', 'xi'
+        'name_simu': ['no_dropout_fold'],
+        # 'fold', 'class', 'degree', 'xi', 'all'
         'type_of_training': ['fold'],
 
         # General
@@ -27,11 +27,11 @@ def create_prm_dict():
         'learning_rate': [0.001],
         'decay': [0.0001],
         # 'RMSprop' 'Adam' 'AMSgrad' 'Adamax' 'Nadam'
-        'optimizer': ['Adam', 'Adamax'],
+        'optimizer': ['RMSprop'],
         'list_metrics': [['mae', 'root_mse']],
-        'epochs': [150],
+        'epochs': [300],  # 150
         'batch_size': [32],
-        'additional_flat_topo': True,
+        'additional_flat_topo': [False],
 
         # Reduce on plateau
         'ROP_factor': [0.1],
@@ -39,7 +39,7 @@ def create_prm_dict():
         'ROP_min_lr': [1e-10],
 
         # Convolution
-        'kernel_size': [(3, 3)],
+        'kernel_size': [(3, 3)],  # (3,3)
         'padding': ['same'],
         'nb_filters': [32],
         # Initializer
@@ -52,10 +52,11 @@ def create_prm_dict():
         'activation': ['relu'],
         'activation_regression': ['linear'],
         # Pooling, batch norm and dropout
-        'pool_size': [(2, 2)],
-        'full_dropout': [True],  # False
+        'pool_size': [(2, 2)], # (2, 2)
+        'minimal_dropout_layers': [False], # True
+        'full_dropout': [False],  # False
         'dropout': [0.25],
-        'full_batch_norm': [True],
+        'full_batch_norm': [False],  # False
 
         # Other
         'n_rows': [79],

@@ -3,14 +3,16 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 import tensorflow as tf
-physical_devices = tf.config.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
+gpus = tf.config.experimental.list_physical_devices('GPU')
+for gpu in gpus:
+    tf.config.experimental.set_memory_growth(gpu, True)
 
 from Metrics import metrics
 from Prm import choose_optimizer, save_prm, create_prm_5, choose_initializer
 from Models import choose_model
 from Type_of_training import choose_training
-from utils import check_GPU, new_folders, print_prm_info
+from Utils import check_GPU, new_folders, print_prm_info
 from Test import test_pipeline
 
 '''

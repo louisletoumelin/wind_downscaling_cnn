@@ -2,13 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-try:
-    import seaborn as sns
-except ModuleNotFoundError:
-    pass
-
 from downscale.eval.evaluation import Evaluation
-
 
 
 class EvaluationFromArrayXr(Evaluation):

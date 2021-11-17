@@ -17,7 +17,6 @@ except ModuleNotFoundError:
 try:
     from shapely.geometry import Point
     from shapely.geometry import Polygon
-
     _shapely_geometry = True
 except ModuleNotFoundError:
     _shapely_geometry = False
@@ -43,9 +42,6 @@ from downscale.utils.context_managers import print_all_context
 
 
 class Visualization():
-    _shapely_geometry = _shapely_geometry
-    _geopandas = _geopandas
-    _cartopy = _cartopy
 
     def __init__(self, p=None, prm={"verbose": True}):
 

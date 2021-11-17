@@ -22,7 +22,7 @@ from downscale.eval.evaluation import Evaluation
 from PRM_predict import create_prm
 from downscale.utils.GPU import connect_GPU_to_horovod
 from downscale.utils.utils_func import select_range_30_days_for_long_periods_prediction
-from downscale.utils.prm import update_selected_path_for_long_periods, select_stations
+from utils_prm import update_selected_path_for_long_periods, select_stations
 
 """
 ['BARCELONNETTE', 'DIGNE LES BAINS', 'RESTEFOND-NIVOSE',

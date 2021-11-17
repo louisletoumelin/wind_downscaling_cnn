@@ -47,7 +47,8 @@ def build_Unet(prm):
                    padding=prm['padding'], kernel_initializer=prm['initializer_func'], name='conv3_0')(pool2)
     conv3 = Conv2D(4 * prm['nb_filters'], prm['kernel_size'], activation=prm['activation'],
                    padding=prm['padding'], kernel_initializer=prm['initializer_func'], name='conv3')(conv3)
-    conv3 = Dropout(prm['dropout'], name='drop3')(conv3)
+    if prm["minimal_dropout_layers"]:
+        conv3 = Dropout(prm['dropout'], name='drop3')(conv3)
     if prm['full_batch_norm']:
         conv3 = BatchNormalization()(conv3)
     pool3 = MaxPooling2D(pool_size=prm['pool_size'], name='pool3')(conv3)
@@ -59,10 +60,11 @@ def build_Unet(prm):
                    padding=prm['padding'], kernel_initializer=prm['initializer_func'], name='conv4_0')(pool3)
     conv4 = Conv2D(8 * prm['nb_filters'], prm['kernel_size'], activation=prm['activation'],
                    padding=prm['padding'], kernel_initializer=prm['initializer_func'], name='conv4')(conv4)
-    drop4 = Dropout(prm['dropout'], name='drop4')(conv4)
+    if prm["minimal_dropout_layers"]:
+        conv4 = Dropout(prm['dropout'], name='drop4')(conv4)
     if prm['full_batch_norm']:
-        drop4 = BatchNormalization()(drop4)
-    up4 = UpSampling2D(size=prm['up_conv'], name='up4_0')(drop4)
+        conv4 = BatchNormalization()(conv4)
+    up4 = UpSampling2D(size=prm['up_conv'], name='up4_0')(conv4)
     up4 = Conv2D(4 * prm['nb_filters'], prm['up_conv'], activation=prm['activation'],
                  padding=prm['padding'], kernel_initializer=prm['initializer_func'], name='up4')(up4)
     up4 = ZeroPadding2D(padding=((0, 0), (0, 1)))(up4)

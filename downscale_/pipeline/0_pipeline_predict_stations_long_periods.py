@@ -16,7 +16,7 @@ GPU = 4 min
 """
 import numpy as np
 #from line_profiler import LineProfiler
-from PRM_predict import create_prm, update_selected_path, select_path_to_file_npy
+from PRM_predict import create_prm, update_selected_path, select_path_to_coord_L93
 
 
 def round(t1, t2):  return (np.round(t2 - t1, 2))
@@ -58,7 +58,7 @@ AROME = NWP(begin=prm["begin"],
             save_path=prm["save_path"],
             path_Z0_2018=None,
             path_Z0_2019=None,
-            path_to_file_npy=prm["path_to_file_npy"],
+            path_to_coord_L93=prm["path_to_coord_L93"],
             verbose=prm["verbose"],
             load_z0=False,
             save=False)
@@ -110,7 +110,7 @@ for index, (day, month, year) in enumerate(iterator):
     end = str(year) + "-" + str(month) + "-" + str(day)
 
     prm = update_selected_path(prm, month_prediction=True, year_end=year, month_end=month, day_end=day, force_date=True)
-    prm["path_to_file_npy"] = select_path_to_file_npy(prm, GPU=prm["GPU"])
+    prm["path_to_coord_L93"] = select_path_to_coord_L93(prm, GPU=prm["GPU"])
 
     if year == 2018 and (month ==5 or month==6):
         continue

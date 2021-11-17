@@ -14,12 +14,12 @@ def create_prm_dict():
     """
     prms = {
         # Necessary
-        'date': ['08_02'],
+        'date': ['17_11_2021'],
         # 'VCD' or 'UNet'
         'model': ['UNet'],
         # Specify only one name even if multiple prm are contained in prms
-        'name_simu': ['test_up_conv'],
-        # 'fold', 'class', 'degree', 'xi'
+        'name_simu': ['classic_fold'],
+        # 'fold', 'class', 'degree', 'xi', 'all'
         'type_of_training': ['fold'],
 
         # General
@@ -29,9 +29,9 @@ def create_prm_dict():
         # 'RMSprop' 'Adam' 'AMSgrad' 'Adamax' 'Nadam'
         'optimizer': ['RMSprop'],
         'list_metrics': [['mae', 'root_mse']],
-        'epochs': [150],
+        'epochs': [300],  # 150
         'batch_size': [32],
-        'additional_flat_topo': [True],
+        'additional_flat_topo': [False],
 
         # Reduce on plateau
         'ROP_factor': [0.1],
@@ -39,23 +39,24 @@ def create_prm_dict():
         'ROP_min_lr': [1e-10],
 
         # Convolution
-        'kernel_size': [(3, 3)],
+        'kernel_size': [(3, 3)],  # (3,3)
         'padding': ['same'],
         'nb_filters': [32],
         # Initializer
         # Default = glorot_uniform_initializer, 'glorot_normal', 'lecun_uniform', 'lecun_normal'
         'initializer': [None],
         # Up conv
-        'up_conv': [(2, 2), (5, 5), (10, 10)],
+        'up_conv': [(2, 2)],
         # Activation
         # 'relu', 'elu', 'selu'
         'activation': ['relu'],
         'activation_regression': ['linear'],
         # Pooling, batch norm and dropout
-        'pool_size': [(2, 2)],
-        'full_dropout': [False], # Default = False
+        'pool_size': [(2, 2)], # (2, 2)
+        'minimal_dropout_layers': [True], # True
+        'full_dropout': [False],  # False
         'dropout': [0.25],
-        'full_batch_norm': [False], # Default = False
+        'full_batch_norm': [False],  # False
 
         # Other
         'n_rows': [79],
