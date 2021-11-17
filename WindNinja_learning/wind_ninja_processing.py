@@ -6,12 +6,15 @@ import os
 from WindNinja_learning.dem import find_nearest_neighbor_in_grid
 
 
-def launch_wind_ninja_experiment(speed, direction, temp, cc, prm):
+def launch_wind_ninja_experiment(index, speed, direction, temp, cc, prm):
     # Launch windninja simulation
+
     exp = f"{prm['cfg_file']}  " \
           f"--elevation_file {prm['_elevation_file']} " \
           f"--input_speed {speed} " \
           f"--input_direction {direction} " \
+          f"--mesh_resolution 30 " \
+          f"--units_mesh_resolution m " \
           f"--uni_air_temp {temp} " \
           f"--uni_cloud_cover {cc} " \
           f"--year {prm['_year']} " \
@@ -20,6 +23,27 @@ def launch_wind_ninja_experiment(speed, direction, temp, cc, prm):
           f"--hour {prm['_hour']} " \
           f"--minute {prm['_minute']} " \
           f"--output_path {prm['output_path']}"
+
+    # Use existing case
+    if index > 0:
+        for element in os.listdir(prm["output_path"]):
+            if "NINJAFOAM" in element:
+                break
+
+
+        exp = f"{prm['cfg_file']}  " \
+              f"--elevation_file {prm['_elevation_file']} " \
+              f"--existing_case_directory {prm['output_path']+element} " \
+              f"--input_speed {speed} " \
+              f"--input_direction {direction} " \
+              f"--uni_air_temp {temp} " \
+              f"--uni_cloud_cover {cc} " \
+              f"--year {prm['_year']} " \
+              f"--month {prm['_month']} " \
+              f"--day {prm['_day']} " \
+              f"--hour {prm['_hour']} " \
+              f"--minute {prm['_minute']} " \
+              f"--output_path {prm['output_path']}"
 
     # Launch experience
     os.system(prm["path_to_WindNinja"] + "WindNinja_cli " + exp)
