@@ -1,6 +1,7 @@
 from utils_prm import update_selected_path, select_path_to_coord_L93,\
     add_additional_stations, add_list_stations, check_expose_elevation, \
-    check_extract_around_station_or_interpolated, create_begin_and_end_str, check_save_and_load, append_module_path
+    check_extract_around_station_or_interpolated, create_begin_and_end_str, check_save_and_load, append_module_path, \
+    try_import_modules
 
 
 def create_prm(month_prediction=True):
@@ -12,9 +13,9 @@ def create_prm(month_prediction=True):
     """
 
     # GPU
-    prm["GPU"] = True
-    prm["horovod"] = True
-    prm["results_name"] = "test_interpolation_final_is_false"
+    prm["GPU"] = False
+    prm["horovod"] = False
+    prm["results_name"] = "prediction_for_Ange_no_exp"
 
     """
     MNT, NWP and observations
@@ -42,8 +43,8 @@ def create_prm(month_prediction=True):
     prm["verbose"] = True
 
     # Z0
-    prm["Z0"] = True
-    prm["load_z0"] = True
+    prm["Z0"] = False
+    prm["load_z0"] = False
     prm["save_z0"] = False
     prm["log_profile_3m_to_10m"] = False
 
@@ -221,6 +222,7 @@ def create_prm(month_prediction=True):
     prm = add_list_stations(prm)
     prm = check_expose_elevation(prm)
     prm = check_extract_around_station_or_interpolated(prm)
+    prm = try_import_modules(prm)
 
     return prm
 

@@ -260,3 +260,5 @@ def try_import_modules(prm):
         prm["_shapely_geometry"] = True
     except ModuleNotFoundError:
         prm["_shapely_geometry"] = False
+
+    return prm

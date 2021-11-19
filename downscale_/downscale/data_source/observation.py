@@ -8,6 +8,12 @@ from downscale.data_source.data_2D import Data_2D
 from downscale.utils.decorators import print_func_executed_decorator, timer_decorator
 from downscale.utils.context_managers import print_all_context
 
+try:
+    from shapely.geometry import Point
+
+    _shapely_geometry = True
+except ModuleNotFoundError:
+    _shapely_geometry = False
 
 class Observation:
 

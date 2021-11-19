@@ -12,12 +12,13 @@ def project_coordinates(lon=None, lat=None, crs_in=4326, crs_out=2154):
     return projected_points
 
 
-def crop_dem(x_min, y_max, x_max, y_min, unit="m",
-             name="lac_blanc_test",
-             input_topo='C:/Users/louis/git/wind_downscaling_CNN/Data/1_Raw/MNT/Copernicus/COP30_L93_cropped.tif',
-             output_dir='C:/Users/louis/git/wind_downscaling_CNN/Data/1_Raw/MNT/Copernicus/',
-             crs_in=4326,
-             crs_out=2154):
+def crop_and_save_dem(x_min, y_max, x_max, y_min,
+                      unit="m",
+                      name="lac_blanc_test",
+                      input_topo='C:/path/to/file/COP30_L93_cropped.tif',
+                      output_dir='C:/path/to/folder/',
+                      crs_in=4326,
+                      crs_out=2154):
 
     if unit == "degree":
         x_min, y_max = project_coordinates(lon=x_min, lat=y_max, crs_in=crs_in, crs_out=crs_out)
@@ -67,7 +68,7 @@ def find_nearest_neighbor_in_grid(x_grid, y_grid, list_coord_station, number_of_
 
 
 """
-crop_dem(dem.x.values[120*i], dem.y.values[120*j], dem.x.values[120*(i+1)+1], dem.y.values[120*(j+1)+1], name="lac_blanc_test_5", unit="m")
+crop_and_save_dem(dem.x.values[120*i], dem.y.values[120*j], dem.x.values[120*(i+1)+1], dem.y.values[120*(j+1)+1], name="lac_blanc_test_5", unit="m")
 
 destination = 'C:/Users/louis/git/wind_downscaling_CNN/Data/1_Raw/MNT/IGN_25m/Test_wind_ninja/windninja_simu_nc.nc'
 source = 'C:/Users/louis/git/wind_downscaling_CNN/Data/1_Raw/MNT/IGN_25m/Test_wind_ninja/topo_lac_blanc_50_10_33m_vel.asc'

@@ -13,7 +13,6 @@ By rule of three, this give 2 days and 2h for downscaling one year at 1h and 25m
 """
 
 import numpy as np
-import xarray as xr
 from datetime import datetime
 
 # Create prm

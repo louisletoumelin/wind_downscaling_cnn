@@ -3,20 +3,19 @@ import pandas as pd
 import xarray as xr
 from osgeo import gdal
 import os
-import shutil
 from time import time as t
 
 from WindNinja_learning.prm_windninja import create_prm
-from WindNinja_learning.dem import crop_dem
+from WindNinja_learning.dem import crop_and_save_dem
 from WindNinja_learning.nwp import load_netcdf_and_preprocess, select_time_range_xr, select_station_grid_point_in_NWP
 from WindNinja_learning.observations import load_observations, select_idx_station_in_NWP_grid, lower_station_name
 from WindNinja_learning.utils_wind_ninja import split_np_datetime, print_current_prediction, delete_temporary_files, \
-    print_begin_end, reconstruct_datetime, print_with_frame
+    reconstruct_datetime, print_with_frame
 from WindNinja_learning.wind_ninja_processing import launch_wind_ninja_experiment, asc_to_netcdf, \
-    read_speed_and_angle_prediction, extract_nearest_neighbor
+    read_speed_and_angle_prediction, extract_nearest_neighbor, remove_case_and_relaunch_simu_at_time_step
 
 """
-77 minutes for one month at 1 station
+momentum solver: 13 minutes for four months at 1 station
 """
 
 # Create a prm file containing the path to data, the considered date, dx and dy of the MNT the options etc
@@ -54,8 +53,13 @@ for station in prm["stations"]:
     prm["_elevation_file"] = prm["windninja_topo"] + f"{station_lower}_2km.tif"
 
     # Crop MNT around the stations and save it somewhere
-    crop_dem(x_l93-1_000, y_l93+1_000, x_l93+1_000, y_l93-1_000,
-             "m", f"{station_lower}_2km", prm["topo_path"], prm["windninja_topo"], 2154, 2154)
+    crop_and_save_dem(x_l93 - 1_000, y_l93 + 1_000, x_l93 + 1_000, y_l93 - 1_000,
+                      unit="m",
+                      name=f"{station_lower}_2km",
+                      input_topo=prm["topo_path"],
+                      output_dir=prm["windninja_topo"],
+                      crs_in=2154,
+                      crs_out=2154)
 
     times = []
     speeds = []
@@ -66,10 +70,10 @@ for station in prm["stations"]:
         if index <= 10_000:
 
             speed = np.round(AROME_station.Wind.sel(time=time).values)
-            if speed !=0:
+            if speed > 0:
                 direction = np.round(AROME_station.Wind_DIR.sel(time=time).values)
-                temp = np.round(temperature_station.Tair.sel(time=time).values-273.15)
-                cc = 0.3 #todo load CC
+                temp = np.round(temperature_station.Tair.sel(time=time).values - 273.15)
+                cc = 0.3  # todo load CC
                 date = AROME_station.time.sel(time=time).values
 
                 prm = split_np_datetime(date, prm)
@@ -80,14 +84,9 @@ for station in prm["stations"]:
                     launch_wind_ninja_experiment(index, speed, direction, temp, cc, prm)
                     name_speed_nc, name_ang_nc = asc_to_netcdf(speed, direction, station_lower, prm)
                 except ValueError:
-                    print("\nValueError encontered."
+                    print("\nValueError encountered."
                           "\nTrying to relaunch simulation without using existing case\n")
-                    for element in os.listdir(prm["output_path"]):
-                        if "NINJAFOAM" in element:
-                            break
-                    shutil.rmtree(prm["output_path"] + element, ignore_errors=True)
-                    launch_wind_ninja_experiment(0, speed, direction, temp, cc, prm)
-                    name_speed_nc, name_ang_nc = asc_to_netcdf(speed, direction, station_lower, prm)
+                    remove_case_and_relaunch_simu_at_time_step(index, prm, speed, direction, temp, cc, station_lower)
 
                 speed_pred, ang_pred = read_speed_and_angle_prediction(name_speed_nc, name_ang_nc)
 
@@ -115,6 +114,6 @@ for station in prm["stations"]:
     results[station] = pd.DataFrame(np.transpose([speeds, directions]), columns=["Wind", "Wind_DIR"], index=times)
 
     t1 = t()
-    print(f"{(t1-t0)/60} minutes")
+    print(f"{(t1 - t0) / 60} minutes")
 
     # Save a dictionary containing for each station a .pkl file with time series of the predictions
