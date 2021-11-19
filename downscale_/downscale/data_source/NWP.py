@@ -325,6 +325,20 @@ class NWP(Data_2D):
         data_xr["Y_L93"] = (("yy", "xx"), Y_L93)
         return data_xr
 
+    def convert_format_to_mnt_format(self, extract_wind=True):
+
+        assert "X_L93" in self.data_xr
+        assert "Y_L93" in self.data_xr
+
+        self.data_xr = self.data_xr.assign_coords(x=("xx", self.data_xr.X_L93.data[0, :]))
+        self.data_xr = self.data_xr.assign_coords(y=("yy", self.data_xr.Y_L93.data[:, 0]))
+        self.data_xr = self.data_xr.drop(("xx", "yy"), dim=None)
+
+        if extract_wind:
+            self.data_xr = self.data_xr["Wind"]
+
+        self.data_xr = self.data_xr.rename({"xx": "x", "yy": "y"})
+
     def select_timeframe(self, begin=None, end=None):
 
         if (begin is None) and (end is None):

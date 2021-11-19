@@ -2,36 +2,30 @@ import matplotlib as mpl
 #mpl.use('Agg')
 mpl.rcParams['agg.path.chunksize'] = 2_000_000
 from time import time as t
+import numpy as np
+
+# Create prm
+from PRM_predict import create_prm
+prm = create_prm(month_prediction=True)
 
 from downscale.data_source.MNT import MNT
 from downscale.data_source.NWP import NWP
 from downscale.data_source.observation import Observation
-from PRM_predict import create_prm
-
-# Create prm
-prm = create_prm(month_prediction=True)
 
 # IGN
 IGN = MNT(prm=prm)
 
 # AROME
 AROME = NWP(prm["selected_path"], begin=prm["begin"], end=prm["end"], prm=prm)
+AROME.convert_format_to_mnt_format(extract_wind=True)
 
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
-
-"""
-AROME.data_xr = AROME.data_xr.assign_coords(x=("xx", AROME.data_xr.X_L93.data[0, :]))
-AROME.data_xr = AROME.data_xr.assign_coords(y=("yy", AROME.data_xr.Y_L93.data[:, 0]))
-AROME.data_xr = AROME.data_xr.drop(("xx", "yy"), dim=None)
-AROME.data_xr = AROME.data_xr["Wind"]
-AROME.data_xr = AROME.data_xr.rename({"xx": "x", "yy": "y"})
-
 
 IGN.data_xr = IGN.data_xr.astype(np.float32)
 IGN.data_xr = IGN.data_xr.sel(x=slice(800_000, 950_000), y=slice(6_500_000, 6_450_000))
 
 AROME_interpolated = AROME.data_xr.interp_like(IGN.data_xr, method="nearest")
-"""
+
 mnt = IGN.data_xr.data[0, :, :]
 
 # downscale_1 = DwnscHelbig()
