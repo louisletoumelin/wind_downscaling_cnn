@@ -6,16 +6,16 @@ import pytest
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-from ..operators.micro_met import MicroMet
+from downscale.operators.micro_met import MicroMet
 
 
 @pytest.fixture
 def mnt():
     directory = os.getcwd()
     try:
-        mnt = np.load("../Data_test/mnt_small.npy")
+        mnt = np.load("../data_test/mnt_small.npy")
     except FileNotFoundError:
-        mnt = np.load(directory + "/Data_test/mnt_small.npy")
+        mnt = np.load(directory + "/data_test/mnt_small.npy")
     return mnt
 
 

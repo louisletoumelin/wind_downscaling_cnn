@@ -1,4 +1,6 @@
-from ..utils.utils_func import *
+import numpy as np
+
+from downscale.utils.utils_func import *
 
 
 def test_lists_to_arrays_if_required():

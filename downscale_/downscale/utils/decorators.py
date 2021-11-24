@@ -36,8 +36,13 @@ def change_dtype_if_required_decorator(dtype):
     def decorator(function):
         def wrapper(*args, **kwargs):
             result = function(*args, **kwargs)
+
+            if isinstance(result, list):
+                result = np.array(result)
+
             if result.dtype != dtype:
                 result = result.astype(dtype, copy=False)
+
             return result
         return wrapper
     return decorator

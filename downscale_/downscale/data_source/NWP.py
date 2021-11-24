@@ -325,7 +325,7 @@ class NWP(Data_2D):
         data_xr["Y_L93"] = (("yy", "xx"), Y_L93)
         return data_xr
 
-    def convert_format_to_mnt_format(self, extract_wind=True):
+    def convert_to_mnt_format(self, extract_wind=True):
 
         assert "X_L93" in self.data_xr
         assert "Y_L93" in self.data_xr
@@ -336,6 +336,7 @@ class NWP(Data_2D):
 
         if extract_wind:
             self.data_xr = self.data_xr["Wind"]
+            self.data_xr = self.data_xr.astype(np.float32)
 
         self.data_xr = self.data_xr.rename({"xx": "x", "yy": "y"})
 

@@ -11,30 +11,29 @@ prm = create_prm(month_prediction=True)
 from downscale.data_source.MNT import MNT
 from downscale.data_source.NWP import NWP
 from downscale.data_source.observation import Observation
+from downscale.operators.helbig import DwnscHelbig
+from downscale.utils.context_managers import timer_context
+from downscale.visu.visualization import Visualization
 
-# IGN
+
 IGN = MNT(prm=prm)
-
-# AROME
 AROME = NWP(prm["selected_path"], begin=prm["begin"], end=prm["end"], prm=prm)
-AROME.convert_format_to_mnt_format(extract_wind=True)
-
+AROME.data_xr = AROME.data_xr.isel(time=0)
+AROME.convert_to_mnt_format(extract_wind=True)
+AROME_interpolated = AROME.data_xr.interp_like(IGN.data_xr, method="nearest")
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 
-IGN.data_xr = IGN.data_xr.astype(np.float32)
-IGN.data_xr = IGN.data_xr.sel(x=slice(800_000, 950_000), y=slice(6_500_000, 6_450_000))
+#IGN.data_xr = IGN.data_xr.sel(x=slice(900_000, 950_000), y=slice(6_450_000, 6_500_000))
 
-AROME_interpolated = AROME.data_xr.interp_like(IGN.data_xr, method="nearest")
 
 mnt = IGN.data_xr.data[0, :, :]
 
-# downscale_1 = DwnscHelbig()
-# mu_mnt = downscale_1.mu_helbig_map(mnt, dx=25)
-# laplacian_mnt = downscale_1.laplacian_map(mnt, dx=25)
+d = DwnscHelbig()
+# mu_mnt = d.mu_helbig_map(mnt, dx=25)
+# laplacian_mnt = d.laplacian_map(mnt, dx=25)
 
-t0 = t()
-#output_downscale = downscale_1.downscale_helbig(mnt, idx_x=None, idx_y=None, type_input="map", library="numba")
-#print(t() - t0)
+with timer_context("downscale Helbig et al. 2017", level="", unit="minute", verbose=True):
+    output_downscale = d.downscale_helbig(mnt, idx_x=None, idx_y=None, type_input="map", library="numba")
 
 #result = AROME_interpolated.data * output_downscale.reshape((1, output_downscale.shape[0], output_downscale.shape[1]))
 #print(result.shape)

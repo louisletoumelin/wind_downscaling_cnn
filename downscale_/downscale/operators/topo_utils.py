@@ -133,7 +133,7 @@ class Topo_utils:
             library = "numpy"
 
         laplacian = change_dtype_if_required(laplacian, np.float32)
-        print(f"__Laplacian calculated. Librarie: {library}") if verbose else None
+        print(f"__Laplacian calculated. Library: {library}") if verbose else None
         return laplacian
 
     @staticmethod

@@ -1,11 +1,11 @@
-import pytest
+import numpy as np
 from numpy.testing import *
 import warnings
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-from ..operators.topo_utils import *
-from ..operators.helbig import *
+from downscale.operators.topo_utils import *
+from downscale.operators.helbig import *
 
 
 def test_std_slicing_numpy():
@@ -31,21 +31,21 @@ def test_std_slicing_numpy():
     x_left = np.array([1])
     x_right = np.array([2])
 
-    result_1 = tu.std_slicing_numpy(array_test_1, y_left, y_right, x_left, x_right)
+    result_1 = tu.std_slicing_numpy_loop(array_test_1, y_left, y_right, x_left, x_right)
 
     y_left = np.array([0])
     y_right = np.array([1])
     x_left = np.array([0])
     x_right = np.array([1])
 
-    result_2 = tu.std_slicing_numpy(array_test_2, y_left, y_right, x_left, x_right)
+    result_2 = tu.std_slicing_numpy_loop(array_test_2, y_left, y_right, x_left, x_right)
 
     y_left = np.array([0, 2])
     y_right = np.array([1, 3])
     x_left = np.array([0, 2])
     x_right = np.array([1, 3])
 
-    result_3 = tu.std_slicing_numpy(array_test_3, y_left, y_right, x_left, x_right)
+    result_3 = tu.std_slicing_numpy_loop(array_test_3, y_left, y_right, x_left, x_right)
 
     assert result_1 == 2.0
     assert result_2 == 0.0
