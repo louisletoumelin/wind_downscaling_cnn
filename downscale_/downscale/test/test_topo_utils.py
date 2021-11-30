@@ -9,6 +9,7 @@ from downscale.operators.helbig import *
 
 
 def test_std_slicing_numpy():
+    """test passes 30/11/2021"""
     tu = SgpHelbig()
 
     array_test_1 = np.array([[1, 1, 1, 1],
@@ -53,6 +54,7 @@ def test_std_slicing_numpy():
 
 
 def test_normalize_topo():
+    """test passes 30/11/2021"""
     tu = SgpHelbig()
 
     array_test_1 = np.array([[100, -100, 100, -100],
@@ -70,6 +72,7 @@ def test_normalize_topo():
 
 
 def test_normalize_topo_broadcast():
+    """test passes 30/11/2021"""
     tu = SgpHelbig()
 
     array_test_1 = 100 * np.ones((10, 20, 30))
@@ -81,67 +84,128 @@ def test_normalize_topo_broadcast():
 
 
 def test_mean_peak_valley():
+    """test passes 30/11/2021"""
+
     tu = SgpHelbig()
     test_array_1 = np.array([1, np.nan, 2])
     test_array_2 = np.array([1, 2, 2])
-    assert_array_almost_equal(tu.mean_peak_valley(test_array_1, verbose=False), np.float32(2 * np.nanstd(test_array_1)))
-    assert_array_almost_equal(tu.mean_peak_valley(test_array_2, verbose=False), np.float32(2 * np.nanstd(test_array_2)))
-    assert not np.array_equal(tu.mean_peak_valley(test_array_1, verbose=False), np.float32(2 * np.std(test_array_1)))
+    assert_array_almost_equal(tu.mean_peak_valley(test_array_1, axis=0, verbose=False), np.float32(2 * np.nanstd(test_array_1)))
+    assert_array_almost_equal(tu.mean_peak_valley(test_array_2, axis=0, verbose=False), np.float32(2 * np.nanstd(test_array_2)))
+    assert not np.array_equal(tu.mean_peak_valley(test_array_1, axis=0, verbose=False), np.float32(2 * np.std(test_array_1)))
 
 
 def test_laplacian_classic():
+    """test passes 30/11/2021"""
     tu = SgpHelbig()
-    array_test_1 = np.array([[1, 2], [3, 4]])
-    expected_result_1 = np.array([[3, 1], [-1, -3]])
-    array_test_2 = np.array([[12, 14, 28, 32], [15, 27, 42, 53], [41, 40, 21, 13], [18, 12, 21, 42]])
-    expected_result_2 = np.array([[5, 25, 4, 17], [35, 3, -39, -72], [-50, -59, 32, 77], [17, 43, 12, -50]])
+    array_test_1 = np.array([[1, 2],
+                             [3, 4]])
+
+    expected_result_1 = np.array([[3, 1],
+                                  [-1, -3]])
+
+    array_test_2 = np.array([[12, 14, 28, 32],
+                             [15, 27, 42, 53],
+                             [41, 40, 21, 13],
+                             [18, 12, 21, 42]])
+
+    expected_result_2 = np.array([[5, 25, 4, 17],
+                                  [35, 3, -39, -72],
+                                  [-50, -59, 32, 77],
+                                  [17, 43, 12, -50]])
 
     result_1 = tu.laplacian_map(array_test_1, 1, library="numpy", helbig=False, verbose=False)
     result_2 = tu.laplacian_map(array_test_2, 1, library="numpy", helbig=False, verbose=False)
+    result_2 = tu.laplacian_map(array_test_2, 1, library="numba", helbig=False, verbose=False)
+    result_2 = tu.laplacian_map(array_test_2, 1, library="numba", helbig=False, verbose=False)
     assert_array_almost_equal(result_1, expected_result_1)
     assert_array_almost_equal(result_2, expected_result_2)
 
 
 def test_laplacian_helbig():
+    """test passes 30/11/2021"""
     tu = SgpHelbig()
-    array_test_1 = np.array([[1, 2], [3, 4]])
-    expected_result_1 = np.array([[3, 1], [-1, -3]]) / 4
-    array_test_2 = np.array([[12, 14, 28, 32], [15, 27, 42, 53], [41, 40, 21, 13], [18, 12, 21, 42]])
-    expected_result_2 = np.array([[5, 25, 4, 17], [35, 3, -39, -72], [-50, -59, 32, 77], [17, 43, 12, -50]]) / 4
+
+    array_test_1 = np.array([[1, 2],
+                             [3, 4]])
+
+    expected_result_1 = np.array([[3, 1],
+                                  [-1, -3]]) / 4
+
+    array_test_2 = np.array([[12, 14, 28, 32],
+                             [15, 27, 42, 53],
+                             [41, 40, 21, 13],
+                             [18, 12, 21, 42]])
+
+    expected_result_2 = np.array([[5, 25, 4, 17],
+                                  [35, 3, -39, -72],
+                                  [-50, -59, 32, 77],
+                                  [17, 43, 12, -50]]) / 4
+
     result_1 = tu.laplacian_map(array_test_1, 1, library="numpy", helbig=True, verbose=False)
     result_2 = tu.laplacian_map(array_test_2, 1, library="numpy", helbig=True, verbose=False)
+    result_2 = tu.laplacian_map(array_test_2, 1, library="numba", helbig=True, verbose=False)
+    result_2 = tu.laplacian_map(array_test_2, 1, library="numba", helbig=True, verbose=False)
     assert_array_almost_equal(result_1, expected_result_1)
     assert_array_almost_equal(result_2, expected_result_2)
 
 
-def test_laplacian_idx_and_map():
+def test_laplacian_idx_and_map_give_same_result():
+    """test passes 30/11/2021"""
     tu = SgpHelbig()
 
-    array_test = np.array([[12, 14, 28, 32], [15, 27, 42, 53], [41, 40, 21, 13], [18, 12, 21, 42]])
+    array_test = np.array([[12, 14, 28, 32],
+                           [15, 27, 42, 53],
+                           [41, 40, 21, 13],
+                           [18, 12, 21, 42]])
 
     result_idx_1 = tu.laplacian_idx(array_test, np.array([1]), np.array([2]), 1, library="numpy", helbig=False,
                                     verbose=False)
     result_map_1 = tu.laplacian_map(array_test, 1, library="numpy", helbig=False, verbose=False)[2, 1]
 
+    result_idx_2 = tu.laplacian_idx(array_test, np.array([1]), np.array([2]), 1, library="numba", helbig=False,
+                                    verbose=False)
+    result_map_2 = tu.laplacian_map(array_test, 1, library="numba", helbig=False, verbose=False)[2, 1]
+
     assert_array_almost_equal(result_map_1, result_idx_1)
+    assert_array_almost_equal(result_map_2, result_idx_2)
 
 
 def test_laplacian_idx_result():
+    """test passes 30/11/2021"""
     tu = SgpHelbig()
-    array_test = np.array([[12, 14, 28, 32], [15, 27, 42, 53], [41, 40, 21, 13], [18, 12, 21, 42]])
-    expected_result_2 = np.array([[5, 25, 4, 17], [35, 3, -39, -72], [-50, -59, 32, 77], [17, 43, 12, -50]]) / 4
+    array_test = np.array([[12, 14, 28, 32],
+                           [15, 27, 42, 53],
+                           [41, 40, 21, 13],
+                           [18, 12, 21, 42]])
+    expected_result_2 = np.array([[5, 25, 4, 17],
+                                  [35, 3, -39, -72],
+                                  [-50, -59, 32, 77],
+                                  [17, 43, 12, -50]]) / 4
+
     result_idx_2 = tu.laplacian_idx(array_test, np.array([1]), np.array([2]), 1, library="numpy", helbig=True,
                                     verbose=False)
+    result_idx_3 = tu.laplacian_idx(array_test, np.array([1]), np.array([2]), 1, library="numba", helbig=True,
+                                    verbose=False)
     assert_array_almost_equal(result_idx_2, expected_result_2[2, 1])
+    assert_array_almost_equal(result_idx_3, expected_result_2[2, 1])
 
 
 def test_mu_helbig_map():
+    """test passes 30/11/2021"""
+
     tu = SgpHelbig()
 
-    array_test_1 = np.array([[1, 2], [3, 4]])
-    expected_result_1 = np.sqrt(np.array([[2.5, 2.5], [2.5, 2.5]]))
+    array_test_1 = np.array([[1, 2],
+                             [3, 4]])
 
-    array_test_2 = np.array([[1, 3, 5, 7], [2, 4, 6, 8], [9, 11, 13, 15], [10, 12, 14, 16]])
+    expected_result_1 = np.sqrt(np.array([[2.5, 2.5],
+                                          [2.5, 2.5]]))
+
+    array_test_2 = np.array([[1, 3, 5, 7],
+                             [2, 4, 6, 8],
+                             [9, 11, 13, 15],
+                             [10, 12, 14, 16]])
+
     expected_result_2 = np.array([[1.5811388, 1.5811388, 1.5811388, 1.5811388],
                                   [3.1622777, 3.1622777, 3.1622777, 3.1622777],
                                   [3.1622777, 3.1622777, 3.1622777, 3.1622777],
@@ -155,17 +219,19 @@ def test_mu_helbig_map():
 
 
 def test_mu_helbig_map_idx():
+    """test passes 30/11/2021"""
     tu = SgpHelbig()
     array_test = np.array([[1, 3, 5, 7], [2, 4, 6, 8], [9, 11, 13, 15], [10, 12, 14, 16]])
     expected_result = np.array([[1.5811388, 1.5811388, 1.5811388, 1.5811388],
                                 [3.1622777, 3.1622777, 3.1622777, 3.1622777],
                                 [3.1622777, 3.1622777, 3.1622777, 3.1622777],
                                 [1.5811388, 1.5811388, 1.5811388, 1.5811388]], dtype=np.float32)
-    result = tu.mu_helbig_idx(array_test, 1, np.array([1]), np.array([2]), verbose=False)
+    result = tu.mu_helbig_idx(array_test, 1, np.array([1]), np.array([2]))
     assert_almost_equal(result, expected_result[2, 1])
 
 
 def test_rolling_mean():
+    """This test is not valid anymore"""
     tu = SgpHelbig()
 
     array_test = np.array([[1, 2, 3, 4],

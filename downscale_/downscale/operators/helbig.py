@@ -158,14 +158,6 @@ class MovingAverage(Slope):
 
         mu_avg = mu_avg_flat if type_input == "indexes" else mu_avg_flat.reshape(shape[0], shape[1])
 
-        plt.figure()
-        if False:
-            plt.imshow(mu_avg - self.mu_average_tensorflow(mu)[100:-100, 100:-100])
-        else:
-            plt.imshow(mu_avg - self.mu_average_tensorflow(mu))
-        plt.title("mu_avg numpy-tensorflow")
-        plt.colorbar()
-
         return mu_avg
 
     @staticmethod
@@ -323,18 +315,32 @@ class DwnscHelbig(SgpHelbig):
     def __init__(self):
         super().__init__()
 
+    @staticmethod
+    def detect_type_input(idx_x, idx_y):
+        if idx_x is None and idx_y is None:
+            type_input = "map"
+        else:
+            idx_x, idx_y = change_several_dtype_if_required([idx_x, idx_y], [np.int32, np.int32])
+            if idx_x.ndim > 1:
+                type_input = "map"
+            else:
+                type_input = "indexes"
+        return type_input
+
     @print_func_executed_decorator("downscaling from Helbig et al. 2017",
                                    level_begin="\n",
                                    level_end="",
                                    end="")
     @change_dtype_if_required_decorator(np.float32)
-    def x_dsc_topo_helbig(self, mnt, dx=25, idx_x=None, idx_y=None, type_input="map", library="numba", verbose=True):
+    def x_dsc_topo_helbig(self, mnt, dx=25, idx_x=None, idx_y=None, library="numba", verbose=True):
 
         a = 17.0393
         b = 0.737
         c = 1.0234
         d = 0.3794
         e = 1.9821
+
+        type_input = self.detect_type_input(idx_x, idx_y)
 
         if type_input == "map":
             laplacian = self.laplacian_map(mnt, dx, library=library, helbig=True)
@@ -346,23 +352,18 @@ class DwnscHelbig(SgpHelbig):
 
         term_1 = 1 - a * laplacian / (1 + a * np.abs(laplacian) ** b)
         term_2 = c / (1 + d * mu ** e)
-        x = term_1 * term_2
 
-        if verbose:
-            print(f"__MNT shape: {mnt.shape}")
-            print(f"__x_dsc_topo computed. x shape: {x.shape}")
+        return term_1 * term_2
 
-        return x
-
-    def downscale_helbig(self, mnt_large, dx=25, L=2_000, idx_x=None, idx_y=None, type_input="map",
-                         library="numba", plot=True, verbose=True):
+    def downscale_helbig(self, mnt_large, dx=25, L=2_000, idx_x=None, idx_y=None,
+                         library_subgrid="tensorflow", library_downscale="numba", plot=True, verbose=True):
 
         x_sgp_topo = self.subgrid(mnt_large,
                                   idx_x=idx_x,
                                   idx_y=idx_y,
                                   dx=dx,
                                   L=L,
-                                  type_input=type_input,
+                                  library=library_subgrid,
                                   verbose=verbose)
         if plot:
             plt.figure()
@@ -377,9 +378,8 @@ class DwnscHelbig(SgpHelbig):
             plt.colorbar()
             plt.title("MNT")
 
-        x_dsc_topo = self.x_dsc_topo_helbig(mnt_small,
-                                            dx=dx, idx_x=idx_x, idx_y=idx_y,
-                                            type_input=type_input, verbose=verbose, library=library)
+        x_dsc_topo = self.x_dsc_topo_helbig(mnt_small, dx=dx, idx_x=idx_x, idx_y=idx_y,
+                                            library=library_downscale, verbose=verbose)
         if plot:
             plt.figure()
             plt.imshow(x_dsc_topo)

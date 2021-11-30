@@ -54,7 +54,7 @@ class Topo_utils:
             return result
         else:
             topo_HD = np.array(topo_HD, dtype=dtype)
-            if library == "numexpr" and self._numexpr:
+            if library == "numexpr" and _numexpr:
                 print(f"________Library {library}")
                 return ne.evaluate("(topo_HD - mean) / std")
             else:
@@ -138,7 +138,11 @@ class Topo_utils:
 
     @staticmethod
     def _laplacian_numpy_idx(mnt, idx_x, idx_y, dx, helbig=True):
-        a = np.float32((mnt[idx_y-1, idx_x] + mnt[idx_y+1, idx_x] + mnt[idx_y, idx_x-1] + mnt[idx_y, idx_x+1] - 4*mnt[idx_y, idx_x])/dx**2)
+        a = np.float32((mnt[idx_y-1, idx_x]
+                        + mnt[idx_y+1, idx_x]
+                        + mnt[idx_y, idx_x-1]
+                        + mnt[idx_y, idx_x+1]
+                        - 4*mnt[idx_y, idx_x])/dx**2)
         c = np.float32(dx/4) if helbig else 1
         return a * c
 
@@ -146,8 +150,11 @@ class Topo_utils:
     def _laplacian_loop_numpy_1D_helbig(mnt, idx_x, idx_y, dx):
         laplacian = np.empty(idx_x.shape, np.float32)
         for i in range(idx_x.shape[0]):
-            a = (mnt[idx_x[i] - 1, idx_y[i]] + mnt[idx_x[i] + 1, idx_y[i]] + mnt[idx_x[i], idx_y[i] - 1] + mnt[
-                idx_x[i], idx_y[i] + 1] - 4 * mnt[idx_x[i], idx_y[i]]) / dx ** 2
+            a = (mnt[idx_y[i] - 1, idx_x[i]]
+                 + mnt[idx_y[i] + 1, idx_x[i]]
+                 + mnt[idx_y[i], idx_x[i] - 1]
+                 + mnt[idx_y[i], idx_x[i] + 1]
+                 - 4 * mnt[idx_y[i], idx_x[i]]) / dx ** 2
             c = dx / 4
             laplacian[i] = a * c
         return laplacian
@@ -156,9 +163,11 @@ class Topo_utils:
     def _laplacian_loop_numpy_1D(mnt, idx_x, idx_y, dx):
         laplacian = np.empty(idx_x.shape, np.float32)
         for i in range(idx_x.shape[0]):
-            a = (mnt[idx_x[i] - 1, idx_y[i]] + mnt[idx_x[i] + 1, idx_y[i]] + mnt[idx_x[i], idx_y[i] - 1] + mnt[
-                idx_x[i], idx_y[i] + 1] - 4 * mnt[idx_x[i], idx_y[i]]) / dx ** 2
-            laplacian[i] = a
+            laplacian[i] = (mnt[idx_y[i] - 1, idx_x[i]]
+                            + mnt[idx_y[i] + 1, idx_x[i]]
+                            + mnt[idx_y[i], idx_x[i] - 1]
+                            + mnt[idx_y[i], idx_x[i] + 1]
+                            - 4 * mnt[idx_y[i], idx_x[i]]) / dx ** 2
         return laplacian
 
     @staticmethod
@@ -166,8 +175,11 @@ class Topo_utils:
         laplacian = np.empty(idx_x.shape, np.float32)
         for j in range(idx_x.shape[0]):
             for i in range(idx_x.shape[1]):
-                a = (mnt[idx_y[j, i] - 1, idx_x[j, i]] + mnt[idx_y[j, i] + 1, idx_x[j, i]] + mnt[idx_y[j, i], idx_x[j, i] - 1] + mnt[
-                    idx_y[j, i], idx_x[j, i] + 1] - 4 * mnt[idx_y[j, i], idx_x[j, i]]) / dx ** 2
+                a = (mnt[idx_y[j, i] - 1, idx_x[j, i]]
+                     + mnt[idx_y[j, i] + 1, idx_x[j, i]]
+                     + mnt[idx_y[j, i], idx_x[j, i] - 1]
+                     + mnt[idx_y[j, i], idx_x[j, i] + 1]
+                     - 4 * mnt[idx_y[j, i], idx_x[j, i]]) / dx ** 2
                 c = dx / 4
                 laplacian[j, i] = a * c
         return laplacian
@@ -177,8 +189,11 @@ class Topo_utils:
         laplacian = np.empty(idx_x.shape, np.float32)
         for j in range(idx_x.shape[0]):
             for i in range(idx_x.shape[1]):
-                a = (mnt[idx_y[j, i] - 1, idx_x[j, i]] + mnt[idx_y[j, i] + 1, idx_x[j, i]] + mnt[idx_y[j, i], idx_x[j, i] - 1] + mnt[
-                    idx_y[j, i], idx_x[j, i] + 1] - 4 * mnt[idx_y[j, i], idx_x[j, i]]) / dx ** 2
+                a = (mnt[idx_y[j, i] - 1, idx_x[j, i]]
+                     + mnt[idx_y[j, i] + 1, idx_x[j, i]]
+                     + mnt[idx_y[j, i], idx_x[j, i] - 1]
+                     + mnt[idx_y[j, i], idx_x[j, i] + 1]
+                     - 4 * mnt[idx_y[j, i], idx_x[j, i]]) / dx ** 2
                 laplacian[j, i] = a
         return laplacian
 
@@ -197,8 +212,7 @@ class Topo_utils:
         if idx_x.ndim == 2:
             lapl_vect = jit([(float32[:, :], int32[:, :], int32[:, :], int64)], nopython=True)(laplacian_2D)
 
-        result = lapl_vect(mnt, idx_x, idx_y, dx)
-        return result
+        return lapl_vect(mnt, idx_x, idx_y, dx)
 
     @staticmethod
     def _get_window_idx_boundaries(idx_x, idx_y, x_win=69//2, y_win=79//2):

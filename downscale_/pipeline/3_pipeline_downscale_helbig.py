@@ -26,17 +26,18 @@ BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=p
 #IGN.data_xr = IGN.data_xr.sel(x=slice(900_000, 950_000), y=slice(6_450_000, 6_500_000))
 
 
-mnt = IGN.data_xr.data[0, :1000, :2000]
+mnt = IGN.data_xr.data[0, :, :]#[0, :1000, :2000]
 
 d = DwnscHelbig()
 # mu_mnt = d.mu_helbig_map(mnt, dx=25)
 # laplacian_mnt = d.laplacian_map(mnt, dx=25)
 
 with timer_context("downscale Helbig et al. 2017", level="", unit="minute", verbose=True):
-    output_downscale = d.subgrid(mnt, dx=30, idx_x=None, idx_y=None, library="numba")
+    output_downscale = d.downscale_helbig(mnt, dx=30, idx_x=None, idx_y=None,
+                                          library_subgrid="tensorflow", library_downscale="numba")
 
-#result = AROME_interpolated.data * output_downscale.reshape((1, output_downscale.shape[0], output_downscale.shape[1]))
-#print(result.shape)
+result = AROME_interpolated.data * output_downscale.reshape((1, output_downscale.shape[0], output_downscale.shape[1]))
+print(result.shape)
 
 
 
