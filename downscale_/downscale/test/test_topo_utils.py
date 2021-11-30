@@ -290,13 +290,13 @@ def test_mu_helbig_average():
                                   [2.63231, 2.63231, 2.63231, 2.63231],
                                   [2.37170825, 2.37170825, 2.37170825, 2.37170825]], dtype=np.float32)
 
-    result_1 = tu.mu_helbig_average(array_test, 1, reduce_mnt=False, type_input="map", library="numba", verbose=False,
+    result_1 = tu.mu_helbig_average(array_test, 1, type_input="map", library="numba", verbose=False,
                                     x_win=1, y_win=1)
-    result_2 = tu.mu_helbig_average(array_test, 1, reduce_mnt=False, type_input="map", library="numpy", verbose=False,
+    result_2 = tu.mu_helbig_average(array_test, 1, type_input="map", library="numpy", verbose=False,
                                     x_win=1, y_win=1)
-    result_3 = tu.mu_helbig_average(array_test, 1, idx_x=np.array([0, 1]), idx_y=np.array([1, 1]), reduce_mnt=False,
+    result_3 = tu.mu_helbig_average(array_test, 1, idx_x=np.array([0, 1]), idx_y=np.array([1, 1]),
                                     type_input="indexes", verbose=False, x_win=1, y_win=1)
-    result_4 = tu.mu_helbig_average(array_test_2, 1, reduce_mnt=False, type_input="map", verbose=False, x_win=1,
+    result_4 = tu.mu_helbig_average(array_test_2, 1, type_input="map", verbose=False, x_win=1,
                                     y_win=1)
 
     assert_array_almost_equal(result_1, expected_result)
@@ -338,11 +338,10 @@ def test_xsi_helbig_map():
                     [result_9, result_10, result_11, result_12],
                     [result_13, result_14, result_15, result_16]])
 
-    mu = tu.mu_helbig_average(array_test, 1,
-                              reduce_mnt=False, type_input="map", x_win=1, y_win=1, library="numba", verbose=False)
+    mu = tu.mu_helbig_average(array_test, 1, type_input="map", x_win=1, y_win=1, library="numba", verbose=False)
 
     expected_result = np.sqrt(2) * std / mu
-    result = tu.xsi_helbig_map(array_test, mu, reduce_mnt=False, x_win=1, y_win=1, library="numba", verbose=False)
+    result = tu.xsi_helbig_map(array_test, mu, x_win=1, y_win=1, library="numba", verbose=False)
 
     array_test_2 = np.array([[1, 3, 5, 7],
                              [2, 4, 6, 8],
@@ -360,9 +359,9 @@ def test_xsi_helbig_map():
                             [2.37170825, 2.37170825, 2.37170825, 2.37170825]], dtype=np.float32)
 
     result_expected_2 = np.sqrt(2) * std_expected / mu_expected
-    mu = tu.mu_helbig_average(array_test_2, 1, reduce_mnt=False, type_input="map", library="numba", x_win=1, y_win=1,
+    mu = tu.mu_helbig_average(array_test_2, 1, type_input="map", library="numba", x_win=1, y_win=1,
                               verbose=False)
-    result_2 = tu.xsi_helbig_map(array_test_2, mu, reduce_mnt=False, x_win=1, y_win=1, library="numba", verbose=False)
+    result_2 = tu.xsi_helbig_map(array_test_2, mu, x_win=1, y_win=1, library="numba", verbose=False)
 
     assert_array_almost_equal(result, expected_result)
     assert_allclose(result_2, result_expected_2, rtol=1e-03, atol=0.001)
@@ -376,7 +375,7 @@ def test_x_sgp_topo_helbig_idx_shape():
                            [3, 90, 5, 6],
                            [4, 5, 6, 7]])
 
-    result = tu.x_sgp_topo_helbig_idx(array_test, dx=1, L=4, type_input="map", x_win=1, y_win=1, reduce_mnt=False,
+    result = tu.x_sgp_topo_helbig_idx(array_test, dx=1, L=4, type_input="map", x_win=1, y_win=1,
                                       verbose=False)
     assert array_test.shape == result.shape
 
@@ -394,10 +393,10 @@ def test_x_sgp_topo_helbig_idx():
                              [9, 11, 13, 15],
                              [10, 12, 14, 16]])
 
-    result_1 = tu.x_sgp_topo_helbig_idx(array_test_2, dx=1, L=4, type_input="map", reduce_mnt=False, x_win=1, y_win=1,
+    result_1 = tu.x_sgp_topo_helbig_idx(array_test_2, dx=1, L=4, type_input="map", x_win=1, y_win=1,
                                         verbose=False)
     result_2 = tu.x_sgp_topo_helbig_idx(array_test_2, dx=2, L=4, idx_x=np.array([1, 2]), idx_y=np.array([2, 3]),
-                                        type_input="indexes", reduce_mnt=False, x_win=1, y_win=1, verbose=False)
+                                        type_input="indexes", x_win=1, y_win=1, verbose=False)
 
     assert_allclose(result_1, expected_result_1, rtol=1e-03, atol=0.001)
     assert result_2.shape == expected_result_1[[2, 3], [1, 2]].shape

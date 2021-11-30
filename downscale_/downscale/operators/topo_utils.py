@@ -364,3 +364,24 @@ class Topo_utils:
                 # result = np.nansum(np.arctan(result)) / len(winds)
                 grid[y - nb_cells, x - nb_cells] = self._sx_idx(dem_padded, y, x, y_offsets, x_offsets, distances)
         return grid
+
+    @staticmethod
+    def _idx_from_array_shape(array):
+        shape = array.shape
+        idx_x = range(shape[1])
+        idx_y = range(shape[0])
+        idx_x, idx_y = np.array(np.meshgrid(idx_x, idx_y)).astype(np.int32)
+        return idx_x, idx_y
+
+    def get_and_control_idx_boundary(self, mnt, idx_x, idx_y, x_win=69 // 2, y_win=79 // 2):
+
+        shape = mnt.shape
+        y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y, x_win=x_win, y_win=y_win)
+
+        mnt, y_left, y_right, x_left, x_right = change_several_dtype_if_required(
+            [mnt, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
+        boundaries_mnt = [shape[0], shape[0], shape[1], shape[1]]
+        y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
+                                                                        min_idx=[0, 0, 0, 0],
+                                                                        max_idx=boundaries_mnt)
+        return y_left, y_right, x_left, x_right, shape

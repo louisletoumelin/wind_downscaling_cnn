@@ -33,7 +33,7 @@ d = DwnscHelbig()
 # laplacian_mnt = d.laplacian_map(mnt, dx=25)
 
 with timer_context("downscale Helbig et al. 2017", level="", unit="minute", verbose=True):
-    output_downscale = d.subgrid(mnt, dx=30, idx_x=None, idx_y=None, type_input="map")#, library="numba")
+    output_downscale = d.subgrid(mnt, dx=30, idx_x=None, idx_y=None, library="numba")
 
 #result = AROME_interpolated.data * output_downscale.reshape((1, output_downscale.shape[0], output_downscale.shape[1]))
 #print(result.shape)
