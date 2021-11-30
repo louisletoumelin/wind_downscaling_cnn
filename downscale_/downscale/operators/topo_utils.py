@@ -201,14 +201,14 @@ class Topo_utils:
         return result
 
     @staticmethod
-    def _get_window_idx_boundaries(idx_x, idx_y, x_win=69//2, y_win=79//2, reshape=True):
+    def _get_window_idx_boundaries(idx_x, idx_y, x_win=69//2, y_win=79//2):
 
         y_left = np.int32(idx_y - y_win)
         y_right = np.int32(idx_y + y_win)
         x_left = np.int32(idx_x - x_win)
         x_right = np.int32(idx_x + x_win)
 
-        if reshape:
+        if idx_x.ndim > 1:
             flat_shape = idx_y.shape[0] * idx_y.shape[1]
             return y_left.reshape(flat_shape), y_right.reshape(flat_shape), x_left.reshape(flat_shape), x_right.reshape(flat_shape)
 
@@ -281,8 +281,7 @@ class Topo_utils:
         x_win, y_win = self.radius_to_square_window(radius, resolution)
 
         y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y,
-                                                                           x_win=x_win, y_win=y_win,
-                                                                           reshape=False)
+                                                                           x_win=x_win, y_win=y_win)
 
         boundaries_mnt = [mnt.shape[0], mnt.shape[0], mnt.shape[1], mnt.shape[1]]
         y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
@@ -297,8 +296,7 @@ class Topo_utils:
         x_win, y_win = self.radius_to_square_window(dmax, cellsize)
 
         y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y,
-                                                                           x_win=x_win, y_win=y_win,
-                                                                           reshape=False)
+                                                                           x_win=x_win, y_win=y_win)
 
         boundaries_mnt = [mnt.shape[0], mnt.shape[0], mnt.shape[1], mnt.shape[1]]
         y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],

@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from tensorflow.nn import convolution
 
 from downscale.operators.topo_utils import Topo_utils
 from downscale.utils.utils_func import change_dtype_if_required, change_several_dtype_if_required
@@ -26,6 +27,13 @@ try:
     _dask = True
 except ModuleNotFoundError:
     _dask = False
+
+try:
+    import tensorflow as tf
+
+    _tensorflow = True
+except ModuleNotFoundError:
+    _tensorflow = False
 
 
 class SgpHelbig(Topo_utils):
@@ -74,6 +82,7 @@ class SgpHelbig(Topo_utils):
         idx_x, idx_y = np.array(np.meshgrid(idx_x, idx_y)).astype(np.int32)
         return idx_x, idx_y
 
+    @print_func_executed_decorator("mu_average_numba", level_begin="____", level_end="____", end="")
     @timer_decorator("mu_average_numba", unit='minute', level=".... ")
     def mu_average_numba(self, mu, y_left, y_right, x_left, x_right):
 
@@ -86,53 +95,84 @@ class SgpHelbig(Topo_utils):
         return jit_mean(mu, y_left, y_right, x_left, x_right)
 
     @staticmethod
-    @timer_decorator("mu_average_numpy", unit='minute', level=".... ")
-    def mu_average_numpy(mu, y_left, y_right, x_left, x_right):
+    @print_func_executed_decorator("mu_average_numpy_list_comprehension", level_begin="__", level_end="__", end="")
+    @timer_decorator("mu_average_numpy_list_comprehension", unit='minute', level=".... ")
+    def mu_average_numpy_list_comprehension(mu, y_left, y_right, x_left, x_right):
         return np.array([np.mean(mu[i1:j1 + 1, i2:j2 + 1]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
 
     @timer_decorator("mu_average_idx", unit='minute', level=".... ")
     def mu_average_idx(self, mnt, y_left, y_right, x_left, x_right, dx, verbose=True):
-        boundaries_mnt = [mnt.shape[0], mnt.shape[0], mnt.shape[1], mnt.shape[1]]
-        y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
-                                                                        min_idx=[0, 0, 0, 0],
-                                                                        max_idx=boundaries_mnt)
         return np.array([np.mean(self.mu_helbig_map(mnt[i1:j1 + 1, i2:j2 + 1], dx, verbose=verbose))
                          for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
 
-    @print_func_executed_decorator("mu_helbig_average", level_begin="__", level_end="__", end="")
-    @timer_decorator("mu_helbig_average", unit='minute', level="....")
-    @change_dtype_if_required_decorator(np.float32)
-    def mu_helbig_average(self, mnt, dx, idx_x=None, idx_y=None, reduce_mnt=True, type_input="map", x_win=69 // 2,
-                          y_win=79 // 2, nb_pixels_x=100, nb_pixels_y=100, library="numba", verbose=True):
+    @staticmethod
+    def mu_average_tensorflow(mu, x_win=69//2, y_win=79//2):
+        # reshape for tensorflow
+        mu = mu.reshape((1, mu.shape[0], mu.shape[1], 1)).astype(np.float32)
 
-        if idx_x is None and idx_y is None:
-            idx_x, idx_y = self._idx_from_array_shape(mnt)
+        # filter
+        x_length = x_win*2 + 1
+        y_length = y_win*2 + 1
+        filter_mean = np.ones((1, y_length, x_length, 1), dtype=np.float32) / (x_length*y_length)
+        filter_mean = filter_mean.reshape((y_length, x_length, 1, 1))
 
+        # convolution
+        mu_avg = tf.nn.convolution(mu, filter_mean, strides=[1, 1, 1, 1], padding="SAME")
+        return mu_avg.numpy()[0, :, :, 0]
+
+    def mu_average_num(self, mu, library, mnt, idx_x, idx_y, nb_pixels_x, nb_pixels_y, reduce_mnt, x_win, y_win):
         y_left, y_right, x_left, x_right, shape = self.get_and_control_idx_boundary(mnt, idx_x, idx_y,
                                                                                     nb_pixels_x, nb_pixels_y,
                                                                                     reduce_mnt=reduce_mnt,
                                                                                     x_win=x_win,
                                                                                     y_win=y_win)
-        if type_input == "map":
+        if library == 'numba' and _numba:
+            mu_avg_flat = self.mu_average_numba(mu, y_left, y_right, x_left, x_right)
+            library = "numba"
+        else:
+            mu_avg_flat = self.mu_average_numpy_list_comprehension(mu, y_left, y_right, x_left, x_right)
+            library = "numpy"
+
+        return mu_avg_flat, library, shape
+
+    @print_func_executed_decorator("mu_helbig_average", level_begin="__", level_end="__", end="")
+    @timer_decorator("mu_helbig_average", unit='minute', level="....")
+    @change_dtype_if_required_decorator(np.float32)
+    def mu_helbig_average(self, mnt, dx, idx_x=None, idx_y=None, reduce_mnt=True, x_win=69 // 2,
+                          y_win=79 // 2, nb_pixels_x=100, nb_pixels_y=100, library="numba", verbose=True):
+
+        if idx_x is None and idx_y is None:
+            idx_x, idx_y = self._idx_from_array_shape(mnt)
+
+        if idx_x.ndim > 1:
+
+            type_input = "map"
 
             mu = self.mu_helbig_map(mnt, dx, verbose=verbose)
 
-            if library == 'numba' and _numba:
-                mu_flat = self.mu_average_numba(mu, y_left, y_right, x_left, x_right)
-                library = "numba"
+            if library == "tensorflow" and _tensorflow:
+                mu_avg_flat = self.mu_average_tensorflow(mu, x_win=x_win, y_win=y_win)
+                shape = mu_avg_flat.shape
             else:
-                mu_flat = self.mu_average_numpy(mu, y_left, y_right, x_left, x_right)
-                library = "numpy"
+                mu_avg_flat, library, shape = self.mu_average_num(mu, library, mnt, idx_x, idx_y,
+                                                           nb_pixels_x, nb_pixels_y, reduce_mnt, x_win, y_win)
 
-        elif type_input == "indexes":
+        else:
+            type_input = "indexes"
+            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y, x_win=x_win, y_win=y_win)
+            mu_avg_flat = self.mu_average_idx(mnt, y_left, y_right, x_left, x_right, dx, verbose=verbose)
 
-            mu_flat = self.mu_average_idx(mnt, y_left, y_right, x_left, x_right, dx, verbose=verbose)
+        mu_avg = mu_avg_flat if type_input == "indexes" else mu_avg_flat.reshape(shape[0], shape[1])
 
-        mu = mu_flat.reshape((shape[0], shape[1])) if (type_input == "map" or reduce_mnt) else mu_flat
+        plt.figure()
+        if reduce_mnt:
+            plt.imshow(mu_avg - self.mu_average_tensorflow(mu)[100:-100, 100:-100])
+        else:
+            plt.imshow(mu_avg - self.mu_average_tensorflow(mu))
+        plt.title("mu_avg numpy-tensorflow")
+        plt.colorbar()
 
-        print(f"____mu_helbig_average. Output shape: {mu.shape}. Library: {library}") if verbose else None
-
-        return mu
+        return mu_avg
 
     @staticmethod
     def mean_slicing_numpy(array, y_left, y_right, x_left, x_right):
@@ -151,19 +191,15 @@ class SgpHelbig(Topo_utils):
     def get_and_control_idx_boundary(self, mnt, idx_x, idx_y, nb_pixels_x, nb_pixels_y,
                                      reduce_mnt=True, x_win=69 // 2, y_win=79 // 2):
 
-        reshape = True if idx_x.ndim > 1 else False
-
         if reduce_mnt:
             small_idx_y = idx_y[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
             small_idx_x = idx_x[nb_pixels_y:-nb_pixels_y:, nb_pixels_x:-nb_pixels_x]
-            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(small_idx_x, small_idx_y,
-                                                                               reshape=reshape, x_win=x_win,
+            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(small_idx_x, small_idx_y, x_win=x_win,
                                                                                y_win=y_win)
             shape = small_idx_y.shape
         else:
             shape = mnt.shape
-            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y, x_win=x_win, y_win=y_win,
-                                                                               reshape=reshape)
+            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y, x_win=x_win, y_win=y_win)
 
         mnt, y_left, y_right, x_left, x_right = change_several_dtype_if_required(
             [mnt, y_left, y_right, x_left, x_right], [np.float32, np.int32, np.int32, np.int32, np.int32])
@@ -173,7 +209,7 @@ class SgpHelbig(Topo_utils):
                                                                         max_idx=boundaries_mnt)
         return y_left, y_right, x_left, x_right, shape
 
-    @print_func_executed_decorator("std_slicing_numba", level_begin="__", level_end="__", end="")
+    @print_func_executed_decorator("std_slicing_numba", level_begin="___", level_end="___", end="")
     @timer_decorator("std_slicing_numba", unit='minute', level="....")
     def std_slicing_numba(self, mnt, y_left, y_right, x_left, x_right):
         mnt, y_left, y_right, x_left, x_right = change_several_dtype_if_required([mnt, y_left, y_right, x_left, x_right],
@@ -183,18 +219,33 @@ class SgpHelbig(Topo_utils):
         return _std_slicing_numba(mnt, y_left, y_right, x_left, x_right)
 
     @staticmethod
+    @print_func_executed_decorator("std_slicing_numpy_list_comprehension", level_begin="___", level_end="___", end="")
+    @timer_decorator("std_slicing_numpy_list_comprehension", unit='minute', level="....")
+    @change_dtype_if_required_decorator(np.float32)
     def std_slicing_numpy_list_comprehension(mnt, y_left, y_right, x_left, x_right):
         return np.array([np.std(mnt[i1:j1 + 1, i2:j2 + 1]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
 
-    @print_func_executed_decorator("xsi_helbig_map", level_begin="__", level_end="__", end="")
-    @timer_decorator("xsi_helbig_map", unit='minute', level="....")
-    @change_dtype_if_required_decorator(np.float32)
-    def xsi_helbig_map(self, mnt, mu, idx_x=None, idx_y=None, reduce_mnt=True, x_win=69 // 2, y_win=79 // 2,
-                       nb_pixels_x=100, nb_pixels_y=100, library="numba", verbose=True):
+    @staticmethod
+    def std_average_tensorflow(mnt, x_win=69//2, y_win=79//2):
 
-        if idx_x is None and idx_y is None:
-            idx_x, idx_y = self._idx_from_array_shape(mnt)
+        # reshape for tensorflow
+        x_length = x_win*2 + 1
+        y_length = y_win*2 + 1
+        mnt = mnt.reshape((1, mnt.shape[0], mnt.shape[1], 1)).astype(np.float32)
 
+        # filter
+        filter_mean = np.ones((1, y_length, x_length, 1), dtype=np.float32) / (y_length * x_length)
+        filter_mean = filter_mean.reshape((y_length, x_length, 1, 1))
+
+        # convolution
+        term_1 = tf.nn.convolution(mnt**2, filter_mean, strides=[1, 1, 1, 1], padding="SAME")
+        term_2 = tf.nn.convolution(mnt, filter_mean, strides=[1, 1, 1, 1], padding="SAME")
+
+        std_avg_squared = term_1-term_2**2
+        return np.sqrt(std_avg_squared.numpy()[0, :, :, 0])
+
+    def std_average_num(self, library, mnt, idx_x, idx_y, nb_pixels_x, nb_pixels_y, reduce_mnt, x_win, y_win):
+        #todo modify here
         y_left, y_right, x_left, x_right, shape = self.get_and_control_idx_boundary(mnt, idx_x, idx_y,
                                                                                     nb_pixels_x, nb_pixels_y,
                                                                                     reduce_mnt=reduce_mnt,
@@ -202,26 +253,53 @@ class SgpHelbig(Topo_utils):
                                                                                     y_win=y_win)
 
         if library == "numba" and _numba:
-            std_flat = self.std_slicing_numba(mnt, y_left, y_right, x_left, x_right)
+            std_avg_flat = self.std_slicing_numba(mnt, y_left, y_right, x_left, x_right)
             library = "numba"
         else:
-            std_flat = self.std_slicing_numpy_list_comprehension(mnt, y_left, y_right, x_left, x_right)
+            std_avg_flat = self.std_slicing_numpy_list_comprehension(mnt, y_left, y_right, x_left, x_right)
             library = "numpy"
+        return std_avg_flat, library, shape
 
-        std = std_flat.reshape((shape[0], shape[1])) if idx_x.ndim > 1 else std_flat
-        print(f"__Subgrid: xsi_helbig_map. Output shape std: {std.shape}. Library: {library}") if verbose else None
+    @print_func_executed_decorator("xsi_helbig_map", level_begin="__", level_end="__", end="")
+    @timer_decorator("xsi_helbig_map", unit='minute', level="....")
+    @change_dtype_if_required_decorator(np.float32)
+    def xsi_helbig_map(self, mnt, mu, idx_x=None, idx_y=None, reduce_mnt=True, x_win=69 // 2, y_win=79 // 2,
+                       nb_pixels_x=100, nb_pixels_y=100, library="numba", verbose=True):
 
-        xsi = np.sqrt(2) * std / mu
+        if idx_x.ndim > 1:
+            type_input = "map"
+            if library == "tensorflow" and _tensorflow:
+                std_avg_flat = self.std_average_tensorflow(mnt, x_win=x_win, y_win=y_win)
+                shape = std_avg_flat.shape
+            else:
+                std_avg_flat, library, shape = self.std_average_num(library, mnt, idx_x, idx_y, nb_pixels_x, nb_pixels_y, reduce_mnt, x_win, y_win)
 
-        print(f"__Subgrid: xsi_helbig_map. Output shape: {xsi.shape}") if verbose else None
+        else:
+            type_input = "indexes"
+            y_left, y_right, x_left, x_right = self._get_window_idx_boundaries(idx_x, idx_y,
+                                                                               x_win=x_win,
+                                                                               y_win=y_win)
+
+            std_avg_flat = self.std_slicing_numpy_list_comprehension(mnt, y_left, y_right, x_left, x_right)
+
+        std_avg = std_avg_flat if type_input == "indexes" else std_avg_flat.reshape((shape[0], shape[1]))
+
+        plt.figure()
+        if reduce_mnt:
+            plt.imshow(std_avg - self.std_average_tensorflow(mnt)[100:-100, 100:-100])
+        else:
+            plt.imshow(std_avg - self.std_average_tensorflow(mnt))
+        plt.title("std_avg numpy-tensorflow")
+        plt.colorbar()
+
+        xsi = np.sqrt(2) * std_avg / mu
+
         return xsi
 
-    @print_func_executed_decorator("x_sgp_topo",
-                                   level_begin="__",
-                                   level_end="__",
-                                   end="")
+    @print_func_executed_decorator("x_sgp_topo", level_begin="_", level_end="_", end="")
     @change_dtype_if_required_decorator(np.float32)
-    def x_sgp_topo_helbig_idx(self, mnt, idx_x=None, idx_y=None, dx=25, L=2_000, type_input="map", reduce_mnt=True,
+    def x_sgp_topo_helbig_idx(self, mnt, idx_x=None, idx_y=None, dx=25, L=2_000, type_input="map",
+                              reduce_mnt=True, library="tensorflow",
                               nb_pixels_x=100, nb_pixels_y=100, x_win=69 // 2, y_win=79 // 2, verbose=True):
 
         a = 3.354688
@@ -232,12 +310,12 @@ class SgpHelbig(Topo_utils):
         if idx_x is None and idx_y is None:
             idx_x, idx_y = self._idx_from_array_shape(mnt)
 
-        mu = self.mu_helbig_average(mnt, dx, idx_x, idx_y,
-                                    type_input=type_input, reduce_mnt=reduce_mnt,
-                                    x_win=x_win, y_win=y_win, library="numba", verbose=verbose)
+        mu = self.mu_helbig_average(mnt, dx, idx_x, idx_y, reduce_mnt=reduce_mnt,
+                                    x_win=x_win, y_win=y_win, library=library, verbose=verbose)
 
-        xsi = self.xsi_helbig_map(mnt, mu, idx_x, idx_y, reduce_mnt=reduce_mnt, nb_pixels_x=nb_pixels_x,
-                                  nb_pixels_y=nb_pixels_y, x_win=x_win, y_win=y_win, library="numba", verbose=verbose)
+        xsi = self.xsi_helbig_map(mnt, mu, idx_x, idx_y, reduce_mnt=reduce_mnt,
+                                  nb_pixels_x=nb_pixels_x, nb_pixels_y=nb_pixels_y,
+                                  x_win=x_win, y_win=y_win, library=library, verbose=verbose)
 
         x = 1 - (1 - (1 / (1 + a * mu ** b)) ** c) * np.exp(-d * (L / xsi) ** (-2))
         print(f"__Subgrid: x_sgp_topo_helbig_idx. Output shape: {x.shape}") if verbose else None
@@ -248,20 +326,14 @@ class SgpHelbig(Topo_utils):
                                    level_begin="\n",
                                    level_end="",
                                    end="")
-    def subgrid(self, mnt_large, dx=25, L=2_000, x_win=69 // 2, y_win=79 // 2, idx_x=None, idx_y=None, type_input="map",
-                reduce_mnt=True, nb_pixels_x=100, nb_pixels_y=100, verbose=True):
+    def subgrid(self, mnt_large, dx=25, L=2_000, x_win=69 // 2, y_win=79 // 2, idx_x=None, idx_y=None, reduce_mnt=True,
+                nb_pixels_x=100, nb_pixels_y=100, library="tensorflow", verbose=True):
 
-        if type_input == "map":
-            shape = mnt_large.shape
-            all_x_idx = range(shape[1])
-            all_y_idx = range(shape[0])
-            idx_x, idx_y = np.array(np.meshgrid(all_x_idx, all_y_idx)).astype(np.int32)
-            if verbose:
-                print(f"Large mnt shape: {shape}. "
-                      f"Size reduction on x: 2 * {nb_pixels_x}. "
-                      f"Size reduction on x: 2 * {nb_pixels_y} ")
-
-        reduce_mnt = False if type_input == "indexes" else reduce_mnt
+        if mnt_large.ndim > 1:
+            idx_x, idx_y = self._idx_from_array_shape(mnt_large)
+            type_input = "map"
+        else:
+            type_input = "indexes"
 
         x_sgp_topo = self.x_sgp_topo_helbig_idx(mnt_large, idx_x, idx_y, dx,
                                                 L=L,
@@ -270,7 +342,9 @@ class SgpHelbig(Topo_utils):
                                                 y_win=y_win,
                                                 reduce_mnt=reduce_mnt,
                                                 nb_pixels_x=nb_pixels_x,
-                                                nb_pixels_y=nb_pixels_y)
+                                                nb_pixels_y=nb_pixels_y,
+                                                library=library,
+                                                verbose=verbose)
 
         return x_sgp_topo
 
