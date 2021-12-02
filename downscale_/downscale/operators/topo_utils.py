@@ -2,7 +2,9 @@ import numpy as np
 import tensorflow as tf
 
 from downscale.utils.utils_func import change_dtype_if_required, change_several_dtype_if_required
-from downscale.utils.decorators import print_func_executed_decorator, timer_decorator
+from downscale.utils.decorators import print_func_executed_decorator, timer_decorator, \
+    change_dtype_if_required_decorator, check_kwarg_dtype
+
 
 try:
     from numba import jit, guvectorize, vectorize, prange, float64, float32, int32, int64
@@ -206,7 +208,7 @@ class Topo_utils:
             laplacian_1D = self._laplacian_loop_numpy_1D
             laplacian_2D = self._laplacian_loop_numpy_2D
 
-        if idx_x.ndim == 1:
+        if idx_x.ndim <= 1:
             lapl_vect = jit([(float32[:, :], int32[:], int32[:], int64)], nopython=True)(laplacian_1D)
 
         if idx_x.ndim == 2:
@@ -221,6 +223,9 @@ class Topo_utils:
         y_right = np.int32(idx_y + y_win)
         x_left = np.int32(idx_x - x_win)
         x_right = np.int32(idx_x + x_win)
+
+        idx_x = np.int32(idx_x)
+        idx_y = np.int32(idx_y)
 
         if idx_x.ndim > 1:
             flat_shape = idx_y.shape[0] * idx_y.shape[1]
@@ -291,6 +296,9 @@ class Topo_utils:
             return dx, dx
 
     def tpi_idx(self, mnt, idx_x, idx_y, radius, resolution=25):
+
+        idx_x = np.int32(idx_x)
+        idx_y = np.int32(idx_y)
 
         x_win, y_win = self.radius_to_square_window(radius, resolution)
 

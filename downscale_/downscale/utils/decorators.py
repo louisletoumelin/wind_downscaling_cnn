@@ -60,3 +60,16 @@ def check_type_kwargs_inputs(dict_argument_type):
             return func(*args, **kwargs)
         return type_decorator
     return decorator
+
+
+def check_kwarg_dtype(dict_argument_type):
+    def decorator(func):
+        @wraps(func)
+        def type_decorator(*args, **kwargs):
+            for key, value in kwargs.items():
+                if key in dict_argument_type:
+                    if not isinstance(value, np.ndarray):
+                        kwargs[key] = np.array(value, dtype=dict_argument_type[key])
+            return func(*args, **kwargs)
+        return type_decorator
+    return decorator

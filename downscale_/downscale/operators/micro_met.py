@@ -24,7 +24,7 @@ class MicroMet(Topo_utils):
         Terrain slope following Liston and Elder (2006)
         """
         beta = np.arctan(np.sqrt(np.sum(np.array(np.gradient(mnt, dx)) ** 2, axis=0)))
-        print("__Terrain slope calculation. Library: numpy") if verbose else None
+        print("____Library: numpy") if verbose else None
 
         return beta
 
@@ -54,13 +54,17 @@ class MicroMet(Topo_utils):
         following Liston and Elder (2006)
         """
         gradient_y, gradient_x = np.gradient(mnt, dx)
-        arctan_value = np.where(gradient_x != 0, np.arctan(gradient_y / gradient_x), np.where(gradient_y>0, np.pi/2, np.where(gradient_y < 0, gradient_y, -np.pi/2)))
-        xi = 3 * np.pi / 2 - arctan_value
+        arctan_value = np.where(gradient_x != 0,
+                                np.arctan(gradient_y / gradient_x),
+                                np.where(gradient_y>0,
+                                         np.pi/2,
+                                         np.where(gradient_y < 0,
+                                                  gradient_y,
+                                                  -np.pi/2)))
+        
+        print("____Library: numpy") if verbose else None
 
-        xi = change_dtype_if_required(xi, np.float32)
-        print("__Terrain slope azimuth calculation. Library: numpy") if verbose else None
-
-        return xi
+        return 3 * np.pi / 2 - arctan_value
 
     def terrain_slope_azimuth_idx(self, mnt, dx, idx_x, idx_y, verbose=True):
         """

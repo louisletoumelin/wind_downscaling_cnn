@@ -155,7 +155,7 @@ def change_dtype_if_required(variable, dtype):
 def change_several_dtype_if_required(list_variable, dtypes):
     result = []
     for variable, dtype in zip(list_variable, dtypes):
-        if isinstance(variable, list):
+        if isinstance(variable, (list, int, float)):
             variable = np.array(variable)
         result.append(change_dtype_if_required(variable, dtype))
     return result
