@@ -61,7 +61,7 @@ class MicroMet(Topo_utils):
                                          np.where(gradient_y < 0,
                                                   gradient_y,
                                                   -np.pi/2)))
-        
+
         print("____Library: numpy") if verbose else None
 
         return 3 * np.pi / 2 - arctan_value
@@ -77,7 +77,6 @@ class MicroMet(Topo_utils):
                      zip(idx_x, idx_y)]
         xi = np.array(xi, dtype=np.float32)
 
-        print("__Terrain slope azimuth indexes selected") if verbose else None
         print("__INFO: do not have to scale Terrain slope azimuth") if verbose else None
 
         return xi
@@ -150,7 +149,7 @@ class MicroMet(Topo_utils):
             assert np.all(-0.5 <= curvature[1:-1, 1:-1])
             assert np.all(curvature[1:-1, 1:-1] <= 0.5)
 
-        print("__Curvature calculation. Library: numpy") if verbose else None
+        print("____Library: numpy") if verbose else None
         return curvature
 
     @change_dtype_if_required_decorator(np.float32)
@@ -192,10 +191,8 @@ class MicroMet(Topo_utils):
         idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
         if method == "safe":
             curvature_map = self.curvature_map(mnt, scale=scale, length_scale=length_scale, scaling_factor=scaling_factor, verbose=verbose)
-
-            print("__Curvature indexes selected. Method: Safe") if verbose else None
+            print("____Method: Safe") if verbose else None
             return curvature_map[idx_y, idx_x]
-
         else:
             length_scale = self.get_length_scale_curvature(mnt)
             curvature = [self.curvature_map(mnt[y-2:y+3, x-2:x+3],
@@ -228,9 +225,9 @@ class MicroMet(Topo_utils):
             scaling_factor = np.nanmax(np.abs(omega_s[1:-1, 1:-1])) if scaling_factor is None else scaling_factor
             omega_s = omega_s / (2 * scaling_factor)
             assert np.all(-0.5 <= omega_s[-1:1, -1:1])
-            assert np.all(-0.5 <= omega_s[-1:1, -1:1])
+            assert np.all(omega_s[-1:1, -1:1] <= 0.5)
 
-        print("__Omega_s calculation. Library: numpy") if verbose else None
+        print("____Library: numpy") if verbose else None
 
         return omega_s
 

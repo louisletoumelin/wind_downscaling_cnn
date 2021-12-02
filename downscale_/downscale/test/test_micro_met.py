@@ -39,25 +39,25 @@ def m():
 
 @pytest.fixture
 def result_terrain_slope_map(mnt, m):
-    result = m.terrain_slope_map(mnt, 25, verbose=False)
+    result = m.terrain_slope_map(mnt, 30, verbose=False)
     return result
 
 
 @pytest.fixture
 def result_terrain_slope_idx(mnt, m, idx_x, idx_y):
-    result = m.terrain_slope_idx(mnt, 25, idx_x, idx_y, verbose=False)
+    result = m.terrain_slope_idx(mnt, 30, idx_x, idx_y, verbose=False)
     return result
 
 
 @pytest.fixture
 def result_terrain_slope_azimuth_map(mnt, m):
-    result = m.terrain_slope_azimuth_map(mnt, 25, verbose=False)
+    result = m.terrain_slope_azimuth_map(mnt, 30, verbose=False)
     return result
 
 
 @pytest.fixture
 def result_terrain_slope_azimuth_idx(mnt, m, idx_x, idx_y):
-    result = m.terrain_slope_azimuth_idx(mnt, 25, idx_x, idx_y, verbose=False)
+    result = m.terrain_slope_azimuth_idx(mnt, 30, idx_x, idx_y, verbose=False)
     return result
 
 
@@ -75,37 +75,37 @@ def result_curvature_map_scale_false(mnt, m):
 
 @pytest.fixture
 def result_omega_s_map_scale_true(mnt, m):
-    result = m.omega_s_map(mnt, 25, 270, scale=True, verbose=False)
+    result = m.omega_s_map(mnt, 30, 270, scale=True, verbose=False)
     return result
 
 
 @pytest.fixture
 def result_omega_s_map_scale_false(mnt, m):
-    result = m.curvature_map(mnt, 25, 270, scale=False, verbose=False)
+    result = m.curvature_map(mnt, 30, 270, scale=False, verbose=False)
     return result
 
 
 @pytest.fixture
 def result_diverting_factor_map_scale_true(mnt, m):
-    result = m.diverting_factor_map(mnt, 25, 270, scale=True, verbose=False)
+    result = m.diverting_factor_map(mnt, 30, 270, scale=True, verbose=False)
     return result
 
 
 @pytest.fixture
 def result_diverting_factor_map_scale_false(mnt, m):
-    result = m.diverting_factor_map(mnt, 25, 270, scale=False, verbose=False)
+    result = m.diverting_factor_map(mnt, 30, 270, scale=False, verbose=False)
     return result
 
 
 @pytest.fixture
 def result_wind_weighting_factor_map_scale_true(mnt, m):
-    result = m.wind_weighting_factor_map(mnt, 25, 270, scale=True, verbose=False)
+    result = m.wind_weighting_factor_map(mnt, 30, 270, scale=True, verbose=False)
     return result
 
 
 @pytest.fixture
 def result_wind_weighting_factor_map_scale_false(mnt, m):
-    result = m.wind_weighting_factor_map(mnt, 25, 270, scale=False, verbose=False)
+    result = m.wind_weighting_factor_map(mnt, 30, 270, scale=False, verbose=False)
     return result
 
 
@@ -135,73 +135,73 @@ def result_curvature_idx_scale_false_other(mnt, m, idx_x, idx_y):
 
 @pytest.fixture
 def result_omega_s_idx_scale_true_safe(mnt, m, idx_x, idx_y):
-    result = m.omega_s_idx(mnt, 25, 270, idx_x, idx_y, scale=True, method="safe", verbose=False)
+    result = m.omega_s_idx(mnt, 30, 270, idx_x, idx_y, scale=True, method="safe", verbose=False)
     return result
 
 
 @pytest.fixture
 def result_omega_s_idx_scale_false_safe(mnt, m, idx_x, idx_y):
-    result = m.omega_s_idx(mnt, 25, 270, idx_x, idx_y, scale=False, method="safe", verbose=False)
+    result = m.omega_s_idx(mnt, 30, 270, idx_x, idx_y, scale=False, method="safe", verbose=False)
     return result
 
 
 @pytest.fixture
 def result_omega_s_idx_scale_true_other(mnt, m, idx_x, idx_y):
-    result = m.omega_s_idx(mnt, 25, 270, idx_x, idx_y, scale=True, method="other", verbose=False)
+    result = m.omega_s_idx(mnt, 30, 270, idx_x, idx_y, scale=True, method="other", verbose=False)
     return result
 
 
 @pytest.fixture
 def result_omega_s_idx_scale_false_other(mnt, m, idx_x, idx_y):
-    result = m.omega_s_idx(mnt, 25, 270, idx_x, idx_y, scale=False, method="other", verbose=False)
+    result = m.omega_s_idx(mnt, 30, 270, idx_x, idx_y, scale=False, method="other", verbose=False)
     return result
 
 
 @pytest.fixture
 def result_wind_weighting_factor_idx_scale_true_safe(mnt, m, idx_x, idx_y):
-    result = m.wind_weighting_factor_idx(mnt, 25, 270, idx_x, idx_y, scale=True, method="safe", verbose=False)
+    result = m.wind_weighting_factor_idx(mnt, 30, 270, idx_x, idx_y, scale=True, method="safe", verbose=False)
     return result
 
 
 @pytest.fixture
 def result_wind_weighting_factor_idx_scale_false_safe(mnt, m, idx_x, idx_y):
-    result = m.wind_weighting_factor_idx(mnt, 25, 270, idx_x, idx_y, scale=False, method="safe", verbose=False)
+    result = m.wind_weighting_factor_idx(mnt, 30, 270, idx_x, idx_y, scale=False, method="safe", verbose=False)
     return result
 
 
 @pytest.fixture
 def result_wind_weighting_factor_idx_scale_true_other(mnt, m, idx_x, idx_y):
-    result = m.wind_weighting_factor_idx(mnt, 25, 270, idx_x, idx_y, scale=True, method="other", verbose=False)
+    result = m.wind_weighting_factor_idx(mnt, 30, 270, idx_x, idx_y, scale=True, method="other", verbose=False)
     return result
 
 
 @pytest.fixture
 def result_wind_weighting_factor_idx_scale_false_other(mnt, m, idx_x, idx_y):
-    result = m.wind_weighting_factor_idx(mnt, 25, 270, idx_x, idx_y, scale=False, method="other", verbose=False)
+    result = m.wind_weighting_factor_idx(mnt, 30, 270, idx_x, idx_y, scale=False, method="other", verbose=False)
     return result
 
 
 @pytest.fixture
 def result_diverting_factor_idx_scale_true_safe(mnt, m, idx_x, idx_y):
-    result = m.diverting_factor_idx(mnt, 25, 270, idx_x, idx_y, scale=True, method="safe", verbose=False)
+    result = m.diverting_factor_idx(mnt, 30, 270, idx_x, idx_y, scale=True, method="safe", verbose=False)
     return result
 
 
 @pytest.fixture
 def result_diverting_factor_idx_scale_false_safe(mnt, m, idx_x, idx_y):
-    result = m.diverting_factor_idx(mnt, 25, 270, idx_x, idx_y, scale=False, method="safe", verbose=False)
+    result = m.diverting_factor_idx(mnt, 30, 270, idx_x, idx_y, scale=False, method="safe", verbose=False)
     return result
 
 
 @pytest.fixture
 def result_diverting_factor_idx_scale_true_other(mnt, m, idx_x, idx_y):
-    result = m.diverting_factor_idx(mnt, 25, 270, idx_x, idx_y, scale=True, method="other", verbose=False)
+    result = m.diverting_factor_idx(mnt, 30, 270, idx_x, idx_y, scale=True, method="other", verbose=False)
     return result
 
 
 @pytest.fixture
 def result_diverting_factor_idx_scale_false_other(mnt, m, idx_x, idx_y):
-    result = m.diverting_factor_idx(mnt, 25, 270, idx_x, idx_y, scale=False, method="other", verbose=False)
+    result = m.diverting_factor_idx(mnt, 30, 270, idx_x, idx_y, scale=False, method="other", verbose=False)
     return result
 
 
