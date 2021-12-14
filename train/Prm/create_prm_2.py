@@ -14,13 +14,13 @@ def create_prm_dict():
     """
     prms = {
         # Necessary
-        'date': ['17_11_2021'],
+        'date': ['13_12_2021'],
         # 'VCD' or 'UNet'
         'model': ['UNet'],
         # Specify only one name even if multiple prm are contained in prms
-        'name_simu': ['no_dropout_all_v3'],
+        'name_simu': ['no_dropout_fold'],
         # 'fold', 'class', 'degree', 'xi', 'all'
-        'type_of_training': ['all'],
+        'type_of_training': ['fold'],
 
         # General
         'loss': ["mse"],

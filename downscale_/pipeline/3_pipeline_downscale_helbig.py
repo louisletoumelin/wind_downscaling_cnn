@@ -25,7 +25,7 @@ BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=p
 
 #IGN.data_xr = IGN.data_xr.sel(x=slice(900_000, 950_000), y=slice(6_450_000, 6_500_000))
 
-
+"""
 mnt = IGN.data_xr.data[0, :, :]#[0, :1000, :2000]
 
 d = DwnscHelbig()
@@ -37,7 +37,7 @@ with timer_context("downscale Helbig et al. 2017", level="", unit="minute", verb
 
 result = AROME_interpolated.data * output_downscale.reshape((1, output_downscale.shape[0], output_downscale.shape[1]))
 print(result.shape)
-
+"""
 
 
 """

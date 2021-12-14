@@ -14,11 +14,11 @@ def create_prm_dict():
     """
     prms = {
         # Necessary
-        'date': ['17_11_2021'],
+        'date': ['13_12_2021'],
         # 'VCD' or 'UNet'
         'model': ['UNet'],
         # Specify only one name even if multiple prm are contained in prms
-        'name_simu': ['no_dropout_fold_v1'],
+        'name_simu': ['classic_fold'],
         # 'fold', 'class', 'degree', 'xi', 'all'
         'type_of_training': ['fold'],
 
@@ -30,6 +30,7 @@ def create_prm_dict():
         'optimizer': ['RMSprop'],
         'list_metrics': [['mae', 'root_mse']],
         'epochs': [300],  # 150
+
         'batch_size': [32],
         'additional_flat_topo': [False],
 
@@ -53,7 +54,7 @@ def create_prm_dict():
         'activation_regression': ['linear'],
         # Pooling, batch norm and dropout
         'pool_size': [(2, 2)], # (2, 2)
-        'minimal_dropout_layers': [False], # True
+        'minimal_dropout_layers': [True], # True
         'full_dropout': [False],  # False
         'dropout': [0.25],
         'full_batch_norm': [False],  # False

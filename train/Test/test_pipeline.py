@@ -130,7 +130,6 @@ def block_iteration(prm):
         for fold in range(10):
             values_to_add = predict_CNN(fold, prm)
             statistics += values_to_add
-            delete_variables_assets_folders(fold, prm)
         statistics = statistics / (fold + 1)
 
     if prm['type_of_training'] == 'class':
@@ -138,7 +137,6 @@ def block_iteration(prm):
         for class_nb in range(2):
             values_to_add = predict_CNN(class_nb, prm)
             statistics += values_to_add
-            delete_variables_assets_folders(class_nb, prm)
         statistics = statistics / (class_nb + 1)
 
     if prm['type_of_training'] == 'degree':
@@ -146,7 +144,6 @@ def block_iteration(prm):
         for index, degree in enumerate([5, 10, 13, 16, 20]):
             values_to_add = predict_CNN(degree, prm)
             statistics += values_to_add
-            delete_variables_assets_folders(degree, prm)
         statistics = statistics / (index + 1)
 
     if prm['type_of_training'] == 'xi':
@@ -154,7 +151,6 @@ def block_iteration(prm):
         for index, xi in enumerate([1000, 200, 300, 400, 500, 600, 700, 800, 900]):
             values_to_add = predict_CNN(xi, prm)
             statistics += values_to_add
-            delete_variables_assets_folders(xi, prm)
         statistics = statistics / (index + 1)
     return (statistics)
 

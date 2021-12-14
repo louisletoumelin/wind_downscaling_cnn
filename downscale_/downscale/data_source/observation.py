@@ -7,6 +7,7 @@ from collections import defaultdict
 from downscale.data_source.data_2D import Data_2D
 from downscale.utils.decorators import print_func_executed_decorator, timer_decorator
 from downscale.utils.context_managers import print_all_context
+from downscale.operators.wind_utils import Wind_utils
 
 try:
     from shapely.geometry import Point
@@ -758,6 +759,68 @@ class Observation:
             val = int((num / 22.5) + .5)
             arr = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
             return arr[(val % 16)]
+
+    @timer_decorator("modify wind speed observations", unit="second", level=". . ")
+    def qc_log_profile(self, prm, z_out_height=10, wind_speed='vw10m(m/s)',
+                       snow_height_str="HTN(cm)", Z0_snow=0.001, Z0_bare_ground=0.05):
+
+        stations = self.stations
+        time_series = self.time_series
+        height_sensor = self.read_height_sensor(prm["height_sensor_path"])
+        time_series["wind_corrected"] = np.nan
+        wu = Wind_utils()
+
+        for station in stations["name"].values:
+
+            filter_station = height_sensor["name"] == station
+            sensor_height = height_sensor["height"][filter_station].values[0]
+
+            # Select observations at the station
+            filter_station = time_series["name"] == station
+            obs_station = time_series[filter_station]
+
+            # Load wind speed from observations
+            UV = obs_station[wind_speed].values
+
+            Z0 = np.full_like(UV, Z0_bare_ground)
+
+            z_in = np.full_like(UV, sensor_height)
+            z_out = np.full_like(UV, z_out_height)
+
+            if station in prm["list_no_HTN"]:
+
+                if sensor_height != 10:
+                    # Compute logarithmic adjustment
+                    z_in_verbose = str(np.round(np.mean(z_in)))
+                    z_out_verbose = str(z_out_height)
+                    wind_corrected = wu.apply_log_profile(z_in, z_out, UV, Z0,
+                                                            z_in_verbose=z_in_verbose,
+                                                            z_out_verbose=z_out_verbose)
+                else:
+                    wind_corrected = UV
+            else:
+                snow_height = obs_station[snow_height_str].values / 100
+                Z0 = np.where(snow_height > 0.02, Z0_snow, Z0)
+
+                # Compute logarithmic adjustment
+                z_in = z_in - snow_height
+                z_in_verbose = "multiple heights depending on snow height"
+                z_out_verbose = str(z_out_height)
+                wind_corrected = wu.apply_log_profile(z_in, z_out, UV, Z0,
+                                                        z_in_verbose=z_in_verbose,
+                                                        z_out_verbose=z_out_verbose)
+
+            filter_time = time_series.index.isin(obs_station.index)
+            time_series["wind_corrected"][filter_station & filter_time] = wind_corrected
+
+        self.time_series = time_series
+
+    @staticmethod
+    def read_height_sensor(path):
+        try:
+            return pd.read_pickle(path)
+        except:
+            return pd.read_csv(path)
 
     @print_func_executed_decorator("initialization")
     @timer_decorator("initialization", unit="minute")
@@ -2082,7 +2145,7 @@ class Observation:
         self.time_series = pd.concat(list_dataframe)
 
     @timer_decorator("qc", unit="minute")
-    def qc(self, compare_calm_long_sequences_to_neighbors=False):
+    def qc(self, prm, compare_calm_long_sequences_to_neighbors=False):
         """
         52 minutes on LabIA cluster
         """
@@ -2100,8 +2163,6 @@ class Observation:
         self.qc_calm_criteria()
 
         self.qc_true_north()
-
-        self.qc_bias()
 
         self.qc_removal_unphysical_values()
 
@@ -2126,6 +2187,10 @@ class Observation:
 
         self.qc_high_variability()
 
+        self.qc_bias()
+
+        self.qc_log_profile(prm)
+
         self.qc_isolated_records()
 
         self._qc = True
@@ -2138,8 +2203,12 @@ class Observation:
         pd.options.mode.chained_assignment = None
         time_serie_station = time_series[time_series["name"] == station]
 
+        # Select only valid speed
+        time_serie_station_valid = time_serie_station.copy(deep=True)
+        time_serie_station_valid[wind_speed][time_serie_station_valid["validity_speed"] == 0] = np.nan
+
         # Select wind speed
-        wind = time_serie_station[wind_speed]
+        wind = time_serie_station_valid[wind_speed]
 
         # Daily wind
         wind = wind.resample('1D').mean()

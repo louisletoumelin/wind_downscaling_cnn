@@ -15,7 +15,7 @@ def create_prm(month_prediction=True):
     # GPU
     prm["GPU"] = False
     prm["horovod"] = False
-    prm["results_name"] = "prediction_for_Ange_no_exp"
+    prm["results_name"] = "qc_13_12_2021_with_log_profile"
 
     """
     MNT, NWP and observations
@@ -23,7 +23,7 @@ def create_prm(month_prediction=True):
 
     # Observations
     prm["add_additional_stations"] = True
-    prm["select_date_time_serie"] = True
+    prm["select_date_time_serie"] = False
     prm["fast_loading"] = True
 
     # MNT
@@ -49,13 +49,13 @@ def create_prm(month_prediction=True):
     prm["log_profile_3m_to_10m"] = False
 
     # Exposed wind
-    prm["expose"] = "max altitude" #"peak valley", "max altitude", "10m", None
+    prm["expose"] = None #"peak valley", "max altitude", "10m", None
     prm["peak_valley"] = False
     prm["scale_at_10m"] = False # if peak_valley = True, scale_at_10m = False
-    prm["scale_at_max_altitude"] = True # if peak_valley = True, scale_at_10m = False
+    prm["scale_at_max_altitude"] = False # if peak_valley = True, scale_at_10m = False
 
     # Scaling
-    prm["scaling_function"] = "Arctan_30_2" # linear, Arctan_30_1, Arctan_30_2, Arctan_10_2, Arctan_20_2, Arctan_40_2, Arctan_50_2
+    prm["scaling_function"] = "Arctan_38_2_2" # linear, Arctan_30_1, Arctan_30_2, Arctan_10_2, Arctan_20_2, Arctan_40_2, Arctan_50_2, Arctan_38_2_2
 
     # Get closer from learning conditions
     prm["get_closer_learning_condition"] = False
@@ -74,7 +74,7 @@ def create_prm(month_prediction=True):
 
     # For predictions long periods at stations
     prm["variable"] = ["W", "UV", "UVW", "UV_DIR_deg", "alpha_deg", "NWP_wind_speed", "exp_Wind", "acceleration_CNN", "Z0", "a4"]
-    prm["station_similar_to_map"] = True  # If you work on interpolated AROME True, if stations False
+    prm["station_similar_to_map"] = False  # If you work on interpolated AROME True, if stations False
 
     # For map prediction
     prm["type_rotation"] = "tfa" # "indexes" or "scipy" or "tfa"
@@ -92,16 +92,16 @@ def create_prm(month_prediction=True):
     prm["batch_size_prediction"] = 2**10 # Number of batches in the gpu to accelerate computation
 
     # 2 August 2017 1h
-    prm["hour_begin"] = 0#1
-    prm["day_begin"] = 1#2
-    prm["month_begin"] = 1#8
-    prm["year_begin"] = 2019#2017
+    prm["hour_begin"] = 1#1
+    prm["day_begin"] = 2#2
+    prm["month_begin"] = 8#8
+    prm["year_begin"] = 2017#2017
 
     # 31 May 2020 1h
-    prm["hour_end"] = 0#1
-    prm["day_end"] = 10#31
-    prm["month_end"] = 1#5
-    prm["year_end"] = 2019#2020
+    prm["hour_end"] = 1#1
+    prm["day_end"] = 31#31
+    prm["month_end"] = 5#5
+    prm["year_end"] = 2020#2020
 
     prm["list_no_HTN"] = ["DIGNE LES BAINS", "LA MURE-ARGENS", "ARVIEUX", "EMBRUN", "LA FAURIE", "GAP", "ANTIBES-GAROUPE", "ASCROS", "CANNES", "CAUSSOLS", "PEILLE",
                           "CHAPELLE-EN-VER", "TRICASTIN", "ST ROMAN-DIOIS", "CREYS-MALVILLE", "ST-ALBAN", "ST-PIERRE-LES EGAUX", "LUS L CROIX HTE", "GRENOBLE–LVD", "ALBERTVILLE JO",
@@ -122,6 +122,7 @@ def create_prm(month_prediction=True):
         prm["gaussian_topo_path"] = prm["data_path"] + "ARPS/"
         # CNN
         prm["experience_path"] = working_directory + "Models/ARPS/"
+
         # Topography
         #prm["topo_path"] = prm["data_path"] + "MNT/IGN_25m/ign_L93_25m_alpesIG.tif"
         #prm["topo_path"] = prm["data_path"] + "MNT/CEN/DEM_FRANCE_L93_30m_bilinear.tif"
@@ -129,7 +130,7 @@ def create_prm(month_prediction=True):
 
         # Observations
         prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/precise_localisation/liste_postes_alps_l93.csv"
-        prm["height_sensor_path"] = prm["data_path"] + "BDclim/height_sensors.pkl"
+        prm["height_sensor_path"] = prm["data_path"] + "BDclim/height_sensors.csv"
         #prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/04_Mai_2021/liste_postes_Alpes_LLT.csv"
 
         # 2017-2019
@@ -158,12 +159,14 @@ def create_prm(month_prediction=True):
         prm["experience_path"] = "//scratch/mrmn/letoumelinl/predict_real/Model/"
         # Topography
         #prm["topo_path"] = prm["data_path"] + "MNT/IGN_25m/preprocessed_MNT.nc"
-        prm["topo_path"] = prm["data_path"] + "MNT/CEN/grandes_rousses.nc"
+        #prm["topo_path"] = prm["data_path"] + "MNT/CEN/grandes_rousses.nc"
+        prm["topo_path"] = prm["data_path"] + "MNT/CEN/DEM_FRANCE_L93_30m_bilinear.tif"
 
         # Observations
         prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/17_09_2021/stations.csv"
         # 2009-2021
         prm["BDclim_data_path"] = prm["data_path"] + "BDclim/17_09_2021/time_series.csv"
+        prm["height_sensor_path"] = prm["data_path"] + "BDclim/height_sensors.csv"
 
         # NWP
         #prm["AROME_path_1"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2017080106_2018080106_32bits.nc"
@@ -192,8 +195,8 @@ def create_prm(month_prediction=True):
     prm["path_save_prediction_on_surfex_grid"] = prm["data_path"] + "/SURFEX/"  # Where to save predictions on SURFECX grid
 
     # QC
-    prm["QC_pkl"] = prm["data_path"] + "BDclim/QC/qc_59.pkl" # Quality controled time series (where to save the file)
-    prm["path_fast_loading"] = prm["data_path"] + "BDclim/QC/qc_59.pkl" # Quality controled time series (where to load the file)
+    prm["QC_pkl"] = prm["data_path"] + "BDclim/QC/qc_10_12_2021.pkl" # Quality controled time series (where to save the file)
+    prm["path_fast_loading"] = prm["data_path"] + "BDclim/QC/qc_10_12_2021.pkl" # qc_59.pkl before Quality controled time series (where to load the file)
 
     # Observation
     prm["path_vallot"] = prm["data_path"] + "BDclim/Vallot/"
@@ -207,7 +210,10 @@ def create_prm(month_prediction=True):
 
     # CNN model "date_16_02_name_simu_FINAL_1_0_model_UNet/"
     prm['model_experience'] = "date_20_05_name_simu_retrain_with_mean_each_sample_0_model_UNet/"
+    prm["model_fold"] = "test/"
     prm["model_path"] = prm["experience_path"] + prm['model_experience']
+    prm["model_path_fold"] = prm["experience_path"] + prm["model_fold"]
+
 
     # Module path
 

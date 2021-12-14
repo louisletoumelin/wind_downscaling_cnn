@@ -11,11 +11,13 @@ except ImportError:
     pass
 
 from .PRM_predict import create_prm
+prm = create_prm(month_prediction=True)
+
 from downscale.utils.GPU import connect_GPU_to_horovod
 from downscale.eval.synthetic_topographies import GaussianTopo
-
-prm = create_prm(month_prediction=True)
 connect_GPU_to_horovod() if prm["GPU"] else None
+
+
 
 # Load data and reshape
 gaussian_topo = GaussianTopo()

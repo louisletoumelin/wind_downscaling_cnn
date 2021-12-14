@@ -7,12 +7,14 @@ from downscale.utils.context_managers import timer_context
 
 try:
     from numba import jit, prange, float64, float32, int32, int64
+
     _numba = True
 except ModuleNotFoundError:
     _numba = False
 
 try:
     import numexpr as ne
+
     _numexpr = True
 except ModuleNotFoundError:
     _numexpr = False
@@ -61,7 +63,7 @@ class Wind_utils:
                                                                          z0_rel=xarray_data.Z0REL.values)))
 
     def _exposed_wind_speed_num(self, wind_speed=None, z_out=None, z0=None, z0_rel=None, library="numexpr"):
-        if self._numexpr and library == "numexpr":
+        if _numexpr and library == "numexpr":
             acceleration_factor = ne.evaluate(
                 "log((z_out) / z0) * (z0 / (z0_rel+z0))**0.0706 / (log((z_out) / (z0_rel+z0)))")
             acceleration_factor = ne.evaluate("where(acceleration_factor > 0, acceleration_factor, 1)")
@@ -137,7 +139,7 @@ class Wind_utils:
     @print_func_executed_decorator("wind speed ratio (acceleration)", level_begin="\n__", level_end="__")
     @timer_decorator("wind speed ratio (acceleration)", unit="second", level=". . . . ")
     def wind_speed_ratio(self, num=None, den=None, library="numexpr", verbose=True):
-        if self._numexpr and library == "numexpr":
+        if _numexpr and library == "numexpr":
             print("____Library: Numexpr") if verbose else None
             a1 = ne.evaluate("where(den > 0, num / den, 1)")
         else:
@@ -171,7 +173,7 @@ class Wind_utils:
             t0 = t()
 
         if out is None:
-            if self._numexpr and library == "numexpr":
+            if _numexpr and library == "numexpr":
                 print("____Library: Numexpr") if verbose else None
                 wind_speed = ne.evaluate("sqrt(U**2 + V**2 + W**2)")
             else:
@@ -185,7 +187,7 @@ class Wind_utils:
             return wind_speed
 
         else:
-            if self._numexpr and library == "numexpr":
+            if _numexpr and library == "numexpr":
                 ne.evaluate("sqrt(U**2 + V**2 + W**2)", out=out)
             else:
                 np.sqrt(U ** 2 + V ** 2 + W ** 2, out=out)
@@ -218,13 +220,13 @@ class Wind_utils:
             t0 = t()
 
         if out is None:
-            if self._numexpr and library == "numexpr":
+            if _numexpr and library == "numexpr":
                 return ne.evaluate("sqrt(U**2 + V**2)")
             else:
                 return np.sqrt(U ** 2 + V ** 2)
 
         else:
-            if self._numexpr and library == "numexpr":
+            if _numexpr and library == "numexpr":
                 ne.evaluate("sqrt(U**2 + V**2)", out=out)
             else:
                 np.sqrt(U ** 2 + V ** 2, out=out)
@@ -340,7 +342,7 @@ class Wind_utils:
         three = np.float32(3)
 
         if type_scaling == "linear":
-            if self._numexpr and library == "numexpr":
+            if _numexpr and library == "numexpr":
                 print("____Library: Numexpr")
                 prediction = ne.evaluate("scaling_wind * prediction / 3")
             else:
@@ -348,13 +350,13 @@ class Wind_utils:
                 prediction = scaling_wind * prediction / 3
 
         if type_scaling == "Arctan_30_1":
-            if self._numexpr and library == "numexpr":
+            if _numexpr and library == "numexpr":
                 prediction = ne.evaluate("30*arctan(scaling_wind/30) * prediction / 3")
             else:
                 prediction = 30*np.arctan(scaling_wind/30) * prediction / 3
 
         if type_scaling == "Arctan_30_2":
-            if self._numexpr and library == "numexpr":
+            if _numexpr and library == "numexpr":
                 print("____Library: Numexpr")
                 prediction = ne.evaluate("thirty*arctan((scaling_wind * prediction / three)/thirty)")
             else:
@@ -362,31 +364,31 @@ class Wind_utils:
                 prediction = 30*np.arctan((scaling_wind * prediction / 3)/30)
 
         if type_scaling == "Arctan_10_2":
-            if self._numexpr and library == "numexpr":
+            if _numexpr and library == "numexpr":
                 prediction = ne.evaluate("10*arctan((scaling_wind * prediction / 3)/10)")
             else:
                 prediction = 10*np.arctan((scaling_wind * prediction / 3)/10)
 
         if type_scaling == "Arctan_20_2":
-            if self._numexpr and library == "numexpr":
+            if _numexpr and library == "numexpr":
                 prediction = ne.evaluate("30*arctan((scaling_wind * prediction / 3)/30)")
             else:
                 prediction = 20*np.arctan((scaling_wind * prediction / 3)/20)
 
         if type_scaling == "Arctan_38_2_2":
-            if self._numexpr and library == "numexpr":
+            if _numexpr and library == "numexpr":
                 prediction = ne.evaluate("38.2*arctan((scaling_wind * prediction / 3)/38.2)")
             else:
                 prediction = 38.2*np.arctan((scaling_wind * prediction / 3)/38.2)
 
         if type_scaling == "Arctan_40_2":
-            if self._numexpr and library == "numexpr":
+            if _numexpr and library == "numexpr":
                 prediction = ne.evaluate("30*arctan((scaling_wind * prediction / 3)/30)")
             else:
                 prediction = 40*np.arctan((scaling_wind * prediction / 3)/40)
 
         if type_scaling == "Arctan_50_2":
-            if self._numexpr and library == "numexpr":
+            if _numexpr and library == "numexpr":
                 prediction = ne.evaluate("30*arctan((scaling_wind * prediction / 3)/30)")
             else:
                 prediction = 50*np.arctan((scaling_wind * prediction / 3)/50)
@@ -417,7 +419,7 @@ class Wind_utils:
         alpha : ndarray
             Angular deviation [rad]
         """
-        if self._numexpr and library == "numexpr":
+        if _numexpr and library == "numexpr":
             print("____Library: Numexpr") if verbose else None
             alpha = ne.evaluate("where(U == 0, where(V == 0, 0, V/abs(V) * 3.14159 / 2), arctan(V / U))")
         else:
@@ -462,7 +464,7 @@ class Wind_utils:
         if unit_alpha == "degree":
             alpha = self._deg_to_rad_num(alpha, library="numexpr")
 
-        if self._numexpr and library == "numexpr":
+        if _numexpr and library == "numexpr":
             print("____Library: Numexpr") if verbose else None
             UV_DIR = ne.evaluate("wind_dir - alpha")
         else:
@@ -479,7 +481,7 @@ class Wind_utils:
 
         assert unit_direction == "radian"
 
-        if self._numexpr and library == "numexpr":
+        if _numexpr and library == "numexpr":
             print(f"____Library: {library}") if verbose else None
             return ne.evaluate("-sin(UV_DIR) * UV")
         else:
@@ -491,7 +493,7 @@ class Wind_utils:
 
         assert unit_direction == "radian"
 
-        if self._numexpr and library == "numexpr":
+        if _numexpr and library == "numexpr":
             print(f"____Library: {library}") if verbose else None
             return ne.evaluate("-cos(UV_DIR) * UV")
         else:
@@ -502,7 +504,7 @@ class Wind_utils:
     @timer_decorator("converting degrees to radians", unit="second", level=". . . . ")
     @change_dtype_if_required_decorator(np.float32)
     def _deg_to_rad_num(self, UV_DIR, library="numexpr"):
-        if self._numexpr and library == "numexpr":
+        if _numexpr and library == "numexpr":
             return ne.evaluate("3.14159 * UV_DIR/180")
         else:
             return np.deg2rad(UV_DIR)
@@ -511,7 +513,7 @@ class Wind_utils:
     @timer_decorator("converting radians to degrees", unit="second", level=". . . . ")
     @change_dtype_if_required_decorator(np.float32)
     def _rad_to_deg_num(self, UV_DIR, library="numexpr"):
-        if self._numexpr and library == "numexpr":
+        if _numexpr and library == "numexpr":
             return ne.evaluate("180 * UV_DIR/3.14159")
         else:
             return np.rad2deg(UV_DIR)
@@ -580,7 +582,7 @@ class Wind_utils:
 
     @change_dtype_if_required_decorator(np.float32)
     def _direction_from_u_and_v_num(self, U, V, library="numexpr", verbose=True):
-        if self._numexpr and library == "numexpr":
+        if _numexpr and library == "numexpr":
             print("____Library: Numexpr") if verbose else None
             return ne.evaluate("(180 + (180/3.14159)*arctan2(U,V)) % 360")
         else:

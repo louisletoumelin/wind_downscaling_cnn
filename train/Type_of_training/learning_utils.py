@@ -22,8 +22,9 @@ def save_dict_norm(dict_norm, prm):
 
 def general_compile(prm, model):
     """Compile model"""
-    out_dir = prm['output_dir'] + 'training_results/' + prm['info']
-    model.load_weights(out_dir + '/weights.h5')
+    #out_dir = prm['output_dir'] + 'training_results/' + prm['info']
+    #model.load_weights(out_dir + '/weights.h5')
+    model = prm['model_func']
     model.compile(loss=prm['loss'],
                   optimizer=prm['optimizer_func'],
                   metrics=prm['metrics'])
@@ -69,8 +70,11 @@ def print_reshaped_data_dimension(x_train, y_train, x_val=None, y_val=None):
 
 def normalize_training_features(x_train, x_val=None):
     """Normalize training and validation features"""
-    train_mean, train_std = np.mean(x_train, axis=(1,2)), np.std(x_train)
+    print(f"\n\nDEBUG: x_train shape: {x_train.shape}")
+    train_mean, train_std = np.mean(x_train, axis=(1, 2)), np.std(x_train)
+    print(f"DEBUG: train_mean shape before reshaping: {train_mean.shape}")
     train_mean = train_mean.reshape((train_mean.shape[0], 1, 1, 1))
+    print(f"DEBUG: train_mean shape after reshapin: {train_mean.shape}")
     print(f"Shape x_train before training: {x_train.shape}")
     x_train = (x_train - train_mean) / train_std
     print(f"Shape x_train after training: {x_train.shape}")

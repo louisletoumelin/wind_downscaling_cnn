@@ -11,77 +11,62 @@ Ongoing study - PhD Louis Le Toumelin - louis.letoumelin@gmail.com
 
 ## How it works
 
-*Learning*
+We try to replicate the behavior of te ARPS model by using a CNN.
+The process is divided in two distinct steps: first learinng from the model outputs, then generating real case scenario.
 
-**Input** : Synthetic topographies
+**Learning**
 
-**Output** : ARPS wind on synthetic topographies. Wind comes from the West at 3 m/s.
+*Input* : Synthetic topographies (7260 gridded outputs containing topographies, each map having a size 79x69)
+
+**Output** : ARPS wind on synthetic topographies. Wind comes from the West at 3 m/s. The wind vector is three dimensional (hence 7360 outputs are generated, and each output is a 3D map)
 
 *Prediction*
 
 **Input**:  
-- NWP (ex: AROME) wind field (speed + direction)
-- Topography (ex: IGN 25m)
+- Numerical Weather Prediction (ex: AROME model) wind field (speed + direction)
+- Topography (ex: Digital Elevation Model from IGN 30m)
 
 **Output**:  
-- Downscaled wind fields (U, V, W)
+- Downscaled wind fields on real topographies (U, V, W)
 
 
 ## Structure
 
 ```
-├── LICENSE                              <- To be created
+├── LICENSE                               <- To be created
 │
-├── README.md                            <- File describing the github repository. You are reading it right now.
+├── README.md                             <- File describing the github repository. You are reading it right now.
 │
-├── downscale                            <- Apply downscaling predictions 
-│   ├── Analysis                         <- Analyse and visualize predictions
-│   │  ├── Evaluation.py                 <- Evaluate predictions (RMSE, bias...etc)
-│   │  ├── MidpointNormalize.py          <- Script to plot beautiful centered colorbars
-│   │  └── Visualization.py              <- Plot results
-│   │
-│   ├── Data_family                      <- Process data according to its nature (model data, DEM, observation...)
-│   │  ├── Data_2D.py                    <- Parent class of MNT and NWP
-│   │  ├── MNT.py                        <- Treat Digital Elevation Models (DEM)
-│   │  ├── NWP.py                        <- Treat Numerical Weather Prediction (NWP) models outputs 
-│   │  └── Observation.py                <- Treat observations datasets such as Automatic Weather Stations (AWS)
-│   │
-│   ├── Depreciated                      <- Old code that I don't want to get rid off 
-│   │
-│   ├── Operators                        <- Process data to make predictions
-│   │  ├── Helbig.py                     <- Functions to downscale wind fields according to Helbig et al. (2017)
-│   │  ├── Micro_Met.py                  <- Functions to downscale wind fields according to MicroMet model from Liston and Elder (2006)
-│   │  ├── Processing.py                 <- Functions to downscale wind fields according to my method
-│   │  ├── Rotation.py                   <- Functions to rotate images (e.g. topography maps) including numpy vectorized rotations
-│   │  ├── topo_utils.py                 <- Functions to calcuate parameters on topography (e.g. Laplacian, tpi, sx, peak-valley elevation)
-│   │  └── wind_utils.py                 <- Functions specific to wind calculations
-│   │
-│   ├── Utils                            <- Utility functions
-│   │  ├── Decorators.py                 <- Some decorators
-│   │  ├── GPU.py                        <- Some functions used when working with GPU
-│   │  ├── prm.py                        <- Funcitons to treat input parameters
-│   │ └── Utils.py                      <- Utility functions
-│   │
-│   ├── scripts                          <- To be removed
-│   │
-│   └── test                             <- test the code with pytest
+├── downscale_                            
+│   ├── downscale                         <- downscale module
+│   │  ├── data_source                    <- Process different types of data (NWP, DEM, observations...)
+│   │  ├── eval                           <- Evaluate predictions (process bias, RMSE...)
+│   │  ├── operators                      <- Downscaling strategy (Helbig, Devine, MicroMet...)
+│   │  ├── test                           <- Test the code
+│   │  ├── utils                          <- Utils function
+│   │  └── visu                           <- Visualize plots
+│   │  ├── __init__.py                    <- To create a module
+│   ├── pipeline                          <- Scripts using the downscale module
 │
-├── pre_process                          <- Pre-process data before training
 │
-├── train                                <- Train models
-│   ├── Metrics                          <- RMSE, bias etc
-│   ├── Models                           <- UNet, VCD
-│   ├── Prm                              <- Define parameters for the training
-│   ├── Slurm                            <- Commands to launch training on supercomputers
-│   ├── Test                             <- Evaluate training
-│   ├── Type_of_training                 <- Different ways to categorize data and then launch training
-│   └── Utils                            <- Utility functions
+├── pre_process                           <- Pre-process data before training
 │
-├── .gitignore                           <- Files ignored during git version control
+├── train                                 <- Train models
+│   ├── Metrics                           <- RMSE, bias etc
+│   ├── Models                            <- UNet, VCD
+│   ├── Prm                               <- Define parameters for the training
+│   ├── Slurm                             <- Commands to launch training on supercomputers
+│   ├── Test                              <- Evaluate training
+│   ├── Type_of_training                  <- Different ways to categorize data and then launch training
+│   └── Utils                             <- Utility functions
 │
-├── __init__.py                          <- Python file to create a python module
+├── WindNinja_learning                    <- Launch WindNinja simulation with python
 │
-└──  environment.yml                     <- Description of the python environment to use. This file has to be updated.
+├── .gitignore                            <- Files ignored during git version control
+│
+├── __init__.py                           <- To create a module
+│
+└──  cnn4.yml                             <- Description of the python environment to use. This file has to be updated.
 ```
 
 
@@ -96,5 +81,5 @@ Training (performed on GPU)
 
 Predictions on real topographies
 
-> predict_real_topo/
+> downscale_/
 

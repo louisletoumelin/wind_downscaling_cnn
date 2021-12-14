@@ -6,40 +6,19 @@ t0 = t()
 import numpy as np
 import pandas as pd
 
+from PRM_predict import create_prm
+prm = create_prm(month_prediction=True)
+
 from downscale.operators.devine import Devine
 from downscale.visu.visualization import Visualization
 from downscale.data_source.MNT import MNT
 from downscale.data_source.NWP import NWP
 from downscale.data_source.observation import Observation
 from downscale.eval.evaluation import Evaluation
-from PRM_predict import create_prm
 from downscale.utils.GPU import connect_GPU_to_horovod
 from downscale.utils.utils_func import select_range_30_days_for_long_periods_prediction
 from utils_prm import update_selected_path_for_long_periods, select_stations
 
-"""
-['BARCELONNETTE', 'DIGNE LES BAINS', 'RESTEFOND-NIVOSE',
-       'LA MURE-ARGENS', 'ARVIEUX', 'PARPAILLON-NIVOSE', 'EMBRUN',
-       'LA FAURIE', 'GAP', 'LA MEIJE-NIVOSE', 'COL AGNEL-NIVOSE',
-       'GALIBIER-NIVOSE', 'ORCIERES-NIVOSE', 'RISTOLAS',
-       'ST JEAN-ST-NICOLAS', 'TALLARD', "VILLAR D'ARENE",
-       'VILLAR ST PANCRACE', 'ASCROS', 'PEIRA CAVA', 'PEONE',
-       'MILLEFONTS-NIVOSE', 'CHAPELLE-EN-VER', 'LUS L CROIX HTE',
-       'ST ROMAN-DIOIS', 'AIGLETON-NIVOSE', 'CREYS-MALVILLE',
-       'LE GUA-NIVOSE', "ALPE-D'HUEZ", 'LA MURE- RADOME',
-       'LES ECRINS-NIVOSE', 'GRENOBLE-ST GEOIRS', 'ST HILAIRE-NIVOSE',
-       'ST-PIERRE-LES EGAUX', 'GRENOBLE - LVD', 'VILLARD-DE-LANS',
-       'CHAMROUSSE', 'ALBERTVILLE JO', 'BONNEVAL-NIVOSE', 'MONT DU CHAT',
-       'BELLECOTE-NIVOSE', 'GRANDE PAREI NIVOSE', 'FECLAZ_SAPC',
-       'COL-DES-SAISIES', 'ALLANT-NIVOSE', 'LA MASSE',
-       'ST MICHEL MAUR_SAPC', 'TIGNES_SAPC', 'LE CHEVRIL-NIVOSE',
-       'LES ROCHILLES-NIVOSE', 'LE TOUR', 'AGUIL. DU MIDI',
-       'AIGUILLES ROUGES-NIVOSE', 'LE GRAND-BORNAND', 'MEYTHET',
-       'LE PLENAY', 'SEYNOD-AREA', 'Col du Lac Blanc', 'Col du Lautaret', 'Vallot', 'Saint-Sorlin', 'Argentiere']
-"""
-
-# Create prm, horovod and GPU
-prm = create_prm(month_prediction=True)
 connect_GPU_to_horovod() if prm["GPU"] else None
 
 IGN = MNT(prm=prm)
@@ -90,7 +69,7 @@ if prm["launch_predictions"]:
                     prm=prm)
 
         # Processing
-        p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
+        p = Devine(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
 
         # Interpolate
         data_xr_interp = p.interpolate_wind_grid_xarray(AROME.data_xr,
@@ -100,7 +79,7 @@ if prm["launch_predictions"]:
         AROME.data_xr = data_xr_interp
 
         # Processing with interpolated data
-        p = Processing(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
+        p = Devine(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
 
         # Predict
         array_xr = p.predict_at_stations(prm["stations_to_predict"], prm=prm)

@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
 import os
 
@@ -14,6 +15,7 @@ def save_folds_weights_and_history_for_fold(model, history, fold, prm):
     """Save model weights and history for each fold"""
     out_dir = prm['output_dir'] + 'training_results/' + prm['info'] + f'/fold{fold}'
     model.save(out_dir + '/fold_{}.h5'.format(fold))
+    tf.keras.models.save_model(model, out_dir + '/fold{}'.format(fold))
     np.save(out_dir + '/fold_{}_history.npy'.format(fold), history.history)
 
 

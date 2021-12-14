@@ -7,10 +7,10 @@ Journal of Hydrometeorology, 7(2), 217-234.
 import numpy as np
 from downscale.operators.topo_utils import Topo_utils
 from downscale.utils.utils_func import change_dtype_if_required, lists_to_arrays_if_required
-from downscale.utils.decorators import change_dtype_if_required_decorator
+from downscale.utils.decorators import change_dtype_if_required_decorator, print_func_executed_decorator
 
 
-class MicroMet(Topo_utils):
+class SlopeMicroMet(Topo_utils):
 
     def __init__(self):
         super().__init__()
@@ -19,15 +19,16 @@ class MicroMet(Topo_utils):
     @change_dtype_if_required_decorator(np.float32)
     def terrain_slope_map(mnt, dx, verbose=True):
         """
-        tan-1((dz/dx)**2 + (dz/dy)**2)**(1/2)
-
-        Terrain slope following Liston and Elder (2006)
+        tan-1[ { (dz/dx)**2 + (dz/dy)**2 }**(1/2) ]
         """
-        beta = np.arctan(np.sqrt(np.sum(np.array(np.gradient(mnt, dx)) ** 2, axis=0)))
         print("____Library: numpy") if verbose else None
+        return np.arctan(np.sqrt(np.sum(np.array(np.gradient(mnt, dx)) ** 2, axis=0)))
 
-        return beta
-
+    @print_func_executed_decorator("terrain_slope_idx",
+                                   level_begin="__",
+                                   level_end="__",
+                                   end="")
+    @change_dtype_if_required_decorator(np.float32)
     def terrain_slope_idx(self, mnt, dx, idx_x, idx_y, verbose=True):
         """
         tan-1((dz/dx)**2 + (dz/dy)**2)**(1/2)
@@ -36,57 +37,71 @@ class MicroMet(Topo_utils):
         """
         idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
 
-        beta = [self.terrain_slope_map(mnt[y - 2:y + 3, x - 2:x + 3], dx, verbose=False)[2, 2] for (x, y) in
-              zip(idx_x, idx_y)]
-        beta = np.array(beta, dtype=np.float32)
-
-        print("__Terrain slope indexes selected") if verbose else None
         print("__INFO: do not have to scale Terrain slope") if verbose else None
 
-        return beta
+        return [self.terrain_slope_map(mnt[y - 2:y + 3, x - 2:x + 3], dx, verbose=False)[2, 2] for (x, y) in
+                zip(idx_x, idx_y)]
+
+    def terrain_slope(self, mnt, dx, idx_x=None, idx_y=None, verbose=True):
+        if ((idx_x is None) and (idx_y is None)) or np.ndim(idx_x) > 1:
+            return self.terrain_slope_map(mnt, dx, verbose=verbose)
+        else:
+            return self.terrain_slope_idx(mnt, dx, idx_x, idx_y, verbose=verbose)
+
+
+class AzimuthMicroMet(Topo_utils):
+
+    def __init__(self):
+        super().__init__()
 
     @staticmethod
     @change_dtype_if_required_decorator(np.float32)
     def terrain_slope_azimuth_map(mnt, dx, verbose=True):
         """
-        3 pi /2 - tan-1(dz/dy / dz/dx)
-
-        following Liston and Elder (2006)
+        3 pi /2 - tan-1[ (dz/dy) / (dz/dx) ]
         """
         gradient_y, gradient_x = np.gradient(mnt, dx)
         arctan_value = np.where(gradient_x != 0,
                                 np.arctan(gradient_y / gradient_x),
-                                np.where(gradient_y>0,
-                                         np.pi/2,
+                                np.where(gradient_y > 0,
+                                         np.pi / 2,
                                          np.where(gradient_y < 0,
                                                   gradient_y,
-                                                  -np.pi/2)))
+                                                  -np.pi / 2)))
 
         print("____Library: numpy") if verbose else None
 
         return 3 * np.pi / 2 - arctan_value
 
+    @change_dtype_if_required_decorator(np.float32)
     def terrain_slope_azimuth_idx(self, mnt, dx, idx_x, idx_y, verbose=True):
         """
         3 pi /2 - tan-1(dz/dy / dz/dx)
-
-        following Liston and Elder (2006)
         """
         idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
-        xi = [self.terrain_slope_azimuth_map(mnt[y - 2:y + 3, x - 2:x + 3], dx, verbose=False)[2, 2] for (x, y) in
-                     zip(idx_x, idx_y)]
-        xi = np.array(xi, dtype=np.float32)
 
         print("__INFO: do not have to scale Terrain slope azimuth") if verbose else None
 
-        return xi
+        return [self.terrain_slope_azimuth_map(mnt[y - 2:y + 3, x - 2:x + 3], dx, verbose=False)[2, 2] for (x, y) in
+              zip(idx_x, idx_y)]
+
+    def terrain_slope_azimuth(self, mnt, dx, idx_x, idx_y, verbose=True):
+        if ((idx_x is None) and (idx_y is None)) or np.ndim(idx_x) > 1:
+            return self.terrain_slope_azimuth_map(mnt, dx, verbose=verbose)
+        else:
+            return self.terrain_slope_azimuth_idx(mnt, dx, idx_x, idx_y, verbose=verbose)
+
+
+class CurvatureMicroMet(Topo_utils):
+
+    def __init__(self):
+        super().__init__()
 
     @staticmethod
     @change_dtype_if_required_decorator(np.float32)
     def get_length_scale_curvature(mnt):
         std_mnt = np.nanstd(mnt)
-        length_scale = 2 * std_mnt if std_mnt != 0 else 1
-        return length_scale
+        return 2 * std_mnt if std_mnt != 0 else 1
 
     @change_dtype_if_required_decorator(np.float32)
     def curvature_map(self, mnt, length_scale=None, scaling_factor=None, scale=False, verbose=True):
@@ -148,6 +163,8 @@ class MicroMet(Topo_utils):
             curvature = curvature / (2 * scaling_factor)
             assert np.all(-0.5 <= curvature[1:-1, 1:-1])
             assert np.all(curvature[1:-1, 1:-1] <= 0.5)
+            print("___curvature is now scaled between -0.5 and 0.5 "
+                  "(assumption not true on the borders)") if verbose else None
 
         print("____Library: numpy") if verbose else None
         return curvature
@@ -190,8 +207,10 @@ class MicroMet(Topo_utils):
         """
         idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
         if method == "safe":
-            curvature_map = self.curvature_map(mnt, scale=scale, length_scale=length_scale, scaling_factor=scaling_factor, verbose=verbose)
-            print("____Method: Safe") if verbose else None
+            curvature_map = self.curvature_map(mnt,
+                                               scale=scale, length_scale=length_scale,
+                                               scaling_factor=scaling_factor, verbose=verbose)
+            print("____Method: Safe (scaling factor calculate on the all map)") if verbose else None
             return curvature_map[idx_y, idx_x]
         else:
             length_scale = self.get_length_scale_curvature(mnt)
@@ -206,7 +225,8 @@ class MicroMet(Topo_utils):
                 curvature = curvature / (2 * scaling_factor)
                 assert np.all(-0.5 <= curvature[1:-1, 1:-1])
                 assert np.all(curvature[1:-1, 1:-1] <= 0.5)
-                print("__Used scaling in curvature_idx. Method: NOT safe") if verbose else None
+                print("__Used scaling in curvature_idx. Method: NOT safe "
+                      "(scaling factor not defined on the all map)") if verbose else None
             else:
                 print("__WARNING: Did not scale curvature") if verbose else None
 
@@ -214,8 +234,24 @@ class MicroMet(Topo_utils):
 
             return curvature
 
+    def curvature(self, mnt, idx_x=None, idx_y=None,
+                  method="safe", scale=False, length_scale=None, scaling_factor=None, verbose=True):
+        if ((idx_x is None) and (idx_y is None)) or np.ndim(idx_x) > 1:
+            return self.curvature_map(mnt, length_scale=length_scale, scaling_factor=scaling_factor,
+                                      scale=scale, verbose=verbose)
+        else:
+            return self.curvature_idx(mnt, idx_x, idx_y,
+                                      method=method, scale=scale, length_scale=length_scale,
+                                      scaling_factor=scaling_factor, verbose=verbose)
+
+
+class MicroMet(SlopeMicroMet, AzimuthMicroMet, CurvatureMicroMet):
+
+    def __init__(self):
+        super().__init__()
+
     @change_dtype_if_required_decorator(np.float32)
-    def omega_s_map(self, mnt, dx, wind_dir, scale=False, scaling_factor=None, verbose=True):
+    def _omega_s_map(self, mnt, dx, wind_dir, scale=False, scaling_factor=None, verbose=True):
         """The slope in the direction of the wind"""
         beta = self.terrain_slope_map(mnt, dx, verbose=verbose)
         xi = self.terrain_slope_azimuth_map(mnt, dx, verbose=verbose)
@@ -231,7 +267,7 @@ class MicroMet(Topo_utils):
 
         return omega_s
 
-    def omega_s_idx(self, mnt, dx, wind_dir, idx_x, idx_y, method="safe", scale=False, scaling_factor=None, verbose=True):
+    def _omega_s_idx(self, mnt, dx, wind_dir, idx_x, idx_y, method="safe", scale=False, scaling_factor=None, verbose=True):
         """
         Omega_s following Liston and Elder (2006)
 
@@ -286,58 +322,36 @@ class MicroMet(Topo_utils):
 
             return omega_s_idx_
 
-    @change_dtype_if_required_decorator(np.float32)
-    def wind_weighting_factor_map(self, mnt, dx, wind_dir, gamma_s=0.58, gamma_c=0.42,
-                                  scale=True, length_scale=None, scaling_factor=None, verbose=True):
-        """gamma_s = 0.58 and gamma_c = 0.42"""
-        omega_c = self.curvature_map(mnt, length_scale=length_scale, scaling_factor=scaling_factor,
-                                     scale=scale, verbose=verbose)
-        omega_s = self.omega_s_map(mnt, dx, wind_dir,
-                                   scale=scale, scaling_factor=scaling_factor, verbose=verbose)
-        w = 1 + gamma_s * omega_s + gamma_c * omega_c
-
-        print("__Wind weighting factor calculation. Library: numpy") if verbose else None
-
-        return w
+    def omega_s(self, mnt, dx, wind_dir, idx_x=None, idx_y=None, method="safe", scale=False, scaling_factor=None, verbose=True):
+        if ((idx_x is None) and (idx_y is None)) or np.ndim(idx_x) > 1:
+            return self._omega_s_map(mnt, dx, wind_dir, scale=scale, scaling_factor=scaling_factor, verbose=verbose)
+        else:
+            return self._omega_s_idx(mnt, dx, wind_dir, idx_x, idx_y,
+                                    method=method, scale=scale, scaling_factor=scaling_factor, verbose=verbose)
 
     @change_dtype_if_required_decorator(np.float32)
-    def wind_weighting_factor_idx(self, mnt, dx, wind_dir, idx_x, idx_y, gamma_s=0.58, gamma_c=0.42, method="safe",
-                                  scale=True, length_scale=None, scaling_factor=None, verbose=True):
-        """Need test map and idx"""
+    def wind_weighting_factor(self, mnt, dx, wind_dir, idx_x=None, idx_y=None, gamma_s=0.58, gamma_c=0.42,
+                              method="safe", scale=True, length_scale=None, scaling_factor=None, verbose=True):
         """gamma_s = 0.58 and gamma_c = 0.42"""
         idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
-        omega_c = self.curvature_idx(mnt, idx_x, idx_y,
-                                     length_scale=length_scale, scaling_factor=scaling_factor, method=method,
-                                     scale=scale, verbose=verbose)
-        omega_s = self.omega_s_idx(mnt, dx, wind_dir, idx_x, idx_y,
-                                   method=method, scale=scale, scaling_factor=scaling_factor, verbose=verbose)
-        w = 1 + gamma_s * omega_s + gamma_c * omega_c
+        omega_c = self.curvature(mnt, idx_x=idx_x, idx_y=idx_y, method=method, scale=scale,
+                                 length_scale=length_scale, scaling_factor=scaling_factor, verbose=verbose)
+        omega_s = self.omega_s(mnt, dx, wind_dir, idx_x=idx_x, idx_y=idx_y, method=method, scale=scale,
+                               scaling_factor=scaling_factor, verbose=verbose)
 
-        print("__Wind weighting factor calculation. Library: numpy") if verbose else None
+        print("____Library: numpy") if verbose else None
 
-        return w
+        return 1 + gamma_s * omega_s + gamma_c * omega_c
 
     @change_dtype_if_required_decorator(np.float32)
-    def diverting_factor_map(self, mnt, dx, wind_dir, scale=True, scaling_factor=None, verbose=True):
-        """Need test map and idx"""
-        term1 = -0.5 * self.omega_s_map(mnt, dx, wind_dir, scaling_factor=scaling_factor, scale=scale, verbose=verbose)
-        azimuth = self.terrain_slope_azimuth_map(mnt, dx, verbose=verbose)
-        theta_d = term1 * np.sin(2 * (azimuth - wind_dir))
-
-        print("__Wind weighting factor calculation. Library: numpy") if verbose else None
-
-        return theta_d
-
-    @change_dtype_if_required_decorator(np.float32)
-    def diverting_factor_idx(self, mnt, dx, wind_dir, idx_x, idx_y,
-                             method="safe", scale=False, scaling_factor=None, verbose=True):
+    def diverting_factor(self, mnt, dx, wind_dir, idx_x=None, idx_y=None,
+                         method="safe", scale=False, scaling_factor=None, verbose=True):
         """Need test map and idx"""
         idx_x, idx_y = lists_to_arrays_if_required([idx_x, idx_y])
-        term1 = -0.5 * self.omega_s_idx(mnt, dx, wind_dir, idx_x, idx_y,
-                                        method=method, scale=scale, scaling_factor=scaling_factor, verbose=verbose)
-        azimuth = self.terrain_slope_azimuth_idx(mnt, dx, idx_x, idx_y, verbose=verbose)
-        theta_d = term1 * np.sin(2 * (azimuth - wind_dir))
+        omega_s = self.omega_s(mnt, dx, wind_dir, idx_x=idx_x, idx_y=idx_y, method=method,
+                                    scale=scale, scaling_factor=scaling_factor, verbose=verbose)
+        azimuth = self.terrain_slope_azimuth(mnt, dx, idx_x, idx_y, verbose=verbose)
 
-        print("__Wind weighting factor calculation. Library: numpy.") if verbose else None
+        print("____Library: numpy") if verbose else None
 
-        return theta_d
+        return -0.5 * omega_s * np.sin(2 * (azimuth - wind_dir))

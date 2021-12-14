@@ -1,52 +1,60 @@
+import sys
+sys.path = [file.replace('\\', '/') for file in sys.path]
+print(sys.path)
+
 import numpy as np
 import pandas as pd
+from tensorflow.keras.models import load_model
+import matplotlib.pyplot as plt
 
 try:
     import seaborn as sns
-    sns.set_style("white")
+    sns.set_style("whitegrid")
     sns.set_context('paper', font_scale=1.4)
 except ImportError:
     pass
 
 from PRM_predict import create_prm
+prm = create_prm(month_prediction=True)
+
 from downscale.utils.GPU import connect_GPU_to_horovod
 from downscale.eval.synthetic_topographies import GaussianTopo
 from downscale.eval.metrics import Metrics
 from downscale.operators.devine import Devine
+from downscale.utils.dependencies import root_mse
+from downscale.visu.visualization import Visualization
 
-prm = create_prm(month_prediction=True)
+dependencies = {'root_mse': root_mse}
+
 connect_GPU_to_horovod() if prm["GPU"] else None
 p = Devine(prm=prm)
 gaussian_topo = GaussianTopo()
 
-# Load model
-p.load_model(dependencies=True)
-
-# Load normalization parameter: std
-_, std = p._load_norm_prm()
-
 test = []
 
-# Load data
-for fold_nb in range(10):
-    path = f"C:/Users/louis/git/wind_downscaling_CNN/Data/2_Pre_processed/ARPS/fold/fold{fold_nb}/df_all_{fold_nb}.csv"
-    df_all = pd.read_csv(path)
+"""
+for fold_nb in range(2):
+    path_fold = prm["model_path_fold"] + f"fold{fold_nb}/"
 
-    # Keep only test values
-    df_all = df_all.drop(columns=["degree_xi", 'Unnamed: 0'])
-    df_all = df_all[df_all["group"] == "test"]
-
-    topos = gaussian_topo.filenames_to_array(df_all, prm["gaussian_topo_path"], 'topo_name')
-    winds = gaussian_topo.filenames_to_array(df_all, prm["gaussian_topo_path"], 'wind_name').reshape(len(topos), 79, 69, 3)
-
-    # Normalize data
+    # model = load_model(self.model_path+"model_weights.h5", custom_objects=dependencies)
+    #model = load_model(path_fold, custom_objects=dependencies)
+    p.load_cnn(model_path=pFath_fold, dependencies=True)
+    _, std = p._load_norm_prm(prm["model_path_fold"])
+    train_test_group = pd.read_csv(path_fold+f"df_all_{fold_nb}.csv")
+    list_variables = ['degree', 'xi', 'degree_xi', 'topo_name', 'wind_name', 'group']
+    test_group = train_test_group[list_variables][train_test_group["group"] == "test"]
+    
+    topos = gaussian_topo.filenames_to_array(test_group, prm["gaussian_topo_path"], 'topo_name')
+    winds = gaussian_topo.filenames_to_array(test_group, prm["gaussian_topo_path"], 'wind_name').reshape(len(topos), 79, 69, 3)
+    
     mean_topos = np.mean(topos, axis=(1, 2)).reshape(len(topos), 1, 1)
     std = std.reshape(1, 1, 1)
     topo_norm = p.normalize_topo(topos, mean_topos, std)
-
+    
     # Predict test data
     predictions = p.model.predict(topo_norm)
-
+    
+    df_all = test_group.copy(deep=True)
     df_all["U_test"] = ""
     df_all["V_test"] = ""
     df_all["W_test"] = ""
@@ -95,14 +103,14 @@ for fold_nb in range(10):
 
 
     # Calculate sx_300
-    df_all["sx_300"] = [gaussian_topo.sx_map(topos[index, :, :], 30, 300, 270, 5, 30) for index in range(len(df_all))]
+    # df_all["sx_300"] = [gaussian_topo.sx_map(topos[index, :, :], 30, 300, 270, 5, 30) for index in range(len(df_all))]
 
     def border_array_to_nan(array):
         array[:10, :] = np.nan
         array[-10:, :] = np.nan
         array[:, :10] = np.nan
         return array
-    df_all["sx_300"] = df_all["sx_300"].apply(border_array_to_nan)
+    #df_all["sx_300"] = df_all["sx_300"].apply(border_array_to_nan)
 
     # Calculate curvature
     df_all["curvature"] = [gaussian_topo.curvature_map(topos[index, :, :], verbose=False) for index in range(len(df_all))]
@@ -146,7 +154,7 @@ for fold_nb in range(10):
     list_variables = ['topo_name', 'U_test', 'V_test',
            'W_test', 'U_pred', 'V_pred', 'W_pred', 'UV_test', 'UVW_test',
            'alpha_test', 'UV_pred', 'UVW_pred', 'alpha_pred', 'tpi_500',
-           'curvature', 'laplacian', 'mu', "sx_300"]
+           'curvature', 'laplacian', 'mu']
     for variable in list_variables:
         df_all[variable] = df_all[variable].apply(lambda x: np.array(x).flatten())
 
@@ -161,6 +169,9 @@ for fold_nb in range(10):
     test.append(test_i)
 
 test = pd.concat(test)
+ax = sns.boxplot(data=test, x="degree", y="bias", showfliers=False)
+
+"""
 
 """
 # General boxplot
@@ -168,9 +179,9 @@ ax = sns.boxplot(data=test, y="bias", showfliers=False)
 plt.axis("square")
 
 # Boxplot fct class_sx_300, saved = True
-order = ['sx_300 <= q25', 'q25 < sx_300 <= q50', 'q50 < sx_300 <= q75', 'q75 < sx_300']
-test = gaussian_topo.classify(test, variable="sx_300", quantile=True)
-ax = sns.boxplot(data=test, x="class_sx_300", y="bias", showfliers=False, order=order)
+#order = ['sx_300 <= q25', 'q25 < sx_300 <= q50', 'q50 < sx_300 <= q75', 'q75 < sx_300']
+#test = gaussian_topo.classify(test, variable="sx_300", quantile=True)
+#ax = sns.boxplot(data=test, x="class_sx_300", y="bias", showfliers=False, order=order)
 
 # Boxplot fct class_tpi_500, saved = True
 order = ['tpi_500 <= q25', 'q25 < tpi_500 <= q50', 'q50 < tpi_500 <= q75', 'q75 < tpi_500']

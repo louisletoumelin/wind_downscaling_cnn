@@ -156,7 +156,7 @@ def check_expose_elevation(prm):
     if prm["scale_at_max_altitude"]:
         prm["scale_at_10m"] = False
 
-        return prm
+    return prm
 
 
 def check_extract_around_station_or_interpolated(prm):

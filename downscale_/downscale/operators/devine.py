@@ -65,7 +65,7 @@ class Devine(Processing):
 
     @print_func_executed_decorator("load model", level_begin="\n__", level_end="__")
     @timer_decorator("load model", unit="second", level=". . . . ")
-    def load_cnn(self, dependencies=False, verbose=True):
+    def load_cnn(self, model_path=None, dependencies=False, verbose=True):
         """
         Load a CNN, and its dependencies.
 
@@ -79,14 +79,14 @@ class Devine(Processing):
         model : Tensorflow model
             Return the CNN, stored in "self.model"
         """
-
+        model_path = self.model_path if model_path is None else model_path
         if dependencies:
 
             from downscale.utils.dependencies import root_mse
 
             dependencies = {'root_mse': root_mse}
             # model = load_model(self.model_path+"model_weights.h5", custom_objects=dependencies)
-            model = load_model(self.model_path, custom_objects=dependencies)
+            model = load_model(model_path, custom_objects=dependencies)
 
             print("____Dependencies: True") if verbose else None
         else:
@@ -95,7 +95,7 @@ class Devine(Processing):
 
         self.model = model
 
-    def _load_norm_prm(self):
+    def _load_norm_prm(self, model_path=None):
         """
         Load normalization parameters: mean and std.
 
@@ -106,7 +106,8 @@ class Devine(Processing):
         """
 
         # todo load dependencies
-        dict_norm = pd.read_csv(self.model_path + "dict_norm.csv")
+        model_path = self.model_path if model_path is None else model_path
+        dict_norm = pd.read_csv(model_path + "dict_norm.csv")
         mean = dict_norm["0"].iloc[0]
         std = dict_norm["0"].iloc[1]
         return mean, std

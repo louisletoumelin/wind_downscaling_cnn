@@ -11,7 +11,7 @@ Functions
 
 
 def save_weights_and_history_for_degree(model, history, degree, prm):
-    """Save model weights and history fo each degree"""
+    """Save model weights and history for each degree"""
     out_dir = prm['output_dir'] + 'training_results/' + prm['info'] + f'/degree{degree}'
     model.save(out_dir + '/degree_{}.h5'.format(degree))
     np.save(out_dir + '/degree_{}_history.npy'.format(degree), history.history)
