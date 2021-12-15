@@ -1,10 +1,10 @@
-import sys
-sys.path = [file.replace('\\', '/') for file in sys.path]
-print(sys.path)
+import uuid
 
 import numpy as np
 import pandas as pd
 from tensorflow.keras.models import load_model
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 try:
@@ -32,17 +32,21 @@ gaussian_topo = GaussianTopo()
 
 test = []
 
-"""
-for fold_nb in range(2):
+
+for fold_nb in range(2, 3):
+
+    print(fold_nb)
+
     path_fold = prm["model_path_fold"] + f"fold{fold_nb}/"
 
-    # model = load_model(self.model_path+"model_weights.h5", custom_objects=dependencies)
-    #model = load_model(path_fold, custom_objects=dependencies)
-    p.load_cnn(model_path=pFath_fold, dependencies=True)
+    p.load_cnn(model_path=path_fold, dependencies=True)
+
     _, std = p._load_norm_prm(prm["model_path_fold"])
+
     train_test_group = pd.read_csv(path_fold+f"df_all_{fold_nb}.csv")
     list_variables = ['degree', 'xi', 'degree_xi', 'topo_name', 'wind_name', 'group']
     test_group = train_test_group[list_variables][train_test_group["group"] == "test"]
+    
     
     topos = gaussian_topo.filenames_to_array(test_group, prm["gaussian_topo_path"], 'topo_name')
     winds = gaussian_topo.filenames_to_array(test_group, prm["gaussian_topo_path"], 'wind_name').reshape(len(topos), 79, 69, 3)
@@ -169,9 +173,16 @@ for fold_nb in range(2):
     test.append(test_i)
 
 test = pd.concat(test)
-ax = sns.boxplot(data=test, x="degree", y="bias", showfliers=False)
 
-"""
+sns_palette = sns.light_palette("SteelBlue")
+ax = sns.boxplot(data=test, x="degree", y="bias", palette=sns_palette, showfliers=False)
+plt.xlabel("Mean slope [degree]")
+plt.ylabel("Bias [m/s]")
+plt.grid(True)
+plt.tight_layout()
+fig = ax.get_figure()
+fig.savefig(prm["save_figure_path"] + f"training_{str(uuid.uuid4())[:4]}.png")
+
 
 """
 # General boxplot

@@ -47,6 +47,7 @@ class MNT(Data_2D):
             print(f"________________________ File found at :{path_to_file}")
 
     def load_mnt_files(self, path_to_file, verbose=True, chunks=None, prm={}):
+        print(prm)
         if prm["_rasterio"]:
             if not prm["_dask"]:
                 chunks = None

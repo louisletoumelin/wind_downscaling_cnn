@@ -86,7 +86,9 @@ class Devine(Processing):
 
             dependencies = {'root_mse': root_mse}
             # model = load_model(self.model_path+"model_weights.h5", custom_objects=dependencies)
-            model = load_model(model_path, custom_objects=dependencies)
+            import tensorflow as tf
+
+            model = load_model(model_path, custom_objects=dependencies, options=tf.saved_model.LoadOptions(experimental_io_device='/job:localhost'))
 
             print("____Dependencies: True") if verbose else None
         else:

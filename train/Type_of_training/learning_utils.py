@@ -20,15 +20,15 @@ def save_dict_norm(dict_norm, prm):
     pd.DataFrame.from_dict(dict_norm).to_csv(out_dir + '/dict_norm.csv')
 
 
-def general_compile(prm, model):
+def reset_weights_and_compile(prm, model, weights):
     """Compile model"""
     #out_dir = prm['output_dir'] + 'training_results/' + prm['info']
     #model.load_weights(out_dir + '/weights.h5')
-    model = prm['model_func']
+    model.set_weights(weights)
     model.compile(loss=prm['loss'],
                   optimizer=prm['optimizer_func'],
                   metrics=prm['metrics'])
-    return (model)
+    return model
 
 
 def print_data_dimension(TOPO_TRAIN, WIND_TRAIN, TOPO_VALID=None, WIND_VALID=None):

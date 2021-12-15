@@ -72,13 +72,14 @@ Training function
 def train_model(prm):
     """Train a CNN with parameters specified in prm"""
     model = learning_utils.init_compile(prm)
+    initial_weights = model.get_weights()
     dict_norm = {}
 
     for xi in [1000, 200, 300, 400, 500, 600, 700, 800, 900]:
         print('\nXi' + str(xi))
 
         # Compile
-        model = learning_utils.general_compile(prm, model)
+        model = learning_utils.reset_weights_and_compile(prm, model, initial_weights)
 
         # Load data
         TOPO_TRAIN, WIND_TRAIN, TOPO_VALID, WIND_VALID = load_data_by_xi(xi, prm)

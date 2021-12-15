@@ -115,7 +115,7 @@ def create_prm(month_prediction=True):
     if not prm["GPU"]:
 
         # Parent directory
-        working_directory = "C:/Users/louis/git/wind_downscaling_CNN/"
+        working_directory = "//home/letoumelinl/wind_downscaling_cnn/"
         # Data
         prm["data_path"] = working_directory + "Data/1_Raw/"
         # Synthetic topographies
@@ -151,6 +151,7 @@ def create_prm(month_prediction=True):
 
         # Path to python module downscale
         prm["path_module"] = working_directory + "src/downscale_/"
+        prm["save_figure_path"] = working_directory + "Figures/"
 
     if prm["GPU"]:
         # Data
@@ -210,7 +211,7 @@ def create_prm(month_prediction=True):
 
     # CNN model "date_16_02_name_simu_FINAL_1_0_model_UNet/"
     prm['model_experience'] = "date_20_05_name_simu_retrain_with_mean_each_sample_0_model_UNet/"
-    prm["model_fold"] = "test/"
+    prm["model_fold"] = "date_13_12_2021_name_simu_no_dropout_fold_0_model_UNet/"
     prm["model_path"] = prm["experience_path"] + prm['model_experience']
     prm["model_path_fold"] = prm["experience_path"] + prm["model_fold"]
 

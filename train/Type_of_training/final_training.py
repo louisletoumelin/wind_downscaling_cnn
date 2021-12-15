@@ -83,9 +83,6 @@ def train_model(prm):
     model = learning_utils.init_compile(prm)
     dict_norm = {}
 
-    # Compile
-    model = learning_utils.general_compile(prm, model)
-
     # Load data
     TOPO_TRAIN, WIND_TRAIN = load_data_all(prm)
 
