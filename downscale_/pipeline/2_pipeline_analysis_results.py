@@ -16,7 +16,6 @@ from downscale.data_source.observation import Observation
 from PRM_predict import create_prm
 
 prm = create_prm(month_prediction=True)
-#connect_GPU_to_horovod() if prm["GPU"] else None
 
 IGN = MNT(prm=prm)
 AROME = NWP(path_to_file=prm["AROME_path_1"], begin=prm["begin"], end=prm["begin_after"], prm=prm)

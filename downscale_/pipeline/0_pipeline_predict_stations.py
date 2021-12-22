@@ -15,7 +15,6 @@ from downscale.data_source.NWP import NWP
 from downscale.data_source.observation import Observation
 from downscale.eval.evaluation import Evaluation
 from PRM_predict import create_prm
-from downscale.utils.GPU import connect_GPU_to_horovod
 from downscale.utils.utils_func import round
 
 """
@@ -50,9 +49,6 @@ from downscale.utils.utils_func import round
 
 # Create prm
 prm = create_prm(month_prediction=True)
-
-# Initialize horovod and GPU
-connect_GPU_to_horovod() if (prm["GPU"] and prm["horovod"]) else None
 
 # Create prm
 prm = create_prm(month_prediction=True)

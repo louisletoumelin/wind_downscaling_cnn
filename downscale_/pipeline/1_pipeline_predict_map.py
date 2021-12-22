@@ -23,11 +23,7 @@ from downscale.operators.devine import Devine
 from downscale.data_source.MNT import MNT
 from downscale.data_source.NWP import NWP
 from downscale.data_source.observation import Observation
-from downscale.utils.GPU import connect_GPU_to_horovod
 from downscale.visu import Visualization
-
-# Initialize horovod and GPU
-connect_GPU_to_horovod() if prm["GPU"] else None
 
 DEM = MNT(prm=prm)
 

@@ -1,4 +1,3 @@
-import pandas as pd
 from time import time as t
 
 t_init = t()
@@ -13,8 +12,9 @@ GPU: Downscaling scipy in 542.96 seconds (9 min)
 By rule of three, this give 2 days and 2h for downscaling one year at 1h and 25m resolution
 """
 
-import xarray as xr
 import numpy as np
+import pandas as pd
+import xarray as xr
 
 # Create prm
 from PRM_predict import create_prm
@@ -25,8 +25,6 @@ from downscale.visu.visualization import Visualization
 from downscale.data_source.MNT import MNT
 from downscale.data_source.NWP import NWP
 from downscale.eval.evaluation import Evaluation
-from PRM_predict import create_prm
-from downscale.utils.GPU import connect_on_GPU
 from downscale.utils.utils_func import round, select_range_7days_for_long_periods_prediction, print_begin_end, \
     print_second_begin_end, print_intro
 from utils_prm import update_selected_path_for_long_periods

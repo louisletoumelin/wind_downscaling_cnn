@@ -14,16 +14,15 @@ from downscale.visu.visualization import Visualization
 from downscale.data_source.MNT import MNT
 from downscale.data_source.NWP import NWP
 from downscale.data_source.observation import Observation
-from downscale.eval.evaluation import Evaluation
-from downscale.utils.GPU import connect_GPU_to_horovod
+from downscale.eval.eval_array_xr import EvaluationFromArrayXr
 from downscale.utils.utils_func import select_range_30_days_for_long_periods_prediction
 from utils_prm import update_selected_path_for_long_periods, select_stations
 
-connect_GPU_to_horovod() if prm["GPU"] else None
 
 IGN = MNT(prm=prm)
 AROME = NWP(prm["AROME_path_1"], begin=prm["begin"], end=prm["begin_after"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
+
 prm = select_stations(prm, BDclim)
 
 p = Devine(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)
@@ -34,10 +33,6 @@ data_xr_interp = p.interpolate_wind_grid_xarray(AROME.data_xr.isel(time=0),
 AROME.data_xr = data_xr_interp
 p.update_stations_with_neighbors(mnt=IGN, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=True)
 
-"""
-Processing, visualization and evaluation
-"""
-
 results = {}
 for variable in prm["variable"]:
     results[variable] = {}
@@ -45,6 +40,7 @@ for variable in prm["variable"]:
         results[variable][model] = {}
         for station in prm["stations_to_predict"]:
             results[variable][model][station] = []
+
 
 if prm["launch_predictions"]:
 
@@ -88,7 +84,7 @@ if prm["launch_predictions"]:
         v = Visualization(p)
 
         # Analysis
-        e = Evaluation(v, array_xr)
+        e = EvaluationFromArrayXr(v, array_xr)
 
         # Store nwp, cnn predictions and observations
         for variable in prm["variable"]:
@@ -101,7 +97,7 @@ if prm["launch_predictions"]:
                                                     rolling_mean=None,
                                                     rolling_window=None,
                                                     interp_str=prm["interp_str"],
-                                                    interp_str_nwp="",
+                                                    interp_str_nwp=prm["interp_str"],
                                                     extract_around=prm["extract_around"])
                 results[variable]["nwp"][station].append(nwp)
                 results[variable]["cnn"][station].append(cnn)
@@ -117,14 +113,14 @@ if prm["launch_predictions"]:
         print(f"\n Prediction for time between {begin} and {end}:"
               f"\n{time_to_predict_month / 60} minutes")
 
+# concat final result
 for variable in prm["variable"]:
     for station in prm["stations_to_predict"]:
         for metric in ["nwp", "cnn", "obs"]:
             results[variable][metric][station] = pd.concat(results[variable][metric][station])
 
-path = "//scratch/mrmn/letoumelinl/predict_real/Results/" if prm["GPU"] else ''
-
 # Save results
+path = "//scratch/mrmn/letoumelinl/predict_real/Results/" if prm["GPU"] else ''
 with open(path + prm["results_name"] + '.pickle', 'wb') as handle:
     pickle.dump(results, handle)
 

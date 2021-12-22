@@ -9,10 +9,6 @@ prm = create_prm(month_prediction=True)
 
 from downscale.data_source.observation import Observation
 from downscale.utils.utils_func import round
-from downscale.utils.GPU import connect_GPU_to_horovod
-
-# Initialize horovod and GPU
-connect_GPU_to_horovod() if prm["GPU"] else None
 
 # BDclim
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)

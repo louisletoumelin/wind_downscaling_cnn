@@ -376,10 +376,13 @@ class Wind_utils:
                 prediction = 20*np.arctan((scaling_wind * prediction / 3)/20)
 
         if type_scaling == "Arctan_38_2_2":
+            constant = np.float32(38.2)
+            scaling_wind = change_dtype_if_required(scaling_wind, np.float32)
+            prediction = change_dtype_if_required(prediction, np.float32)
             if _numexpr and library == "numexpr":
-                prediction = ne.evaluate("38.2*arctan((scaling_wind * prediction / 3)/38.2)")
+                prediction = ne.evaluate("constant*arctan((scaling_wind * prediction / three)/constant)")
             else:
-                prediction = 38.2*np.arctan((scaling_wind * prediction / 3)/38.2)
+                prediction = constant*np.arctan((scaling_wind * prediction / three)/constant)
 
         if type_scaling == "Arctan_40_2":
             if _numexpr and library == "numexpr":

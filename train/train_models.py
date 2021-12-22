@@ -68,19 +68,19 @@ for index, prm in enumerate(list_prm):
     train_model = choose_training.select_type_of_training(prm)
 
     # Training
-    trained_model, history = train_model(prm)
+    _, history = train_model(prm)
 
     # Test
     if prm['type_of_training'] != 'all':
         test_pipeline.predict_test(prm)
 
     finish_prm = time.perf_counter()
-    print(f'\nPRM finished in {round((start_prm - finish_prm) / 60, 2)} minute(s)')
+    print(f'\nPRM finished in {round((finish_prm - start_prm) / 60, 2)} minute(s)')
 
     # Finished
     print_prm_info.print_finish()
 
 finish_all = time.perf_counter()
-print(f'\nFinished in {round((start_all - finish_all) / 60, 2)} minute(s)')
+print(f'\nFinished in {round((finish_all - start_all) / 60, 2)} minute(s)')
 print_prm_info.print_end_of_job()
 print_prm_info.print_end_of_training()

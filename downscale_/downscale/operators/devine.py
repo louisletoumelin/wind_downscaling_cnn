@@ -302,12 +302,22 @@ class Devine(Processing):
                                                                            extract_around=extract_around)
 
             # Rotate topographies
+            if type_rotation == "tfa":
+                initial_shape = topo_HD.shape
+                topo_HD = topo_HD.reshape(1, 1, 2*nb_pixel, 2*nb_pixel, 1)
+                selected_wind_dir = wind_dir_all[idx_station, :]
+                selected_wind_dir = selected_wind_dir.reshape(nb_sim, 1)
+            else:
+                selected_wind_dir = wind_dir_all[idx_station, :]
+
             topo[idx_station, :, :, :, 0] = self.select_rotation(data=topo_HD,
-                                                                 wind_dir=wind_dir_all[idx_station, :],
+                                                                 wind_dir=selected_wind_dir,
                                                                  clockwise=False,
                                                                  type_rotation=type_rotation,
-                                                                 GPU=GPU)[:, y_offset_left:y_offset_right,
-                                            x_offset_left:x_offset_right]
+                                                                 GPU=GPU)[:, 0, y_offset_left:y_offset_right,
+                                            x_offset_left:x_offset_right, 0]
+            if type_rotation == "tfa":
+                topo_HD = topo_HD.reshape(initial_shape)
 
             # Store results
             all_topo_HD[idx_station, :, :] = topo_HD[y_offset_left:y_offset_right, x_offset_left:x_offset_right]
@@ -448,15 +458,23 @@ class Devine(Processing):
         del UV_DIR
 
         # Rotate clockwise to put the wind value on the right topography pixel
-        prediction = np.moveaxis(prediction, -1, 2)
-        wind_dir_all = wind_dir_all.reshape((nb_station, nb_sim, 1))
-        prediction = self.select_rotation(data=prediction[:, :, :, :, :],
-                                          wind_dir=wind_dir_all[:, :, :],
+
+        if type_rotation != "tfa":
+            prediction = np.moveaxis(prediction, -1, 2)
+            wind_dir_all = wind_dir_all.reshape((nb_station, nb_sim, 1))
+        else:
+            wind_dir_all = wind_dir_all.reshape((nb_station, nb_sim))
+
+        prediction = self.select_rotation(data=prediction,
+                                          wind_dir=wind_dir_all,
                                           clockwise=True,
                                           type_rotation=type_rotation,
                                           GPU=GPU,
                                           verbose=False)
-        prediction = np.moveaxis(prediction, 2, -1)
+        if type_rotation != "tfa":
+            prediction = np.moveaxis(prediction, 2, -1)
+        print("debug prediction")
+        print(prediction.shape)
 
         U = prediction[:, :, :, :, 0].view()
         V = prediction[:, :, :, :, 1].view()
@@ -542,6 +560,7 @@ class Devine(Processing):
                                       "time": np.array(time_xr),
                                       "x": np.array(list(range(self.n_col))),
                                       "y": np.array(list(range(self.n_rows)))})
+
         print('__Creating array done') if verbose else None
 
         return array_xr
@@ -979,8 +998,9 @@ class Devine(Processing):
             ten_m_array = np.full_like(ZS_nwp, 10) if ten_m_array is None else ten_m_array
             prediction = self.apply_log_profile(z_in=three_m_array, z_out=ten_m_array, wind_in=prediction, z0=Z0_nwp,
                                                 verbose=verbose, z_in_verbose="3m", z_out_verbose="10m")
-
-        del ZS_nwp
+        if Z0:
+            del ZS_nwp
+            del Z0_nwp
 
         # Wind computations
         U_old = prediction[:, :, :, :, :, 0].view(dtype=np.float32)  # Expressed in the rotated coord. system [m/s]
@@ -996,7 +1016,6 @@ class Devine(Processing):
                                            unit_alpha="radian",
                                            unit_output="radian")  # Good coord. but not on the right pixel [radian]
 
-        del Z0_nwp
         del alpha
 
         # Reshape wind speed

@@ -1,10 +1,20 @@
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
+from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 import os
+import gc
+import random
+from pprint import pprint
 
 from . import learning_utils
+import sys
+sys.path.append('..')
+print(sys)
+import Models
+from Metrics import metrics
+from Prm import choose_initializer
+from Prm import choose_optimizer
 
 '''
 Functions
@@ -14,8 +24,7 @@ Functions
 def save_folds_weights_and_history_for_fold(model, history, fold, prm):
     """Save model weights and history for each fold"""
     out_dir = prm['output_dir'] + 'training_results/' + prm['info'] + f'/fold{fold}'
-    model.save(out_dir + '/fold_{}.h5'.format(fold))
-    tf.keras.models.save_model(model, out_dir + '/fold{}'.format(fold))
+    tf.keras.models.save_model(model, out_dir)
     np.save(out_dir + '/fold_{}_history.npy'.format(fold), history.history)
 
 
@@ -92,14 +101,32 @@ def load_data_by_fold(fold, prm):
 
 def callbacks_for_folds(fold, prm):
     filepath = prm['output_dir'] + 'training_results/' + prm['info'] + f'/fold{fold}'
-    reduce_lr = ReduceLROnPlateau(monitor='loss',
+    reduce_lr = ReduceLROnPlateau(monitor='val_mae',
                                   factor=prm['ROP_factor'],
                                   patience=prm['ROP_patience'],
                                   min_lr=prm['ROP_min_lr'],
                                   verbose=1)
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=0, save_best_only=True, mode='min')
-    callback_list = [checkpoint, reduce_lr]
-    return (callback_list)
+    print("DEBUG EarlyStopping")
+    print("early stopping is active")
+    early_stopping = EarlyStopping(monitor='val_mae',
+                                   patience=prm["early_stopping_patience"],
+                                   min_delta=prm["early_stopping_min_delta"],
+                                   mode="min",
+                                   restore_best_weights=True)
+    callback_list = [early_stopping, checkpoint, reduce_lr]
+
+    return callback_list
+
+
+def reset_seeds():
+    np.random.seed(1)
+    random.seed(2)
+    if tf.__version__[0] == '2':
+        tf.random.set_seed(3)
+    else:
+        tf.set_random_seed(3)
+    print("Random seed reset")
 
 
 '''
@@ -110,14 +137,23 @@ Training function
 @learning_utils.timer_step
 def train_model(prm):
     """Train a CNN with parameters specified in prm"""
-    model = learning_utils.init_compile(prm)
-    initial_weights = model.get_weights()
+    #model = learning_utils.init_compile(prm)
+    #initial_weights = model.get_weights()
     dict_norm = {}
+    dict_epochs = {}
     for fold in range(10):
-        print('Fold' + str(fold))
+
+        print("\n\n_______________")
+        print('_____'+'Fold' + str(fold)+'_____')
+        print("_______________\n\n")
 
         # Compile
-        model = learning_utils.reset_weights_and_compile(prm, model, initial_weights)
+        #model = learning_utils.reset_weights_and_compile(prm, model, initial_weights)
+        reset_seeds()
+        model = Models.choose_model.create_prm_model(prm)['model_func']
+        model.compile(loss=prm['loss'],
+                      optimizer=prm['optimizer_func'],
+                      metrics=prm['metrics'])
 
         # Load data
         TOPO_TRAIN, WIND_TRAIN, TOPO_VALID, WIND_VALID = load_data_by_fold(fold, prm)
@@ -127,8 +163,7 @@ def train_model(prm):
 
         # Reshaping for tensorflow
         x_train, y_train, x_val, y_val = learning_utils.reshape_data(TOPO_TRAIN, WIND_TRAIN,
-                                                                     TOPO_VALID, WIND_VALID,
-                                                                     prm=prm)
+                                                                     TOPO_VALID, WIND_VALID, prm=prm)
 
         # Display new dimensions
         learning_utils.print_reshaped_data_dimension(x_train, y_train, x_val, y_val)
@@ -146,6 +181,7 @@ def train_model(prm):
         callback_list = callbacks_for_folds(fold, prm)
 
         # Training
+        assert model.trainable
         history = model.fit(x_train,
                             y_train,
                             batch_size=prm['batch_size'],
@@ -157,6 +193,36 @@ def train_model(prm):
         # Saving model weights and history
         save_folds_weights_and_history_for_fold(model, history, fold, prm)
 
-    learning_utils.save_dict_norm(dict_norm, prm)
+        del model
+        del prm["model_func"]
+        del prm["dependencies"]
+        del prm["metrics"]
+        del prm['optimizer_func']
+        del prm['initializer_func']
+        del callback_list
+        del TOPO_TRAIN
+        del WIND_TRAIN
+        del TOPO_VALID
+        del WIND_VALID
+        del x_train
+        del y_train
+        del x_val
+        del y_val
+        gc.collect()
+        tf.keras.backend.clear_session()
+        tf.compat.v1.reset_default_graph()
+        prm = metrics.create_prm_metrics(prm)
+        prm = metrics.create_dependencies(prm)
+        prm = choose_optimizer.create_prm_optimizer(prm)
+        prm = choose_initializer.create_prm_initializer(prm)
 
-    return (model, history)
+        print("DEBUG")
+        pprint(history.history)
+        hist = history.history['val_mae']
+        n_epochs_best = np.argmin(hist) + 1
+        dict_epochs[str(fold)] = {'nb_epochs': n_epochs_best}
+
+    learning_utils.save_dict_norm(dict_norm, prm)
+    learning_utils.save_dict_epochs(dict_epochs, prm)
+
+    return None, history

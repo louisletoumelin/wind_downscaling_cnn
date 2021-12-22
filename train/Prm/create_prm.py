@@ -14,13 +14,13 @@ def create_prm_dict():
     """
     prms = {
         # Necessary
-        'date': ['15_12_2021'],
+        'date': ['21_12_2021'],
         # 'VCD' or 'UNet'
         'model': ['UNet'],
         # Specify only one name even if multiple prm are contained in prms
-        'name_simu': ['reset_weights_no_dropout_fold'],
+        'name_simu': ['classic_all_low_epochs'],
         # 'fold', 'class', 'degree', 'xi', 'all'
-        'type_of_training': ['fold'],
+        'type_of_training': ['all'],
 
         # General
         'loss': ["mse"],
@@ -29,7 +29,7 @@ def create_prm_dict():
         # 'RMSprop' 'Adam' 'AMSgrad' 'Adamax' 'Nadam'
         'optimizer': ['RMSprop'],
         'list_metrics': [['mae', 'root_mse']],
-        'epochs': [300],  # 150
+        'epochs': [48],  # 150, 48 for classic epochs after early stopping, 40 for no_dropout
 
         'batch_size': [32],
         'additional_flat_topo': [False],
@@ -54,10 +54,12 @@ def create_prm_dict():
         'activation_regression': ['linear'],
         # Pooling, batch norm and dropout
         'pool_size': [(2, 2)], # (2, 2)
-        'minimal_dropout_layers': [False], # True
+        'minimal_dropout_layers': [True], # True
         'full_dropout': [False],  # False
         'dropout': [0.25],
         'full_batch_norm': [False],  # False
+        'early_stopping_patience': [15],
+        'early_stopping_min_delta': [0.0001],
 
         # Other
         'n_rows': [79],

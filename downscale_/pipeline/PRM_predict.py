@@ -1,7 +1,7 @@
 from utils_prm import update_selected_path, select_path_to_coord_L93,\
     add_additional_stations, add_list_stations, check_expose_elevation, \
     check_extract_around_station_or_interpolated, create_begin_and_end_str, check_save_and_load, append_module_path, \
-    try_import_modules
+    try_import_modules, connect_on_GPU
 
 
 def create_prm(month_prediction=True):
@@ -13,9 +13,9 @@ def create_prm(month_prediction=True):
     """
 
     # GPU
-    prm["GPU"] = False
-    prm["horovod"] = False
-    prm["results_name"] = "qc_13_12_2021_with_log_profile"
+    prm["GPU"] = True
+    prm["horovod"] = True
+    prm["results_name"] = "SURFEX_22_12_2021_classic"
 
     """
     MNT, NWP and observations
@@ -23,7 +23,7 @@ def create_prm(month_prediction=True):
 
     # Observations
     prm["add_additional_stations"] = True
-    prm["select_date_time_serie"] = False
+    prm["select_date_time_serie"] = True
     prm["fast_loading"] = True
 
     # MNT
@@ -73,8 +73,8 @@ def create_prm(month_prediction=True):
     prm["stations_to_predict"] = "all"
 
     # For predictions long periods at stations
-    prm["variable"] = ["W", "UV", "UVW", "UV_DIR_deg", "alpha_deg", "NWP_wind_speed", "exp_Wind", "acceleration_CNN", "Z0", "a4"]
-    prm["station_similar_to_map"] = False  # If you work on interpolated AROME True, if stations False
+    prm["variable"] = ["W", "UV", "UVW", "UV_DIR_deg", "alpha_deg", "NWP_wind_speed", "exp_Wind", "acceleration_CNN", "Z0"]
+    prm["station_similar_to_map"] = True  # If you work on interpolated AROME True, if stations False
 
     # For map prediction
     prm["type_rotation"] = "tfa" # "indexes" or "scipy" or "tfa"
@@ -115,7 +115,7 @@ def create_prm(month_prediction=True):
     if not prm["GPU"]:
 
         # Parent directory
-        working_directory = "//home/letoumelinl/wind_downscaling_cnn/"
+        working_directory = "/home/letoumelinl/wind_downscaling_cnn/"
         # Data
         prm["data_path"] = working_directory + "Data/1_Raw/"
         # Synthetic topographies
@@ -125,8 +125,8 @@ def create_prm(month_prediction=True):
 
         # Topography
         #prm["topo_path"] = prm["data_path"] + "MNT/IGN_25m/ign_L93_25m_alpesIG.tif"
-        #prm["topo_path"] = prm["data_path"] + "MNT/CEN/DEM_FRANCE_L93_30m_bilinear.tif"
-        prm["topo_path"] = prm["data_path"] + "MNT/CEN/grandes_rousses.tif"
+        prm["topo_path"] = prm["data_path"] + "MNT/CEN/DEM_FRANCE_L93_30m_bilinear.tif"
+        #prm["topo_path"] = prm["data_path"] + "MNT/CEN/grandes_rousses.tif"
 
         # Observations
         prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/precise_localisation/liste_postes_alps_l93.csv"
@@ -160,13 +160,14 @@ def create_prm(month_prediction=True):
         prm["experience_path"] = "//scratch/mrmn/letoumelinl/predict_real/Model/"
         # Topography
         #prm["topo_path"] = prm["data_path"] + "MNT/IGN_25m/preprocessed_MNT.nc"
-        #prm["topo_path"] = prm["data_path"] + "MNT/CEN/grandes_rousses.nc"
-        prm["topo_path"] = prm["data_path"] + "MNT/CEN/DEM_FRANCE_L93_30m_bilinear.tif"
+        prm["topo_path"] = prm["data_path"] + "MNT/CEN/grandes_rousses.nc"
+        #prm["topo_path"] = prm["data_path"] + "MNT/CEN/DEM_FRANCE_L93_30m_bilinear.nc"
 
         # Observations
-        prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/17_09_2021/stations.csv"
+        prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/22_12_2021/stations.csv"
+
         # 2009-2021
-        prm["BDclim_data_path"] = prm["data_path"] + "BDclim/17_09_2021/time_series.csv"
+        prm["BDclim_data_path"] = prm["data_path"] + "BDclim/22_12_2021/time_series.csv"
         prm["height_sensor_path"] = prm["data_path"] + "BDclim/height_sensors.csv"
 
         # NWP
@@ -193,7 +194,7 @@ def create_prm(month_prediction=True):
 
     # SURFEX
     prm["path_SURFEX"] = prm["data_path"] + "/SURFEX/scriptMNT.nc"  # Surfex grid on the Grandes Rousses domain (from Ange)
-    prm["path_save_prediction_on_surfex_grid"] = prm["data_path"] + "/SURFEX/"  # Where to save predictions on SURFECX grid
+    prm["path_save_prediction_on_surfex_grid"] = prm["data_path"] + "/SURFEX/"  # Where to save predictions on SURFEX grid
 
     # QC
     prm["QC_pkl"] = prm["data_path"] + "BDclim/QC/qc_10_12_2021.pkl" # Quality controled time series (where to save the file)
@@ -210,14 +211,15 @@ def create_prm(month_prediction=True):
     prm["path_Col_du_Lautaret"] = prm["data_path"] + "BDclim/Col du Lautaret/lautaret.csv"
 
     # CNN model "date_16_02_name_simu_FINAL_1_0_model_UNet/"
-    prm['model_experience'] = "date_20_05_name_simu_retrain_with_mean_each_sample_0_model_UNet/"
-    prm["model_fold"] = "date_13_12_2021_name_simu_no_dropout_fold_0_model_UNet/"
+    # date_17_11_2021_name_simu_classic_all_v3_0_model_UNet
+    prm['model_experience'] = "date_21_12_2021_name_simu_no_dropout_all_low_epochs_0_model_UNet/"
+    prm["model_fold"] = "date_20_12_2021_name_simu_v3_classic_fold_earlystopping_0_model_UNet/"
+
+    # Do not modify
     prm["model_path"] = prm["experience_path"] + prm['model_experience']
     prm["model_path_fold"] = prm["experience_path"] + prm["model_fold"]
 
-
     # Module path
-
     prm["name_prediction"] = prm["results_name"]
 
     # Do not modify
@@ -231,6 +233,7 @@ def create_prm(month_prediction=True):
     prm = check_expose_elevation(prm)
     prm = check_extract_around_station_or_interpolated(prm)
     prm = try_import_modules(prm)
+    connect_on_GPU(prm)
 
     return prm
 

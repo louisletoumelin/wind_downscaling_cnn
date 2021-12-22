@@ -197,6 +197,6 @@ def train_model(model, root_mse, input_dir, txt):
 if GPU:
     start = time.perf_counter()
     model = build_model(input_shape)
-    trained_model, history = train_model(model, root_mse, input_dir, False)
+    _, history = train_model(model, root_mse, input_dir, False)
     finish = time.perf_counter()
     print(f'\nFinished in {round((finish-start)/60, 2)} minute(s)')

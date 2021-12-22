@@ -16,7 +16,7 @@ class EvaluationFromArrayXr(Evaluation):
             # self.array_xr = array_xr.rename({"UV_DIR_deg": "Wind_DIR"})
 
     def create_dataframe_from_predictions(self, station_name='Col du Lac Blanc', array_xr=None,
-                                          extract_around="station", interp_str=""):
+                                          extract_around="station", interp_str_nwp=""):
         """
         Creates a dataframe at a specified location using predictions stored in array_xr (xarray data)
         Input:
@@ -27,7 +27,7 @@ class EvaluationFromArrayXr(Evaluation):
         if extract_around == "nwp_neighbor_interp":
             nwp_name = self.v.p.nwp.name
             mnt_name = self.v.p.mnt.name
-            idx_str_neighbors = f"index_{nwp_name}_NN_0{interp_str}_ref_{mnt_name}"
+            idx_str_neighbors = f"index_{nwp_name}_NN_0{interp_str_nwp}_ref_{mnt_name}"
             idx_str_station = f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"
 
             stations = self.v.p.observation.stations
@@ -65,7 +65,8 @@ class EvaluationFromArrayXr(Evaluation):
         # Create DataFrames
         nwp_time_serie = self.create_dataframe_from_nwp_pixel(station_name, interp_str=interp_str_nwp)
         cnn_predictions = self.create_dataframe_from_predictions(station_name=station_name, array_xr=array_xr,
-                                                                 extract_around=extract_around, interp_str=interp_str)
+                                                                 extract_around=extract_around,
+                                                                 interp_str_nwp=interp_str_nwp)
 
         # self._rename_columns_obs_time_series()
         obs_time_serie = self.v.p.observation.time_series

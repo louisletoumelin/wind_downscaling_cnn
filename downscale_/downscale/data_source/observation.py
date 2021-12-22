@@ -221,10 +221,21 @@ class Observation:
                                       'index_AROME_NN_2_interpolated_ref_AROME_interpolated',
                                       'AROME_NN_3_interpolated',
                                       'index_AROME_NN_3_interpolated_ref_AROME_interpolated',
-                                      'index_AROME_NN_0_interpolated_ref_IGN',
-                                      'index_AROME_NN_1_interpolated_ref_IGN',
-                                      'index_AROME_NN_2_interpolated_ref_IGN',
-                                      'index_AROME_NN_3_interpolated_ref_IGN']
+                                      'index_AROME_NN_0_interpolated_ref_cen_gr',
+                                      'index_AROME_NN_1_interpolated_ref_cen_gr',
+                                      'index_AROME_NN_2_interpolated_ref_cen_gr',
+                                      'index_AROME_NN_3_interpolated_ref_cen_gr',
+                                      'index_cen_gr_NN_0_cKDTree_ref_cen_gr', 'cen_gr_NN_0_cKDTree',
+                                      'index_cen_gr_NN_1_cKDTree_ref_cen_gr',
+                                      'cen_gr_NN_1_cKDTree',
+                                      'index_cen_gr_NN_2_cKDTree_ref_cen_gr', 'cen_gr_NN_2_cKDTree',
+                                      'index_cen_gr_NN_3_cKDTree_ref_cen_gr',
+                                      'cen_gr_NN_3_cKDTree',
+                                      'index_AROME_NN_0_interpolated_ref_cen_gr',
+                                      'index_AROME_NN_1_interpolated_ref_cen_gr',
+                                      'index_AROME_NN_2_interpolated_ref_cen_gr',
+                                      'index_AROME_NN_3_interpolated_ref_cen_gr'
+                                      ]
 
                 # Check variable that are not present
                 variable_to_remove = []
@@ -727,8 +738,7 @@ class Observation:
         condition = self.stations["name"] == station
         interp_str = "_interpolated" if interpolated else ""
         idx_nwp_in_mnt = f"index_{nwp.name}_NN_0{interp_str}_ref_{mnt.name}"
-
-        (index_x, index_y) = self.stations[idx_nwp_in_mnt][condition].values[0]
+        index_x, index_y = self.stations[idx_nwp_in_mnt][condition].values[0]
         index_x, index_y = int(index_x), int(index_y)
         MNT_data = mnt.data[index_y - nb_pixel_y:index_y + nb_pixel_y, index_x - nb_pixel_x:index_x + nb_pixel_x]
         MNT_x = mnt.data_xr.x.data[index_x - nb_pixel_x:index_x + nb_pixel_x]

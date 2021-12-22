@@ -29,7 +29,6 @@ from downscale.data_source.NWP import NWP
 from downscale.data_source.observation import Observation
 from downscale.eval.evaluation import Evaluation
 from downscale.utils.utils_func import select_range
-from downscale.utils.GPU import connect_GPU_to_horovod
 
 
 # Create prm
@@ -40,8 +39,6 @@ utils
 """
 
 
-# Initialize horovod and GPU
-if prm["GPU"] and prm["horovod"]: connect_GPU_to_horovod()
 
 """
 MNT and NWP

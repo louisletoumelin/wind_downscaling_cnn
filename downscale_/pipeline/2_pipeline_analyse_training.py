@@ -5,6 +5,7 @@ import pandas as pd
 from tensorflow.keras.models import load_model
 import matplotlib
 matplotlib.use('Agg')
+#matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 
 try:
@@ -26,14 +27,13 @@ from downscale.visu.visualization import Visualization
 
 dependencies = {'root_mse': root_mse}
 
-connect_GPU_to_horovod() if prm["GPU"] else None
 p = Devine(prm=prm)
 gaussian_topo = GaussianTopo()
 
 test = []
 
 
-for fold_nb in range(2, 3):
+for fold_nb in range(10):
 
     print(fold_nb)
 
@@ -41,7 +41,9 @@ for fold_nb in range(2, 3):
 
     p.load_cnn(model_path=path_fold, dependencies=True)
 
-    _, std = p._load_norm_prm(prm["model_path_fold"])
+    dict_norm = pd.read_csv(prm["model_path_fold"] + "dict_norm.csv")
+    #mean = dict_norm[str(fold_nb)].iloc[0]
+    std = dict_norm[str(fold_nb)].iloc[1]
 
     train_test_group = pd.read_csv(path_fold+f"df_all_{fold_nb}.csv")
     list_variables = ['degree', 'xi', 'degree_xi', 'topo_name', 'wind_name', 'group']

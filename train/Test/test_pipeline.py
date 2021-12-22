@@ -48,12 +48,30 @@ def load_df_all(index, prm):
 
 
 def load_CNN(index, prm):
+    # https://github.com/tensorflow/tensorflow/issues/33646
     _, _, _, path, model_weights = get_path_by_type(index, prm)
-    model = load_model(path + model_weights, custom_objects=prm['dependencies'])
-    return (model)
+
+    #from tensorflow.python.saved_model import load as tf_load
+    #from tensorflow.python.keras.saving.saved_model.load import KerasObjectLoader, RevivedModel
+    #from tensorflow.python.keras.saving import saving_utils
+
+    #model = tf_load.load_internal(path, loader_cls=KerasObjectLoader)
+    #if isinstance(model, RevivedModel) and compile:
+    #    if model._training_config is not None:
+    #        model.compile(**saving_utils.compile_args_from_training_config(
+    #            model._training_config, prm["dependencies"]))
+
+    print("\n\nDEBUG dependenies")
+    print(prm['dependencies'])
+    print("DEBUG path")
+    print(path)
+    model = load_model(path, custom_objects=prm['dependencies'])
+    print("\n\nDEBUG model was loaded correctly")
+    return model
 
 
 def normalize_test_data(index, TOPO_TEST, prm):
+    #todo change normalizatio here
     _, _, path, _, _ = get_path_by_type(index, prm)
     dict_norm = pd.read_csv(path + '/dict_norm.csv')
     train_mean, train_std = dict_norm[str(index)]
@@ -63,7 +81,7 @@ def normalize_test_data(index, TOPO_TEST, prm):
 
 def save_test_predictions(index, WIND_PRED, prm):
     _, _, _, path, _ = get_path_by_type(index, prm)
-    np.save(path + f'WIND_PRED_{index}.npy', WIND_PRED)
+    #np.save(path + f'WIND_PRED_{index}.npy', WIND_PRED)
 
 
 def save_updated_df_all(index, df_all, prm):

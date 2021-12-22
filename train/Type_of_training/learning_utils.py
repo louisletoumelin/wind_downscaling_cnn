@@ -20,6 +20,12 @@ def save_dict_norm(dict_norm, prm):
     pd.DataFrame.from_dict(dict_norm).to_csv(out_dir + '/dict_norm.csv')
 
 
+def save_dict_epochs(dict_epochs, prm):
+    """Save normalization features for each fold"""
+    out_dir = prm['output_dir'] + 'training_results/' + prm['info']
+    pd.DataFrame.from_dict(dict_epochs).to_csv(out_dir + '/dict_epochs.csv')
+
+
 def reset_weights_and_compile(prm, model, weights):
     """Compile model"""
     #out_dir = prm['output_dir'] + 'training_results/' + prm['info']
@@ -70,14 +76,9 @@ def print_reshaped_data_dimension(x_train, y_train, x_val=None, y_val=None):
 
 def normalize_training_features(x_train, x_val=None):
     """Normalize training and validation features"""
-    print(f"\n\nDEBUG: x_train shape: {x_train.shape}")
     train_mean, train_std = np.mean(x_train, axis=(1, 2)), np.std(x_train)
-    print(f"DEBUG: train_mean shape before reshaping: {train_mean.shape}")
     train_mean = train_mean.reshape((train_mean.shape[0], 1, 1, 1))
-    print(f"DEBUG: train_mean shape after reshapin: {train_mean.shape}")
-    print(f"Shape x_train before training: {x_train.shape}")
     x_train = (x_train - train_mean) / train_std
-    print(f"Shape x_train after training: {x_train.shape}")
     if x_val is not None:
         train_mean = np.mean(x_val, axis=(1, 2))
         train_mean = train_mean.reshape((train_mean.shape[0], 1, 1, 1))
