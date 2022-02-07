@@ -1,6 +1,9 @@
+import datetime
+import uuid
+
 import numpy as np
 import pandas as pd
-import datetime
+import matplotlib.pyplot as plt
 
 from downscale.utils.decorators import timer_decorator
 
@@ -238,6 +241,16 @@ def print_statistical_description_array(array, name="Acceleration CNN", level="_
     print(f"\n{level}{name} maximum", np.nanmax(array))
 
     return None
+
+
+def save_figure(name_figure, prm, save_path=None, format="png", svg=True):
+    save_path = prm["save_figure_path"] if save_path is None else save_path
+    ax = plt.gca()
+    fig = ax.get_figure()
+    uuid_str=str(uuid.uuid4())[:4]
+    fig.savefig(save_path + f"{name_figure}_{uuid_str}.{format}")
+    if svg:
+        fig.savefig(save_path + f"{name_figure}_{uuid_str}.svg")
 
 
 def print_with_frame(text):

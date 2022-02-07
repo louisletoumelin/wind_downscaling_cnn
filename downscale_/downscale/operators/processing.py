@@ -69,6 +69,20 @@ class Processing(DwnscHelbig, MicroMet, Rotation, Interpolation, Generators):
 
         self.observation.stations["laplacian"] = laplacians
 
+    def update_stations_with_sx(self, sx_direction):
+
+        stations = self.observation.stations
+        mnt_name = self.mnt.name
+
+        idx_x = stations[f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"].str[0].values
+        idx_y = stations[f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"].str[1].values
+
+        idx_x = idx_x.astype(np.int32)
+        idx_y = idx_y.astype(np.int32)
+        sx = self.sx_idx(self.mnt.data, idx_x, idx_y, cellsize=30, dmax=300, in_wind=sx_direction, wind_inc=5, wind_width=30)
+
+        self.observation.stations["sx_300"] = sx
+
     def update_stations_with_tpi(self, radius=2000):
 
         stations = self.observation.stations
@@ -145,8 +159,8 @@ class Processing(DwnscHelbig, MicroMet, Rotation, Interpolation, Generators):
                                               verbose=False):
         """
         Extract numpy arrays of specified variable at a specific station.
-        Needs the station name. Return a list of arrays containing variable time series at the station. 
-        
+        Needs the station name. Return a list of arrays containing variable time series at the station.
+
         Parameters
         ----------
         station_name : string

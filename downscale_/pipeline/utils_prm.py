@@ -14,6 +14,9 @@ def _update_selected_path(year, month, day, prm):
     d5 = datetime.datetime(2019, 7, 1, 6)
     d6 = datetime.datetime(2020, 7, 1, 6)
 
+    d7 = datetime.datetime(2021, 4, 1, 6)
+    d8 = datetime.datetime(2021, 5, 1, 6)
+
     if d1 < current_date <= d2:
         prm["selected_path"] = prm["AROME_path_1"]
     elif d2 < current_date <= d3:
@@ -22,6 +25,8 @@ def _update_selected_path(year, month, day, prm):
         prm["selected_path"] = prm["AROME_path_3"]
     elif d5 < current_date <= d6:
         prm["selected_path"] = prm["AROME_path_4"]
+    elif d7 < current_date <= d8:
+        prm["selected_path"] = prm["AROME_path_5"]
     else:
         prm["selected_path"] = prm["AROME_path"]
 
@@ -188,6 +193,7 @@ def check_save_and_load(prm):
 def append_module_path(prm):
     import sys
     sys.path.append(prm["path_module"])
+    print("Module path added")
 
 
 def try_import_modules(prm):
@@ -305,13 +311,15 @@ def check_connection_GPU(prm):
     if prm['GPU']:
         device_name = tf.test.gpu_device_name()
         if device_name != '/device:GPU:0':
-            raise SystemError('GPU device not found')
-        print('Found GPU at: {}'.format(device_name))
+            print('GPU device not found')
+        else:
+            print('Found GPU at: {}'.format(device_name))
 
 
 def connect_on_GPU(prm):
     if prm["GPU"]:
         print("\nBegin connection on GPU") if prm["verbose"] else None
-        connect_GPU_to_horovod(prm)
+        if prm["horovod"]:
+            connect_GPU_to_horovod(prm)
         check_connection_GPU(prm)
         print("End connection on GPU\n") if prm["verbose"] else None

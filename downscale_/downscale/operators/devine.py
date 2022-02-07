@@ -293,14 +293,15 @@ class Devine(Processing):
 
             # Extract topography
             extract_around = "station" if not centered_on_interpolated else "nwp_neighbor_interp"
+
             nwp = self.nwp if centered_on_interpolated else None
+
             topo_HD, topo_x_l93, topo_y_l93 = self.observation.extract_MNT(self.mnt,
                                                                            nb_pixel,
                                                                            nb_pixel,
                                                                            station=single_station,
                                                                            nwp=nwp,
                                                                            extract_around=extract_around)
-
             # Rotate topographies
             if type_rotation == "tfa":
                 initial_shape = topo_HD.shape
@@ -473,8 +474,6 @@ class Devine(Processing):
                                           verbose=False)
         if type_rotation != "tfa":
             prediction = np.moveaxis(prediction, 2, -1)
-        print("debug prediction")
-        print(prediction.shape)
 
         U = prediction[:, :, :, :, 0].view()
         V = prediction[:, :, :, :, 1].view()
@@ -594,7 +593,6 @@ class Devine(Processing):
             result = jit_rpl_px(wind, mnt_map, idx_y_mnt, idx_x_mnt, save_pixels, y_offset_left, y_offset_right,
                                 x_offset_left, x_offset_right)
             print("____Library: Numba") if verbose else None
-
         else:
             result = self._iterate_to_replace_pixels(wind, mnt_map, idx_y_mnt, idx_x_mnt, save_pixels, y_offset_left,
                                                      y_offset_right, x_offset_left, x_offset_right)
@@ -789,11 +787,17 @@ class Devine(Processing):
             wind_large = np.moveaxis(wind_large, 3, -1)
 
         elif type_rotation == "tfa":
-            wind = wind.reshape((nb_time_step, nb_px_nwp_y * nb_px_nwp_x, 79, 69, 3))
+            try:
+                wind = wind.reshape((nb_time_step, nb_px_nwp_y * nb_px_nwp_x, 79, 69, 3))
+            except ValueError:
+                wind = wind.reshape((nb_time_step, nb_px_nwp_y * nb_px_nwp_x, 79, 69, 1))
             angle = angle.reshape((nb_time_step, nb_px_nwp_y * nb_px_nwp_x))
             wind_large = self.select_rotation(data=wind, wind_dir=angle, clockwise=True,
                                               type_rotation=type_rotation, GPU=GPU)
-            wind_large = wind_large.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 79, 69, 3))
+            try:
+                wind_large = wind_large.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 79, 69, 3))
+            except ValueError:
+                wind_large = wind_large.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 79, 69, 1))
 
         return wind_large
 
@@ -846,6 +850,7 @@ class Devine(Processing):
         select_area = kwargs.get("select_area")
         GPU = kwargs.get("GPU")
         batch_size_prediction = kwargs.get("batch_size_prediction")
+        store_alpha_in_results = kwargs.get("store_alpha_in_results")
         ten_m_array = None
         three_m_array = None
 
@@ -891,6 +896,7 @@ class Devine(Processing):
 
         # Initialize wind map
         wind_map = np.zeros((nb_time_step, shape_x_mnt, shape_y_mnt, 3), dtype=np.float32)
+        alpha_map = np.zeros((nb_time_step, shape_x_mnt, shape_y_mnt, 1), dtype=np.float32)
 
         # Constants
         nb_pixel = 70
@@ -1015,8 +1021,8 @@ class Devine(Processing):
                                            unit_direction="degree",
                                            unit_alpha="radian",
                                            unit_output="radian")  # Good coord. but not on the right pixel [radian]
-
-        del alpha
+        if not store_alpha_in_results:
+            del alpha
 
         # Reshape wind speed
         wind_speed_nwp = wind_speed_nwp.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x))
@@ -1031,17 +1037,31 @@ class Devine(Processing):
 
         # Reduce size matrix of indexes
         prediction = prediction.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 79 * 69, 3))
+        if store_alpha_in_results:
+            alpha = alpha.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 79 * 69, 1))
 
         # Rotate back
         wind_large = self._rotation_wrapper_for_wind_in_predict_maps(prediction, angle, type_rotation,
                                                                      GPU=GPU, nb_time_step=nb_time_step,
                                                                      nb_px_nwp_y=nb_px_nwp_y, nb_px_nwp_x=nb_px_nwp_x)
+
+        if store_alpha_in_results:
+            alpha = self._rotation_wrapper_for_wind_in_predict_maps(alpha, angle, type_rotation,
+                                                                    GPU=GPU, nb_time_step=nb_time_step,
+                                                                    nb_px_nwp_y=nb_px_nwp_y, nb_px_nwp_x=nb_px_nwp_x)
+
         # Replace pixels on map
         wind_map, acceleration_all = self.replace_pixels_on_map(mnt_map=wind_map, wind=wind_large,
                                                                 idx_x_mnt=idx_x_mnt, idx_y_mnt=idx_y_mnt,
                                                                 type_rotation=type_rotation,
                                                                 wind_speed_nwp=wind_speed_nwp, save_pixels=nb_pixels,
                                                                 acceleration=True, library="numba")
+        if store_alpha_in_results:
+            alpha, _ = self.replace_pixels_on_map(mnt_map=alpha_map, wind=alpha,
+                                                  idx_x_mnt=idx_x_mnt, idx_y_mnt=idx_y_mnt,
+                                                  type_rotation=type_rotation,
+                                                  wind_speed_nwp=wind_speed_nwp, save_pixels=nb_pixels,
+                                                  acceleration=False, library="numba")
 
         del wind_large
         del angle
@@ -1052,15 +1072,28 @@ class Devine(Processing):
 
         if centered_on_interpolated:
             wind_map = wind_map.reshape((nb_time_step, shape_x_mnt, shape_y_mnt, 3))
-            wind_xr = xr.Dataset(
-                data_vars=dict(
-                    U=(["time", "y", "x"], wind_map[:, :, :, 0]),
-                    V=(["time", "y", "x"], wind_map[:, :, :, 1]),
-                    W=(["time", "y", "x"], wind_map[:, :, :, 2])),
-                coords=dict(
-                    x=(["x"], coord[0]),
-                    y=(["y"], coord[1]),
-                    time=times_to_save))
+            if store_alpha_in_results:
+                wind_xr = xr.Dataset(
+                    data_vars=dict(
+                        U=(["time", "y", "x"], wind_map[:, :, :, 0]),
+                        V=(["time", "y", "x"], wind_map[:, :, :, 1]),
+                        W=(["time", "y", "x"], wind_map[:, :, :, 2]),
+                        acceleration_all=(["time", "y", "x"], acceleration_all[:, :, :]),
+                        alpha=(["time", "y", "x"], np.rad2deg(alpha[:, :, :, 0])),),
+                    coords=dict(
+                        x=(["x"], coord[0]),
+                        y=(["y"], coord[1]),
+                        time=times_to_save))
+            else:
+                wind_xr = xr.Dataset(
+                    data_vars=dict(
+                        U=(["time", "y", "x"], wind_map[:, :, :, 0]),
+                        V=(["time", "y", "x"], wind_map[:, :, :, 1]),
+                        W=(["time", "y", "x"], wind_map[:, :, :, 2]),),
+                    coords=dict(
+                        x=(["x"], coord[0]),
+                        y=(["y"], coord[1]),
+                        time=times_to_save))
 
             return wind_xr
 

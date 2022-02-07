@@ -5,8 +5,16 @@ from time import time as t
 from downscale.data_source.data_2D import Data_2D
 from downscale.utils.context_managers import print_all_context
 
+try:
+    import dask
+    _dask = True
+except ImportError:
+    _dask = False
+
 
 class MNT(Data_2D):
+
+    _dask = _dask
 
     def __init__(self, path_to_file=None, name=None, prm={"verbose": True}):
 
@@ -84,7 +92,7 @@ class MNT(Data_2D):
         This function takes as input a mnt and returns data, coordinates and shape
         """
 
-        if prm["_dask"]:
+        if _dask:
             shape_x_mnt, shape_y_mnt = mnt_data.data.shape[1:]
             mnt_data_x = mnt_data.x.data.astype(np.float32)
             mnt_data_y = mnt_data.y.data.astype(np.float32)

@@ -13,9 +13,9 @@ def create_prm(month_prediction=True):
     """
 
     # GPU
-    prm["GPU"] = True
-    prm["horovod"] = True
-    prm["results_name"] = "SURFEX_22_12_2021_classic"
+    prm["GPU"] = False
+    prm["horovod"] = False
+    prm["results_name"] = "qc_19_01_2022"
 
     """
     MNT, NWP and observations
@@ -23,8 +23,8 @@ def create_prm(month_prediction=True):
 
     # Observations
     prm["add_additional_stations"] = True
-    prm["select_date_time_serie"] = True
-    prm["fast_loading"] = True
+    prm["select_date_time_serie"] = False
+    prm["fast_loading"] = False
 
     # MNT
     prm["name_mnt"] = "cen_gr"
@@ -70,7 +70,7 @@ def create_prm(month_prediction=True):
     prm["input_direction"] = 270
 
     # For predictions at stations
-    prm["stations_to_predict"] = "all"
+    prm["stations_to_predict"] = ["Col du Lac Blanc"]
 
     # For predictions long periods at stations
     prm["variable"] = ["W", "UV", "UVW", "UV_DIR_deg", "alpha_deg", "NWP_wind_speed", "exp_Wind", "acceleration_CNN", "Z0"]
@@ -90,43 +90,45 @@ def create_prm(month_prediction=True):
     prm["method"] = "linear"
     prm["nb_batch_sent_to_gpu"] = 10 # Number of batches sent from the cpu to the gpu to avoid out of memory error
     prm["batch_size_prediction"] = 2**10 # Number of batches in the gpu to accelerate computation
+    prm["store_alpha_in_results"] = True
 
     # 2 August 2017 1h
-    prm["hour_begin"] = 1#1
-    prm["day_begin"] = 2#2
-    prm["month_begin"] = 8#8
-    prm["year_begin"] = 2017#2017
+    prm["hour_begin"] = 15#1
+    prm["day_begin"] = 11#2
+    prm["month_begin"] = 7#8
+    prm["year_begin"] = 2019#2017
 
     # 31 May 2020 1h
-    prm["hour_end"] = 1#1
-    prm["day_end"] = 31#31
-    prm["month_end"] = 5#5
-    prm["year_end"] = 2020#2020
+    prm["hour_end"] = 15#1
+    prm["day_end"] = 11#31
+    prm["month_end"] = 7#5
+    prm["year_end"] = 2019#2020
 
     prm["list_no_HTN"] = ["DIGNE LES BAINS", "LA MURE-ARGENS", "ARVIEUX", "EMBRUN", "LA FAURIE", "GAP", "ANTIBES-GAROUPE", "ASCROS", "CANNES", "CAUSSOLS", "PEILLE",
                           "CHAPELLE-EN-VER", "TRICASTIN", "ST ROMAN-DIOIS", "CREYS-MALVILLE", "ST-ALBAN", "ST-PIERRE-LES EGAUX", "LUS L CROIX HTE", "GRENOBLE–LVD", "ALBERTVILLE JO",
                           "MERIBEL BURGIN", "MONT DU CHAT", "FECLAZ_SAPC", "FREJUS", "LA MASSE", "RISTOLAS", "TALLARD", "ST MICHEL MAUR_SAPC", "TIGNES_SAPC", "VAL D’I SOLAISE",
-                          "AGUIL. DU MIDI", "Vallot", "Saint-Sorlin", "Argentiere", "Dome Lac Blanc"]
+                          "AGUIL. DU MIDI", "Vallot", "Saint-Sorlin", "Argentiere"]
 
     prm["list_additionnal"] = ['Vallot', 'Saint-Sorlin', 'Argentiere', 'Dome Lac Blanc', 'Col du Lac Blanc',
                                'La Muzelle Lac Blanc', 'Col de Porte']
 
     # Paths to files
     if not prm["GPU"]:
-
         # Parent directory
-        working_directory = "/home/letoumelinl/wind_downscaling_cnn/"
+        prm["working_directory"] = "/home/letoumelinl/wind_downscaling_cnn/"
         # Data
-        prm["data_path"] = working_directory + "Data/1_Raw/"
+        prm["data_path"] = prm["working_directory"] + "Data/1_Raw/"
+        # Pre-processed data
+        prm["preprocessed_data"] = prm["working_directory"] + "Data/2_Pre_processed/"
         # Synthetic topographies
         prm["gaussian_topo_path"] = prm["data_path"] + "ARPS/"
         # CNN
-        prm["experience_path"] = working_directory + "Models/ARPS/"
+        prm["experience_path"] = prm["working_directory"] + "Models/ARPS/"
 
         # Topography
         #prm["topo_path"] = prm["data_path"] + "MNT/IGN_25m/ign_L93_25m_alpesIG.tif"
-        prm["topo_path"] = prm["data_path"] + "MNT/CEN/DEM_FRANCE_L93_30m_bilinear.tif"
-        #prm["topo_path"] = prm["data_path"] + "MNT/CEN/grandes_rousses.tif"
+        #prm["topo_path"] = prm["data_path"] + "MNT/CEN/DEM_FRANCE_L93_30m_bilinear.tif"
+        prm["topo_path"] = prm["data_path"] + "MNT/CEN/grandes_rousses.tif"
 
         # Observations
         prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/precise_localisation/liste_postes_alps_l93.csv"
@@ -145,13 +147,15 @@ def create_prm(month_prediction=True):
         prm["AROME_path_2"] = prm["data_path"] + "AROME/FORCING_alp_2018080106_2019060106_32bits.nc"
         prm["AROME_path_3"] = prm["data_path"] + "AROME/FORCING_alp_2019060107_2019070106_32bits.nc"
         prm["AROME_path_4"] = prm["data_path"] + "AROME/FORCING_alp_2019060106_2020060206_32bits.nc"
-        prm["AROME_path"] = [prm["AROME_path_1"], prm["AROME_path_2"], prm["AROME_path_3"], prm["AROME_path_4"]]
+        prm["AROME_path_5"] = prm["data_path"] + "AROME/2021/FORCING_alp_2021_04.nc"
+        prm["AROME_path"] = [prm["AROME_path_1"], prm["AROME_path_2"], prm["AROME_path_3"], prm["AROME_path_4"],
+                             prm["AROME_path_5"]]
 
-        prm["path_to_synthetic_topo"] = working_directory + "Data/2_Pre_processed/ARPS/fold/df_all.csv"
+        prm["path_to_synthetic_topo"] = prm["working_directory"] + "Data/2_Pre_processed/ARPS/fold/df_all.csv"
 
         # Path to python module downscale
-        prm["path_module"] = working_directory + "src/downscale_/"
-        prm["save_figure_path"] = working_directory + "Figures/"
+        prm["path_module"] = prm["working_directory"] + "src/downscale_/"
+        prm["save_figure_path"] = prm["working_directory"] + "Figures/"
 
     if prm["GPU"]:
         # Data
@@ -160,14 +164,16 @@ def create_prm(month_prediction=True):
         prm["experience_path"] = "//scratch/mrmn/letoumelinl/predict_real/Model/"
         # Topography
         #prm["topo_path"] = prm["data_path"] + "MNT/IGN_25m/preprocessed_MNT.nc"
-        prm["topo_path"] = prm["data_path"] + "MNT/CEN/grandes_rousses.nc"
-        #prm["topo_path"] = prm["data_path"] + "MNT/CEN/DEM_FRANCE_L93_30m_bilinear.nc"
+        #prm["topo_path"] = prm["data_path"] + "MNT/CEN/grandes_rousses.nc"
+        prm["topo_path"] = prm["data_path"] + "MNT/CEN/DEM_FRANCE_L93_30m_bilinear.nc"
+        # Synthetic topographies
+        prm["gaussian_topo_path"] = "//scratch/mrmn/letoumelinl/ARPS/"
 
         # Observations
-        prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/22_12_2021/stations.csv"
+        prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/19_01_2022/stations.csv"
 
         # 2009-2021
-        prm["BDclim_data_path"] = prm["data_path"] + "BDclim/22_12_2021/time_series.csv"
+        prm["BDclim_data_path"] = prm["data_path"] + "BDclim/19_01_2022/time_series.csv"
         prm["height_sensor_path"] = prm["data_path"] + "BDclim/height_sensors.csv"
 
         # NWP
@@ -186,6 +192,7 @@ def create_prm(month_prediction=True):
 
         # Path to python module downscale
         prm["path_module"] = "//home/mrmn/letoumelinl/downscale_"
+        prm["save_figure_path"] = "//scratch/mrmn/letoumelinl/predict_real/"
 
     # Z0
     prm["path_Z0_2018"] = prm["data_path"] + "AROME/Z0/Z0_alp_2018010100_2018120700.nc" if prm["Z0"] else None
@@ -197,8 +204,8 @@ def create_prm(month_prediction=True):
     prm["path_save_prediction_on_surfex_grid"] = prm["data_path"] + "/SURFEX/"  # Where to save predictions on SURFEX grid
 
     # QC
-    prm["QC_pkl"] = prm["data_path"] + "BDclim/QC/qc_10_12_2021.pkl" # Quality controled time series (where to save the file)
-    prm["path_fast_loading"] = prm["data_path"] + "BDclim/QC/qc_10_12_2021.pkl" # qc_59.pkl before Quality controled time series (where to load the file)
+    prm["QC_pkl"] = prm["data_path"] + "BDclim/QC/qc_21_01_2022.pkl" # Quality controled time series (where to save the file)
+    prm["path_fast_loading"] = prm["data_path"] + "BDclim/QC/qc_21_01_2022.pkl" # qc_59.pkl before Quality controled time series (where to load the file)
 
     # Observation
     prm["path_vallot"] = prm["data_path"] + "BDclim/Vallot/"
@@ -212,7 +219,7 @@ def create_prm(month_prediction=True):
 
     # CNN model "date_16_02_name_simu_FINAL_1_0_model_UNet/"
     # date_17_11_2021_name_simu_classic_all_v3_0_model_UNet
-    prm['model_experience'] = "date_21_12_2021_name_simu_no_dropout_all_low_epochs_0_model_UNet/"
+    prm['model_experience'] = "date_21_12_2021_name_simu_classic_all_low_epochs_0_model_UNet/"
     prm["model_fold"] = "date_20_12_2021_name_simu_v3_classic_fold_earlystopping_0_model_UNet/"
 
     # Do not modify

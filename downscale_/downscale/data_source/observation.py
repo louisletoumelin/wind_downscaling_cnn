@@ -16,6 +16,7 @@ try:
 except ModuleNotFoundError:
     _shapely_geometry = False
 
+
 class Observation:
 
     def __init__(self, path_to_list_stations=None, path_to_time_series=None, prm={}):
@@ -79,14 +80,53 @@ class Observation:
             self.time_series = pd.read_pickle(path)
             print("__Used pd.read_pickle to load time series (fast method)") if verbose else None
 
-    def replace_obs_by_QC_obs(self, prm):
+    def replace_obs_by_QC_obs(self, prm, replace_old_wind=True, drop_not_valid=True, verbose=True):
+
         time_series_qc_all = pd.read_pickle(prm["QC_pkl"])
-        filter_validity_speed = (time_series_qc_all['validity_speed'] == 1)
-        filter_validity_direction = (time_series_qc_all['validity_direction'] == 1)
-        time_series_qc = time_series_qc_all[filter_validity_speed & filter_validity_direction]
-        assert len(time_series_qc) != len(time_series_qc_all)
+        print(f"_loaded QC at {prm['QC_pkl']}")
+
+        """
+        time_series_lac_blanc = self.store_obs_lac_blanc_before_log_profile_and_modify_snow_height_dome()
+        col_0 = time_series_qc_all["name"] == "Col Lac Blanc"
+        dome_0 = time_series_qc_all["name"] == "Dome Lac Blanc"
+        muz_0 = time_series_qc_all["name"] == "La Muzelle Lac Blanc"
+        col_1 = time_series_lac_blanc["name"] == "Col Lac Blanc"
+        dome_1 = time_series_lac_blanc["name"] == "Dome Lac Blanc"
+        muz_1 = time_series_lac_blanc["name"] == "La Muzelle Lac Blanc"
+        index_intersection = time_series_lac_blanc.index.intersection(time_series_qc_all.index)
+
+        time_series_qc_all[col_0 & index_intersection] = time_series_lac_blanc[col_1 & index_intersection]
+        time_series_qc_all[dome_0 & index_intersection] = time_series_lac_blanc[dome_1 & index_intersection]
+        time_series_qc_all[muz_0 & index_intersection] = time_series_lac_blanc[muz_1 & index_intersection]
+        print("__Replaced obs at col, dome and muzelle by original observations") if verbose else None
+        """
+
+        if replace_old_wind:
+            wind_corrected_not_nan = ~time_series_qc_all["wind_corrected"].isna()
+            time_series_qc_all['vw10m(m/s)'][wind_corrected_not_nan] = time_series_qc_all["wind_corrected"][wind_corrected_not_nan]
+            try:
+                time_series_qc_all['UV'][wind_corrected_not_nan] = time_series_qc_all["wind_corrected"][wind_corrected_not_nan]
+            except KeyError:
+                pass
+            try:
+                time_series_qc_all['winddir(deg)'] = time_series_qc_all["UV_DIR"]
+                time_series_qc_all["Wind_DIR"] = time_series_qc_all["Wind_DIR"]
+            except KeyError:
+                pass
+            print("__old wind name replaced by corrected wind name") if verbose else None
+
+        time_series_qc = time_series_qc_all
+
+        if drop_not_valid:
+            #filter_validity_speed = (time_series_qc_all['validity_speed'] == 1)
+            #filter_validity_direction = (time_series_qc_all['validity_direction'] == 1)
+            #time_series_qc = time_series_qc_all[filter_validity_speed & filter_validity_direction]
+            time_series_qc = self.apply_qc_filters_to_time_series(time_series)
+            assert len(time_series_qc) != len(time_series_qc_all)
+
         self.time_series = time_series_qc
         self._qc = True
+        print("__observations replaced by valid observations") if verbose else None
 
     def delete_obs_not_passing_QC(self):
 
@@ -183,11 +223,11 @@ class Observation:
             if self.path_vallot is not None: self._add_time_serie_vallot(log_profile=True)
             if self.path_saint_sorlin is not None: self._add_time_serie_glacier(name='Saint-Sorlin', log_profile=False)
             if self.path_argentiere is not None: self._add_time_serie_glacier(name='Argentiere', log_profile=False)
-            if self.path_Dome_Lac_Blanc is not None: self._add_time_serie_Col(name='Dome Lac Blanc', log_profile=True)
+            if self.path_Dome_Lac_Blanc is not None: self._add_time_serie_Col(name='Dome Lac Blanc', log_profile=False)
             if self.path_Col_du_Lac_Blanc is not None: self._add_time_serie_Col(name='Col du Lac Blanc',
-                                                                                log_profile=True)
+                                                                                log_profile=False)
             if self.path_Muzelle_Lac_Blanc is not None: self._add_time_serie_Col(name='La Muzelle Lac Blanc',
-                                                                                 log_profile=True)
+                                                                                 log_profile=False)
             if self.path_Col_de_Porte is not None: self._add_time_serie_Col(name='Col de Porte', log_profile=False)
             if self.path_Col_du_Lautaret is not None: self._add_time_serie_Col(name='Col du Lautaret',
                                                                                log_profile=False)
@@ -772,10 +812,11 @@ class Observation:
 
     @timer_decorator("modify wind speed observations", unit="second", level=". . ")
     def qc_log_profile(self, prm, z_out_height=10, wind_speed='vw10m(m/s)',
-                       snow_height_str="HTN(cm)", Z0_snow=0.001, Z0_bare_ground=0.05):
+                       snow_height_str="HTN(cm)", Z0_snow=0.001, Z0_bare_ground=0.05, stations=None, time_series=None,
+                       return_result=False):
 
-        stations = self.stations
-        time_series = self.time_series
+        stations = self.stations if stations is None else stations
+        time_series = self.time_series if time_series is None else time_series
         height_sensor = self.read_height_sensor(prm["height_sensor_path"])
         time_series["wind_corrected"] = np.nan
         wu = Wind_utils()
@@ -791,9 +832,7 @@ class Observation:
 
             # Load wind speed from observations
             UV = obs_station[wind_speed].values
-
             Z0 = np.full_like(UV, Z0_bare_ground)
-
             z_in = np.full_like(UV, sensor_height)
             z_out = np.full_like(UV, z_out_height)
 
@@ -804,8 +843,8 @@ class Observation:
                     z_in_verbose = str(np.round(np.mean(z_in)))
                     z_out_verbose = str(z_out_height)
                     wind_corrected = wu.apply_log_profile(z_in, z_out, UV, Z0,
-                                                            z_in_verbose=z_in_verbose,
-                                                            z_out_verbose=z_out_verbose)
+                                                          z_in_verbose=z_in_verbose,
+                                                          z_out_verbose=z_out_verbose)
                 else:
                     wind_corrected = UV
             else:
@@ -822,8 +861,10 @@ class Observation:
 
             filter_time = time_series.index.isin(obs_station.index)
             time_series["wind_corrected"][filter_station & filter_time] = wind_corrected
-
-        self.time_series = time_series
+        if return_result:
+            return time_series, stations
+        else:
+            self.time_series = time_series
 
     @staticmethod
     def read_height_sensor(path):
@@ -1079,7 +1120,7 @@ class Observation:
         # Calm criteria: UV = 0m/s => UV_DIR = 0°
         self.time_series["UV_DIR"][self.time_series[wind_speed] == 0] = 0
 
-        if verbose: print("__Calm criteria applied. Now if UV=0, UV_DIR=0")
+        print("__Calm criteria applied. Now if UV=0, UV_DIR=0") if verbose else None
 
     @print_func_executed_decorator("true_north")
     @timer_decorator("true_north", unit="minute")
@@ -1969,6 +2010,16 @@ class Observation:
         if stations == 'all':
             stations = time_series["name"].unique()
 
+        # Select valid observations (but keep constant sequences)
+        # Unphysical speed or direction
+        filter_1 = (time_series['qc_1_speed'] == 1) & (time_series['qc_1_direction'] == 1)
+        # Excessive MISS speed or direction
+        filter_2 = (time_series['qc_2_speed'] == 1) & (time_series['qc_2_direction'] == 1)
+        # Too high or low variations
+        filter_5 = (time_series['qc_5_speed'] == 1)
+        time_series = time_series[filter_1 & filter_2 & filter_5]
+        print("Removed not valid observation before computing bias")
+
         list_dataframe = []
         for station in stations:
             time_serie_station = time_series[time_series["name"] == station]
@@ -2084,6 +2135,36 @@ class Observation:
         else:
             return time_serie_station
 
+    @staticmethod
+    def apply_qc_filters_to_time_series(self, time_series):
+
+        # Unphysical speed or direction
+        filter_1 = (time_series['qc_1_speed'] == 1) & (time_series['qc_1_direction'] == 1)
+
+        # Excessive MISS speed or direction
+        filter_2 = (time_series['qc_2_speed'] == 1) & (time_series['qc_2_direction'] == 1)
+
+        # Constant sequence
+        filter_3_speed = (time_series['qc_3_speed'] == 1)
+        filter_3_direction_1 = (time_series['qc_3_direction'] == 1)
+        filter_3_direction_2 = ((time_series['qc_3_direction'] == 0) & (time_series['qc_3_direction_pref'] == 1))
+        filter_3_direction = filter_3_direction_1 | filter_3_direction_2
+        filter_3 = filter_3_speed & filter_3_direction
+
+        # High variability
+        filter_5 = (time_series['qc_5_speed'] == 1)
+
+        # Bias
+        filter_6 = (time_series['qc_6_speed'] == 1)
+
+        # Isolated records
+        filter_7 = (time_series['qc_7_isolated_records_speed']) & (time_series['qc_7_isolated_records_direction'])
+
+        filters = filter_1 & filter_2 & filter_3 & filter_5 & filter_6 & filter_7
+        time_series = time_series[filters]
+
+        return time_series
+
     def _qc_isolated_records(self, time_series_station, variable, max_time=24, min_time=12, type="speed", verbose=True):
 
         # to detect isolated records after the qc process, we need to apply the result of the qc to the time series
@@ -2164,52 +2245,69 @@ class Observation:
 
         self.qc_initialization()
 
+        # No flag
         self.qc_check_duplicates_in_index()
 
+        # No flag
         self.qc_resample_index()
 
+        # No flag
         self.qc_check_duplicates_in_index()
 
+        # 'winddir(deg)' => UV_DIR
         self.qc_calm_criteria()
 
+        # 'winddir(deg)' => UV_DIR
         self.qc_true_north()
 
+        # qc_1_speed, qc_1_direction
         self.qc_removal_unphysical_values()
 
+        # No flag
         self.qc_get_wind_speed_resolution()
 
+        # No flag
         self.qc_get_wind_direction_resolution()
 
+        # No flag
         dict_constant_sequence = self.qc_constant_sequences()
 
+        # qc_2_speed, qc_2_direction
         self.qc_excessive_MISS(dict_constant_sequence)
 
         dict_all_stations = self.qc_get_stats_cst_seq(dict_constant_sequence,
                                                       amplification_factor_speed=1.5,
                                                       amplification_factor_direction=1.5)
-
+        # qc_3_speed, qc_3_direction, qc_3_direction_pref
         self.qc_apply_stats_cst_seq(dict_constant_sequence, dict_all_stations)
 
         if compare_calm_long_sequences_to_neighbors:
             self.qc_get_nearest_neigbhors()
 
+            # qc_4_speed
             self.qc_ra(dict_constant_sequence, dict_all_stations)
 
+        # qc_5_speed
         self.qc_high_variability()
 
+        # qc_6_speed
         self.qc_bias()
 
+        # vw10m(m/s) => wind_corrected
         self.qc_log_profile(prm)
 
+        # qc_7_isolated_records_speed, qc_7_isolated_records_direction
         self.qc_isolated_records()
 
         self._qc = True
 
         return dict_constant_sequence, dict_all_stations
 
+    """
     # Multiprocessing
     def qc_bias_station(self, time_series=None, station=None, wind_speed=None,
                         correct_factor_mean=None, correct_factor_std=None, correct_factor_coeff_var=None):
+                
         pd.options.mode.chained_assignment = None
         time_serie_station = time_series[time_series["name"] == station]
 
@@ -2347,3 +2445,17 @@ class Observation:
 
         if update_file:
             self.time_series = pd.concat(list_dataframe)
+    """
+
+    def store_obs_lac_blanc_before_log_profile_and_modify_snow_height_dome(self):
+
+        time_series = self.time_series
+        time_series = time_series[(time_series["name"] == "Col Lac Blanc") | (time_series["name"] == "Dome Lac Blanc") | (time_series["name"] == "La Muzelle Lac Blanc")]
+
+        condition_dome = time_series["name"] == "Dome Lac Blanc"
+        condition_col = time_series["name"] == "Col Lac Blanc"
+        index_intersection = time_series[condition_dome].index.intersection(time_series[condition_col])
+        time_series['HTN(cm)'][condition_dome & index_intersection] = time_series['HTN(cm)'][condition_col & index_intersection]
+
+        return time_series
+

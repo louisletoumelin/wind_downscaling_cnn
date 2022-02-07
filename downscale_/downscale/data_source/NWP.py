@@ -5,8 +5,23 @@ import xarray as xr
 from downscale.data_source.data_2D import Data_2D
 from downscale.utils.context_managers import print_all_context
 
+try:
+    import pyproj
+    _pyproj = True
+except ModuleNotFoundError:
+    _pyproj = False
+
+try:
+    import dask
+    _dask = True
+except ModuleNotFoundError:
+    _dask = False
+
 
 class NWP(Data_2D):
+
+    _pyproj = _pyproj
+    _dask = _dask
 
     def __init__(self, path_to_file=None, begin=None, end=None,
                  variables_of_interest=['Wind', 'Wind_DIR', 'LAT', 'LON', 'ZS'], prm={}):
@@ -66,21 +81,23 @@ class NWP(Data_2D):
 
     def load_nwp_files(self, path_to_file=None, preprocess_function=None, parallel=False,
                        prm=None, verbose=True):  # self._preprocess_ncfile
-        if prm["_dask"]:
+        if _dask:
             # Open netcdf file
             self.data_xr = xr.open_mfdataset(path_to_file,
                                              preprocess=preprocess_function,
+                                             combine="nested",
                                              concat_dim='time',
                                              parallel=parallel).astype(np.float32, copy=False)
             print(f"__Function xr.open_mfdataset. Parallel: {parallel}") if verbose else None
         else:
             print("__Dask = False")
             self.data_xr = xr.open_dataset(path_to_file)
+            print(f"__File loaded: {path_to_file}")
             self.data_xr = preprocess_function(self.data_xr)
             print("__Function xr.open_dataset") if verbose else None
 
     def add_l93_coordinates(self, path_to_coord_L93=None, verbose=True, prm={}):
-        if prm["_pyproj"]:
+        if _pyproj:
             self.data_xr = self.gps_to_l93(data_xr=self.data_xr,
                                            shape=self.shape,
                                            lon='LON',

@@ -23,9 +23,9 @@ def timer_context(argument, level=None, unit=None, verbose=True):
 @contextmanager
 def creation_context(argument, level=None, verbose=True):
     if verbose:
-        print(f"{level}Begin calculating {argument}")
+        print(f"\n{level}Begin calculating {argument}")
         yield
-        print(f"{level}End calculating {argument}")
+        print(f"{level}End calculating {argument}\n")
     else:
         yield
 
@@ -36,7 +36,7 @@ def print_all_context(argument, level=0, unit=None, verbose=True):
         t0 = t()
         level_creation = '_' * level
         level_time = '. ' * level
-        print(f"{level_creation}Begin calculating {argument}")
+        print(f"\n{level_creation}Begin calculating {argument}")
         yield
         t1 = t()
         if unit == "hour":
@@ -46,6 +46,6 @@ def print_all_context(argument, level=0, unit=None, verbose=True):
         elif unit == "second":
             time_execution = np.round((t1 - t0), 2)
         print(f"{level_time}Time to calculate {argument}: {time_execution} {unit}s")
-        print(f"{level_creation}End calculating {argument}")
+        print(f"{level_creation}End calculating {argument}\n")
     else:
         yield

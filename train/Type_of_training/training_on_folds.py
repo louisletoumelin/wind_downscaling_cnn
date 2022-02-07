@@ -107,8 +107,6 @@ def callbacks_for_folds(fold, prm):
                                   min_lr=prm['ROP_min_lr'],
                                   verbose=1)
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=0, save_best_only=True, mode='min')
-    print("DEBUG EarlyStopping")
-    print("early stopping is active")
     early_stopping = EarlyStopping(monitor='val_mae',
                                    patience=prm["early_stopping_patience"],
                                    min_delta=prm["early_stopping_min_delta"],
@@ -216,7 +214,6 @@ def train_model(prm):
         prm = choose_optimizer.create_prm_optimizer(prm)
         prm = choose_initializer.create_prm_initializer(prm)
 
-        print("DEBUG")
         pprint(history.history)
         hist = history.history['val_mae']
         n_epochs_best = np.argmin(hist) + 1

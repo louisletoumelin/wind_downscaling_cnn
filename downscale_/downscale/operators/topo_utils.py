@@ -249,7 +249,7 @@ class Topo_utils:
                 out_arr[y, x] = np.mean(in_arr[ymin:ymax, xmin:xmax])
         return out_arr
 
-    def tpi_map(self, mnt, radius, resolution=25, library='numba'):
+    def tpi_map(self, mnt, radius, resolution=30, library='numba'):
 
         x_win, y_win = self.radius_to_square_window(radius, resolution)
 

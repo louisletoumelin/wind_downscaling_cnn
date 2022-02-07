@@ -12,6 +12,15 @@ except ModuleNotFoundError:
 
 from downscale.visu.MidpointNormalize import MidpointNormalize
 from downscale.visu.visualization import Visualization
+from downscale.operators.wind_utils import Wind_utils
+
+
+def convert_slope_from_Nora(df):
+    old_slopes = [5, 10, 13, 16, 20]
+    new_slopes = [10, 19, 25, 30, 36]
+    for old_slope, new_slope in zip(old_slopes, new_slopes):
+        df["degree"][df["degree"] == old_slope] = new_slope
+    return df
 
 
 class VisualizationGaussian(Visualization):
@@ -20,7 +29,7 @@ class VisualizationGaussian(Visualization):
         super().__init__(p=p, prm=prm)
 
     @staticmethod
-    def plot_gaussian_wind_arrows(U, V, UV, nb_col=69, nb_lin=79, midpoint=3, new_fig=True):
+    def plot_gaussian_wind_arrows(U, V, UV, nb_col=69, nb_lin=79, midpoint=3, scale=True, new_fig=True):
 
         x = np.arange(nb_col)
         y = np.arange(nb_lin)
@@ -31,7 +40,7 @@ class VisualizationGaussian(Visualization):
 
         ax = plt.gca()
         arrows = ax.quiver(XX, YY, U, V, UV,
-                           scale=1 / 0.005,
+                           scale=scale,
                            cmap='coolwarm',
                            norm=MidpointNormalize(midpoint=midpoint))
         plt.colorbar(arrows, orientation='vertical')
@@ -111,7 +120,6 @@ class VisualizationGaussian(Visualization):
 
             if UV_in_df and UVW_in_df:
                 df = df.melt(value_vars=["UV", "UVW"])
-                print(df)
                 sns.displot(data=df, x="value", hue="variable", kind='kde', fill=True)
                 plt.xlabel(xlabel)
             elif UV_in_df:
@@ -127,12 +135,13 @@ class VisualizationGaussian(Visualization):
 
 
     def plot_gaussian_distrib_by_degree_or_xi(self, dict_gaussian, degree_or_xi="degree", type_plot="acceleration",
-                                              type_of_wind="uv", fill=True, fontsize=20, cmap="viridis"):
+                                              type_of_wind="uv", fill=True, fontsize=20, cmap="crest"):
         """
         To obtain the input dict_gaussian DataFrame, use the command:
         gaussian_topo_instance.load_data_by_degree_or_xi(prm, degree_or_xi="degree")
         """
         dict_all_degree_or_xi = pd.DataFrame(columns=["value", degree_or_xi])
+        wu = Wind_utils()
         for deg_or_xi in dict_gaussian["wind"].keys():
 
             # Wind components
@@ -141,18 +150,18 @@ class VisualizationGaussian(Visualization):
             w = dict_gaussian["wind"][deg_or_xi][:, :, 2]
 
             # Compute wind speed and reformat
-            uv = self.compute_wind_speed(u, v)
-            uvw = self.compute_wind_speed(u, v, w)
+            uv = wu.compute_wind_speed(u, v)
+            uvw = wu.compute_wind_speed(u, v, w)
             uv_flat = uv.flatten()
             uvw_flat = uvw.flatten()
 
             if type_plot == "acceleration" and type_of_wind == "uv":
-                acc_uv = self.wind_speed_ratio(num=uv_flat, den=np.full(uv_flat.shape, 3))
+                acc_uv = wu.wind_speed_ratio(num=uv_flat, den=np.full(uv_flat.shape, 3))
                 var = acc_uv
                 label = "Acceleration distribution"
 
             if type_plot == "acceleration" and type_of_wind == "uvw":
-                acc_uvw = self.wind_speed_ratio(num=uv_flat, den=np.full(uv_flat.shape, 3))
+                acc_uvw = wu.wind_speed_ratio(num=uv_flat, den=np.full(uv_flat.shape, 3))
                 var = acc_uvw
                 label = "Acceleration distribution"
 
@@ -165,7 +174,7 @@ class VisualizationGaussian(Visualization):
                 label = "Wind speed distribution"
 
             if type_plot == "angular deviation":
-                var = np.rad2deg(self.angular_deviation(u, v)).flatten()
+                var = np.rad2deg(wu.angular_deviation(u, v)).flatten()
                 label = "Angular deviation"
 
             if type_plot == "test":
@@ -173,9 +182,14 @@ class VisualizationGaussian(Visualization):
                 label = "Wind speed distribution test"
 
             # List of degrees to append to DataFrame
-            list_deg_or_xi = [deg_or_xi] * len(var)
+            list_deg_or_xi = [deg_or_xi] * len(uv_flat)
             df_deg_or_xi_i = pd.DataFrame(np.transpose([var, list_deg_or_xi]), columns=dict_all_degree_or_xi.columns)
+            try:
+                df_deg_or_xi_i = convert_slope_from_Nora(df_deg_or_xi_i)
+            except KeyError:
+                pass
             dict_all_degree_or_xi = dict_all_degree_or_xi.append(df_deg_or_xi_i, ignore_index=True)
-
+        plt.figure()
         sns.displot(data=dict_all_degree_or_xi, x="value", hue=degree_or_xi, kind='kde', fill=fill, palette=cmap)
+        plt.grid()
         plt.xlabel(label, fontsize=fontsize)

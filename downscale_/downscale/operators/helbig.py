@@ -40,8 +40,8 @@ class Slope(Topo_utils):
     def __init__(self):
         super().__init__()
 
-    @print_func_executed_decorator("mu_helbig_map", level_begin="____", level_end="____", end="")
-    @timer_decorator("mu_helbig_map", unit='minute', level=".... ")
+    #@print_func_executed_decorator("mu_helbig_map", level_begin="____", level_end="____", end="")
+    #@timer_decorator("mu_helbig_map", unit='minute', level=".... ")
     def mu_helbig_map(self, mnt, dx, verbose=True):
         if mnt.ndim > 2:
             return np.vectorize(self._mu_helbig_map, signature='(m,n),(),()->(m,n)')(mnt,

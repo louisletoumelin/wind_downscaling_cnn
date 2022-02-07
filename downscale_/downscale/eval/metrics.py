@@ -143,15 +143,35 @@ class Metrics:
         input_is_dataframe = type(pred) == type(true) == pd.core.frame.DataFrame
         input_is_series = type(pred) == type(true) == pd.core.series.Series
 
+        pred = np.where(pred != 0, pred, 360)
+        true = np.where(true != 0, true, 360)
+
         diff1 = np.mod((pred - true), 360)
         diff2 = np.mod((true - pred), 360)
 
         if input_is_dataframe or input_is_series:
-            res = pd.concat([diff1, diff2]).min(level=0)
-            return res
+            print("Warning: this operation is outdated")
+            return pd.concat([diff1, diff2]).min(level=0)
         else:
-            res = np.min([diff1, diff2], axis=0)
-            return res
+            return np.where(diff1 <= diff2, diff1, -diff2)
+
+    def abs_bias_direction(self, pred, true, **kwargs):
+
+        input_is_dataframe = type(pred) == type(true) == pd.core.frame.DataFrame
+        input_is_series = type(pred) == type(true) == pd.core.series.Series
+
+        pred = np.where(pred != 0, pred, 360)
+        true = np.where(true != 0, true, 360)
+
+        diff1 = np.mod((pred - true), 360)
+        diff2 = np.mod((true - pred), 360)
+
+        if input_is_dataframe or input_is_series:
+            print("Warning: this operation is outdated")
+            return pd.concat([np.abs(diff1), np.abs(diff2)]).min(level=0)
+        else:
+            result = np.min([np.abs(diff1), np.abs(diff2)], axis=0)
+            return result
 
     def _select_metric(self, metric):
         if metric == "abs_error":
@@ -166,6 +186,8 @@ class Metrics:
             metric_func = self.bias_rel_wind_1
         elif metric == "bias_direction":
             metric_func = self.bias_direction
+        elif metric == "abs_bias_direction":
+            metric_func = self.abs_bias_direction
         else:
             raise NotImplementedError(f"{metric} is not defined")
 

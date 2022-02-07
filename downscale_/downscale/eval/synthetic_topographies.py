@@ -1,12 +1,18 @@
 import numpy as np
 import pandas as pd
 from collections import defaultdict
+import matplotlib.pyplot as plt
+import seaborn as sns
+from time import time as t
 
-from downscale.utils.utils_func import print_current_line
+from downscale.utils.utils_func import print_current_line, save_figure
 from downscale.operators.wind_utils import Wind_utils
 from downscale.operators.helbig import DwnscHelbig
 from downscale.operators.micro_met import MicroMet
 from downscale.operators.processing import Processing
+from downscale.visu.visu_gaussian import VisualizationGaussian
+from downscale.visu.MidpointNormalize import MidpointNormalize
+from downscale.utils.utils_func import save_figure
 
 
 class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):
@@ -103,7 +109,7 @@ class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):
 
             return donnees, data
 
-    def load_data_all(self, prm, verbose=True):
+    def load_data_all(self, prm, verbose=True, name_topo='topo_name', name_wind='wind_name'):
         """
         Load all synthetic data
 
@@ -116,9 +122,9 @@ class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):
 
         # Training data
         print("Loading topographies") if verbose else None
-        synthetic_topo = self.filenames_to_array(df_all, prm["gaussian_topo_path"], 'topo_name')
+        synthetic_topo = self.filenames_to_array(df_all, prm["gaussian_topo_path"], name_topo)
         print("Loading wind") if verbose else None
-        synthetic_wind = self.filenames_to_array(df_all, prm["gaussian_topo_path"], 'wind_name')
+        synthetic_wind = self.filenames_to_array(df_all, prm["gaussian_topo_path"], name_wind)
 
         return synthetic_topo, synthetic_wind
 
@@ -159,12 +165,13 @@ class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):
             filter_3 = (df[variable] > q50) & (df[variable] <= q75)
             filter_4 = (df[variable] > q75)
 
-            df[f"class_{variable}"][filter_1] = f"{variable} <= q25"
-            df[f"class_{variable}"][filter_2] = f"q25 < {variable} <= q50"
-            df[f"class_{variable}"][filter_3] = f"q50 < {variable} <= q75"
-            df[f"class_{variable}"][filter_4] = f"q75 < {variable}"
+            df[f"class_{variable}"][filter_1] = "$x \leq q_{25}$"
+            df[f"class_{variable}"][filter_2] = "$q_{25}<x \leq q_{50}$"
+            df[f"class_{variable}"][filter_3] = "$q_{50}<x \leq q_{75}$"
+            df[f"class_{variable}"][filter_4] = "$q_{75}<x$"
 
-            print("Quantiles: ", q25, q50, q75)
+            print(f"Quantiles {variable}: ", q25, q50, q75)
+
         else:
             if variable == "mu":
 
@@ -278,21 +285,311 @@ class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):
 
         return df_all_flat
 
-    """
-    def load_data_train_test_by_fold(self, prm):
 
-        for fold_nb in range(10):
-            path = f"C:/Users/louis/git/wind_downscaling_CNN/Data/2_Pre_processed/ARPS/fold/fold{fold_nb}/df_all_{fold_nb}.csv"
+    def figure_example_topo_wind_gaussian(self, config, prm):
 
-            df_all = pd.read_csv(path)
-            df_all['wind_name'] = [x.strip('()').split(',') for x in df_all['wind_name']]
+        topo, wind = self.load_data_all(prm)
+        topo = topo.reshape((len(topo), 79, 69))
+        print("Nb synthetic topographies: ", len(topo))
+        visu = VisualizationGaussian()
+        wind = wind.reshape((len(wind), 79, 69, 3))
 
-    dict_gaussian = defaultdict(lambda: defaultdict(dict))
+        #
+        #
+        # 2D and 3D maps on gaussian grid
+        #
+        #
+
+        cmap_topo = config.get("cmap_topo")
+        cmap_arrow = config.get("cmap_arrow")
+        midpoint = config.get("midpoint")
+        scale = config.get("scale")
+        range_idx_to_plot = config.get("range_idx_to_plot")
+        n = config.get("n")
+        vmin = config.get("vmin")
+        vmax = config.get("vmax")
+        fontsize = config.get("fontsize")
+        fontsize_3D = config.get("fontsize_3D")
+
+        u, v, w = wind[:, :, :, 0], wind[:, :, :, 1], wind[:, :, :, 2]
+        uv = self.compute_wind_speed(U=u, V=v)
+        path = f'{prm["gaussian_topo_path"]}df_all_{0}.csv'
+        df_all = pd.read_csv(path)
+
+        for idx_simu in range_idx_to_plot:
+            degree = np.int32(df_all["degree"].iloc[idx_simu])
+            xi = np.int32(df_all["xi"].iloc[idx_simu])
+            u1 = u[idx_simu, :, :]
+            v1 = v[idx_simu, :, :]
+            uv1 = uv[idx_simu, :, :]
+            topo1 = topo[idx_simu, :, :]
+
+            #
+            #
+            # 3D map
+            #
+            #
+            plt.figure(figsize=(20,20))
+            nb_col = 69
+            nb_lin = 79
+            x = np.arange(nb_col)
+            y = np.arange(nb_lin)
+
+            XX, YY = np.meshgrid(x, y)
+            XX = XX * 30
+            YY = YY * 30
+            fig = plt.gcf()
+            ax = fig.gca(projection='3d')
+            im = ax.plot_surface(XX, YY, topo1, cmap=cmap_topo, lw=0.5, rstride=1, cstride=1, alpha=1, linewidth=1)
+            visu._set_axes_equal(ax)
+            ax.xaxis.set_tick_params(labelsize=fontsize_3D)
+            ax.yaxis.set_tick_params(labelsize=fontsize_3D)
+            #ax.zaxis.set_tick_params(labelsize=fontsize_3D)
+
+            ax.zaxis.set_ticklabels([])
+            for line in ax.zaxis.get_ticklines():
+                line.set_visible(False)
+
+            cbar = plt.colorbar(im, orientation="vertical")
+            cbar.ax.tick_params(labelsize=fontsize)
+
+            ax = plt.gca()
+            ii = 270
+            ax.view_init(elev=35, azim=ii)
+            save_figure(f"3D_map_{idx_simu}_degree_{degree}_xi_{xi}", prm)
+
+            #
+            #
+            # 2D map with arrows
+            #
+            #
+            plt.figure()
+            ax = plt.gca()
+            arrows = ax.quiver(XX[::n, ::n], YY[::n, ::n], u1[::n, ::n] / uv1[::n, ::n], v1[::n, ::n] / uv1[::n, ::n],
+                               uv1[::n, ::n],
+                               cmap=cmap_arrow,
+                               scale=scale,
+                               norm=MidpointNormalize(midpoint=midpoint, vmin=vmin, vmax=vmax))
+            plt.axis("square")
+            plt.xticks(fontsize=fontsize)
+            plt.yticks(fontsize=fontsize)
+            cbar = plt.colorbar(arrows)
+            cbar.ax.tick_params(labelsize=fontsize)
+            save_figure(f"2D_map_{idx_simu}_degree_{degree}_xi_{xi}", prm)
 
 
-    dict_gaussian["wind"][degree] = self.filenames_to_array(df_all_degree,
-                                                            prm["gaussian_topo_path"],
-                                                            'wind_name')
+    def figure_tpi_vs_sx(self, dem, obs, config, prm):
 
-    df = pd.DataFrame([(k,k1,value) for k,v in results.items() for k1,v1 in v.items() for value in v1], columns = ['Col1','Col2','Val'])
-    """
+        down_helb = DwnscHelbig()
+
+        # Select domain dem
+        mnt = dem.data[config["min_y_dem"]:config["max_y_dem"], config["min_x_dem"]:config["max_x_dem"]]
+        print("DEM domain selected")
+
+        # Load sunthetic topo and winds
+        gaussian_topo = GaussianTopo()
+        topo, _ = gaussian_topo.load_data_all(prm)
+        topo = topo.reshape((len(topo), 79, 69)).astype(np.float32)
+        print("Nb synthetic topographies: ", len(topo))
+
+        if config["working_on_a_small_example"]:
+            topo = topo[:100, :, :]
+            mnt = mnt[1000:1200, 1300:1400]
+
+        # TPI and Sx on real topographies
+        print("Begin computing TPI on real topographies")
+        t0 = t()
+        tpi_real = down_helb.tpi_map(mnt, config["distance_tpi"], resolution=config["resolution_dem"]).astype(np.float32)
+        print(f"Time in minutes: {np.round((t() - t0) / 60)}")
+        print("End computing TPI on real topographies")
+
+        print("Begin computing Sx on real topographies")
+        t0 = t()
+        sx_real_1 = down_helb.sx_map(mnt, config["resolution_dem"], config["distance_sx"], config["angle_sx"]).astype(np.float32)
+        print(f"Time in minutes: {np.round((t() - t0) / 60)}")
+        print("End computing Sx on real topographies")
+
+        # Remove borders where TPI and Sx are not defined
+        tpi_real[:17, :] = np.nan
+        tpi_real[-17:, :] = np.nan
+        tpi_real[:, :17] = np.nan
+        tpi_real[:, -17:] = np.nan
+        sx_real_1[:10, :] = np.nan
+        sx_real_1[-10:, :] = np.nan
+        sx_real_1[:, :10] = np.nan
+        sx_real_1[:, -10:] = np.nan
+        print("Border Sx and TPI removed")
+
+        tpi_real_flat = tpi_real.flatten()
+        sx_real_flat_1 = sx_real_1.flatten()
+        print("TPI and sx real flat calculated")
+
+        # TPI and Sx on gaussian topographies
+        print("Begin computing TPI on gaussian topographies")
+        t0 = t()
+        tpi_gau = np.array([down_helb.tpi_map(topo[i], config["distance_tpi"], config["resolution_dem"]) for i in range(len(topo))]).astype(np.float32)
+        print(f"Time in minutes: {np.round((t() - t0) / 60)}")
+        print("End computing TPI on gaussian topographies")
+
+        print("Begin computing Sx on gaussian topographies")
+        t0 = t()
+        sx_gau = np.array([down_helb.sx_map(topo[i], config["resolution_dem"], config["distance_sx"], config["angle_sx"]) for i in range(len(topo))]).astype(np.float32)
+        print(f"Time in minutes: {np.round((t() - t0) / 60)}")
+        print("End computing Sx on gaussian topographies")
+
+        print("tpi_gau shape")
+        print(np.shape(tpi_gau))
+        tpi_gau[:17, :] = np.nan
+        tpi_gau[-17:, :] = np.nan
+        tpi_gau[:, :17] = np.nan
+        tpi_gau[:, -17:] = np.nan
+        print("tpi_gau shape")
+        print(np.shape(sx_gau))
+        sx_gau[:10, :] = np.nan
+        sx_gau[-10:, :] = np.nan
+        sx_gau[:, :10] = np.nan
+        sx_gau[:, -10:] = np.nan
+        print("Border Sx and TPI removed on gaussian topographies")
+
+        tpi_gau_flat = tpi_gau.flatten()
+        sx_gau_flat = sx_gau.flatten()
+        print("TPI and sx gau flat calculated")
+
+        df_topo_gaussian = pd.DataFrame(np.transpose([tpi_gau_flat, sx_gau_flat]), columns=["tpi", "sx"])
+        df_topo_gaussian["topography"] = "gaussian"
+        df_topo_real_1 = pd.DataFrame(np.transpose([tpi_real_flat, sx_real_flat_1]), columns=["tpi", "sx"])
+        df_topo_real_1["topography"] = "real"
+        df_topo = pd.concat([df_topo_gaussian, df_topo_real_1])
+        print("Dataframe created")
+        del tpi_real_flat
+        del sx_gau_flat
+
+        # Observations
+        obs.update_stations_with_KNN_from_MNT_using_cKDTree(dem)
+        idx_x = np.array([np.intp(idx_x) for (idx_x, _) in
+                          obs.stations[f"index_{prm['name_mnt']}_NN_0_cKDTree_ref_{prm['name_mnt']}"].to_list()])
+        idx_y = np.array([np.intp(idx_y) for (_, idx_y) in
+                          obs.stations[f"index_{prm['name_mnt']}_NN_0_cKDTree_ref_{prm['name_mnt']}"].to_list()])
+        #names = obs.stations["name"].values
+        tpi_stations = down_helb.tpi_idx(dem.data, idx_x=idx_x, idx_y=idx_y, radius=config["distance_tpi"], resolution=config["resolution_dem"]).astype(np.float32)
+        sx_stations = down_helb.sx_idx(dem.data, idx_x, idx_y, config["resolution_dem"], config["distance_sx"], config["angle_sx"], 5, 30).astype(np.float32)
+        print("TPI and sx stations calculated")
+
+        # Unique values for scatter plot
+        df_topo1 = df_topo.dropna().drop_duplicates()
+        tpi_gau_unique = df_topo1["tpi"][df_topo1["topography"] == "gaussian"]
+        sx_gau_unique = df_topo1["sx"][df_topo1["topography"] == "gaussian"]
+        print("TPI and sx unique calculated")
+        del df_topo1
+
+        tpi_gau_unique = tpi_gau_unique.astype(np.float32)
+        sx_gau_unique = sx_gau_unique.astype(np.float32)
+        df_topo["tpi"] = df_topo["tpi"].astype(np.float32)
+        df_topo["sx"] = df_topo["sx"].astype(np.float32)
+        print("Data transformed to float32")
+
+        print("Begin plot figure tpi vs sx")
+        plt.figure(figsize=(15, 15))
+        df_topo.index = list(range(len(df_topo)))
+        result = sns.jointplot(data=df_topo.dropna(), x="tpi", y="sx", hue="topography",
+                               palette=[config["color_real"], config["color_gaussian"]], marker="o", s=3,
+                               linewidth=0, edgecolor=None, hue_order=["real", "gaussian"], legend=False,
+                               marginal_kws=dict(bw=0.8))
+        del df_topo
+        ax = result.ax_joint
+        ax.scatter(tpi_gau_unique, sx_gau_unique, s=3, alpha=0.75, color=config["color_gaussian"])
+        ax.scatter(tpi_stations, sx_stations, s=7, alpha=1, color=config["color_station"], zorder=10)
+        ax.grid(True)
+        ax = result.ax_marg_x
+        ax.scatter(tpi_stations, np.zeros_like(tpi_stations), s=5, alpha=1, color=config["color_station"], zorder=10)
+        ax.grid(True)
+        ax = result.ax_marg_y
+        ax.scatter(np.zeros_like(sx_stations), sx_stations, s=5, alpha=1, color=config["color_station"], zorder=10)
+        ax.grid(True)
+        save_figure("tpi_vs_sx", prm, svg=config["svg"])
+        print("End plot figure tpi vs sx")
+
+    def figure_laplacian_vs_mu(self, dem, obs, config, prm):
+        down_helb = DwnscHelbig()
+
+        # Select domain dem
+        mnt = dem.data[config["min_y_dem"]:config["max_y_dem"], config["min_x_dem"]:config["max_x_dem"]]
+        print("DEM domain selected")
+
+        # Load sunthetic topo and winds
+        gaussian_topo = GaussianTopo()
+        topo, _ = gaussian_topo.load_data_all(prm)
+        topo = topo.reshape((len(topo), 79, 69))
+        print("Nb synthetic topographies: ", len(topo))
+
+        if config["working_on_a_small_example"]:
+            topo = topo[:100, :, :]
+            mnt = mnt[:100, :150]
+
+        print("Begin computing Laplacian on gaussian topographies")
+        t0 = t()
+        laplacian_gaussian = down_helb.laplacian_map(topo, config["resolution_dem"], helbig=config["laplacian_helbig"], verbose=False)
+        print(f"Time in minutes: {np.round((t() - t0) / 60)}")
+        print("End computing Laplacian on gaussian topographies")
+
+        print("Begin computing Mu on gaussian topographies")
+        t0 = t()
+        mu_gaussian = down_helb.mu_helbig_map(topo, config["resolution_dem"], verbose=False)
+        print(f"Time in minutes: {np.round((t() - t0) / 60)}")
+        print("End computing Mu on gaussian topographies")
+
+        laplacian_gaussian_flat = laplacian_gaussian[:, 1:-1, 1:-1].flatten()
+        mu_gaussian_flat = mu_gaussian[:, 1:-1, 1:-1].flatten()
+        print("Gaussian topographies flatten")
+
+        print("Begin computing Laplacian on real topographies")
+        t0 = t()
+        laplacian_real = down_helb.laplacian_map(mnt, config["resolution_dem"], helbig=config["laplacian_helbig"], verbose=False)
+        print(f"Time in minutes: {np.round((t() - t0) / 60)}")
+        print("End computing Laplacian on real topographies")
+
+        print("Begin computing Mu on real topographies")
+        t0 = t()
+        mu_real = down_helb.mu_helbig_map(mnt, config["resolution_dem"], verbose=False)
+        print(f"Time in minutes: {np.round((t() - t0) / 60)}")
+        print("End computing Mu on real topographies")
+
+        laplacian_real_flat = laplacian_real[1:-1, 1:-1].flatten()
+        mu_real_flat = mu_real[1:-1, 1:-1].flatten()
+        print("Real topographies flatten")
+
+        df_topo_gaussian = pd.DataFrame(np.transpose([laplacian_gaussian_flat, mu_gaussian_flat]),
+                                        columns=["laplacian", "mu"])
+        df_topo_gaussian["topography"] = "gaussian"
+        df_topo_real = pd.DataFrame(np.transpose([laplacian_real_flat, mu_real_flat]), columns=["laplacian", "mu"])
+        df_topo_real["topography"] = "real"
+        df_topo = pd.concat([df_topo_gaussian, df_topo_real])
+        print("Dataframe created")
+        df_topo1 = df_topo.drop_duplicates()
+        lapl_gau_unique = df_topo1["laplacian"][df_topo1["topography"] == "gaussian"]
+        mu_gau_unique = df_topo1["mu"][df_topo1["topography"] == "gaussian"]
+
+        obs.update_stations_with_KNN_from_MNT_using_cKDTree(dem)
+        idx_x = np.array([np.intp(idx_x) for (idx_x, _) in
+                          obs.stations[f"index_{prm['name_mnt']}_NN_0_cKDTree_ref_{prm['name_mnt']}"].to_list()])
+        idx_y = np.array([np.intp(idx_y) for (_, idx_y) in
+                          obs.stations[f"index_{prm['name_mnt']}_NN_0_cKDTree_ref_{prm['name_mnt']}"].to_list()])
+        names = obs.stations["name"].values
+        mu_stations = down_helb.mu_helbig_idx(dem.data, dx=config["resolution_dem"], idx_x=idx_x, idx_y=idx_y)
+        laplacian_stations = down_helb.laplacian_idx(dem.data, dx=config["resolution_dem"], idx_x=idx_x, idx_y=idx_y, helbig=config["laplacian_helbig"])
+
+        df_topo.index = list(range(len(df_topo)))
+        result = sns.jointplot(data=df_topo.dropna(), x="laplacian", y="mu", hue="topography", marker="o", s=5,
+                               palette=[config["color_real"], config["color_gaussian"]], linewidth=0, edgecolor=None, hue_order=["real", "gaussian"],
+                               legend=False)
+        ax = result.ax_joint
+        ax.scatter(lapl_gau_unique, mu_gau_unique, s=5, alpha=0.75, color=config["color_gaussian"])
+        ax.scatter(laplacian_stations, mu_stations, s=5, alpha=1, color=config["color_station"], zorder=10)
+        ax.grid(True)
+        ax = result.ax_marg_x
+        ax.scatter(laplacian_stations, np.zeros_like(laplacian_stations), s=5, alpha=1, color=config["color_station"], zorder=10)
+        ax.grid(True)
+        ax = result.ax_marg_y
+        ax.scatter(np.zeros_like(mu_stations), mu_stations, s=5, alpha=1, color=config["color_station"], zorder=10)
+        ax.grid(True)
+        save_figure("laplacian_vs_mu", prm, svg=config["svg"])

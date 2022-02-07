@@ -346,7 +346,7 @@ class Wind_utils:
                 print("____Library: Numexpr")
                 prediction = ne.evaluate("scaling_wind * prediction / 3")
             else:
-                print("____Library: Numpy")
+                print("____Library: Numpy") if verbose else None
                 prediction = scaling_wind * prediction / 3
 
         if type_scaling == "Arctan_30_1":
@@ -360,7 +360,7 @@ class Wind_utils:
                 print("____Library: Numexpr")
                 prediction = ne.evaluate("thirty*arctan((scaling_wind * prediction / three)/thirty)")
             else:
-                print("____Library: Numpy")
+                print("____Library: Numpy") if verbose else None
                 prediction = 30*np.arctan((scaling_wind * prediction / 3)/30)
 
         if type_scaling == "Arctan_10_2":
@@ -401,8 +401,8 @@ class Wind_utils:
         return prediction
 
     @change_dtype_if_required_decorator(np.float32)
-    @print_func_executed_decorator("computing angular deviation", level_begin="____", level_end="____")
-    @timer_decorator("computing angular deviation", unit="second", level=". . . . ")
+    #@print_func_executed_decorator("computing angular deviation", level_begin="____", level_end="____")
+    #@timer_decorator("computing angular deviation", unit="second", level=". . . . ")
     def angular_deviation(self, U, V, unit_output="radian", library="numexpr", verbose=True):
         """
         Angular deviation from incoming flow.
@@ -437,8 +437,8 @@ class Wind_utils:
         return alpha
 
     @change_dtype_if_required_decorator(np.float32)
-    @print_func_executed_decorator("computing wind direction from angular deviation", level_begin="____", level_end="____")
-    @timer_decorator("computing wind direction from angular deviation", unit="second", level=". . . . ")
+    #@print_func_executed_decorator("computing wind direction from angular deviation", level_begin="____", level_end="____")
+    #@timer_decorator("computing wind direction from angular deviation", unit="second", level=". . . . ")
     def direction_from_alpha(self, wind_dir, alpha, unit_direction ="degree", unit_alpha="radian", unit_output="radian",
                              library="numexpr", verbose=True):
         """

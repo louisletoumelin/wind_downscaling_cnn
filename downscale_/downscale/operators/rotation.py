@@ -53,10 +53,6 @@ class Rotation:
         """
         topography.shape == (1, nb_px_nwp_y * nb_px_nwp_x, length_y, length_x, 1)
         """
-        print("debug rotate_vectorize_tfa topography")
-        print(topography.shape)
-        print("debug rotate_vectorize_tfa wind_dir")
-        print(topography.shape)
         signature = '(nb_images,length_y,length_x,channel),(nb_images)->(nb_images,length_y,length_x,channel)'
         return np.vectorize(self._rotate_tfa, signature=signature)(topography, wind_dir)
 

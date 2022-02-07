@@ -6,9 +6,9 @@ from functools import wraps
 def print_func_executed_decorator(argument, level_begin="", level_end="", end=""):
     def decorator(function):
         def wrapper(*args, **kwargs):
-            print(f"{level_begin}Begin {argument}")
+            print(f"\n{level_begin}Begin {argument}")
             result = function(*args, **kwargs)
-            print(f"{level_end}End {argument}{end}")
+            print(f"{level_end}End {argument}{end}\n")
             return result
         return wrapper
     return decorator

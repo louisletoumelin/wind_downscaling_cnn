@@ -61,12 +61,7 @@ def load_CNN(index, prm):
     #        model.compile(**saving_utils.compile_args_from_training_config(
     #            model._training_config, prm["dependencies"]))
 
-    print("\n\nDEBUG dependenies")
-    print(prm['dependencies'])
-    print("DEBUG path")
-    print(path)
     model = load_model(path, custom_objects=prm['dependencies'])
-    print("\n\nDEBUG model was loaded correctly")
     return model
 
 
