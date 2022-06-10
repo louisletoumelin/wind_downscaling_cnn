@@ -91,8 +91,6 @@ def load_data_by_fold(fold, prm):
         TOPO_TRAIN = np.concatenate((TOPO_TRAIN, additional_topo_valid), axis=0)
         WIND_TRAIN = np.concatenate((WIND_TRAIN, additional_wind_valid), axis=0)
 
-
-
         print("Flat topo added to training data")
 
     print('DONE\n')

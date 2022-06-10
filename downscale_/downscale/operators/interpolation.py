@@ -52,6 +52,10 @@ class Interpolation(MNT, Wind_utils):
         new_y = np.linspace(xarray_data[name_y].min().data, xarray_data[name_y].max().data,
                             xarray_data.dims[name_y] * interp)
         xarray_data = xarray_data.interp(xx=new_x, yy=new_y, method=method)
+        if name_x in xarray_data.keys():
+            xarray_data = xarray_data.drop(name_x)
+        if name_y in xarray_data.keys():
+            xarray_data = xarray_data.drop(name_y)
         return xarray_data
 
     @print_func_executed_decorator("interpolating xarray", level_begin="\n__", level_end="__")

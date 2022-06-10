@@ -77,7 +77,7 @@ class Rotation:
         For wind coming from the West, there is no rotation
         """
 
-        wind_dir_corrected = 90 + wind_dir if not clockwise else -90 - wind_dir
+        wind_dir_corrected = np.pi/2 + wind_dir if not clockwise else -np.pi/2 - wind_dir
         if GPU:
             rotated_topography = self.rotate_tfa_on_GPU(data,
                                              wind_dir_corrected)

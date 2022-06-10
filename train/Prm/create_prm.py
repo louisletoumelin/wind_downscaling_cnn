@@ -30,7 +30,6 @@ def create_prm_dict():
         'optimizer': ['RMSprop'],
         'list_metrics': [['mae', 'root_mse']],
         'epochs': [48],  # 150, 48 for classic epochs after early stopping, 40 for no_dropout
-
         'batch_size': [32],
         'additional_flat_topo': [False],
 

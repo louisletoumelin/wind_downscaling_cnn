@@ -251,9 +251,13 @@ class Wind_utils:
 
     def compute_wind_speed_xarray(self, xarray_data, u_name="U", v_name="V", verbose=True):
         dims = xarray_data[u_name].dims
-        return xarray_data.assign(Wind=(dims, self._compute_wind_speed_num(xarray_data[u_name].values,
-                                                                           xarray_data[v_name].values,
-                                                                      verbose=verbose)))
+        xarray_data["Wind"] = (dims, self._compute_wind_speed_num(xarray_data[u_name].values,
+                                                                         xarray_data[v_name].values,
+                                                                         verbose=verbose))
+        return xarray_data
+        #return xarray_data.assign(Wind=(dims, self._compute_wind_speed_num(xarray_data[u_name].values,
+        #                                                                   xarray_data[v_name].values,
+        #                                                              verbose=verbose)))
 
     def compute_wind_speed(self, U=None, V=None, W=None,
                            library='num', out=None,

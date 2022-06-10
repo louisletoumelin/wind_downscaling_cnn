@@ -214,6 +214,9 @@ class CurvatureMicroMet(Topo_utils):
             return curvature_map[idx_y, idx_x]
         else:
             length_scale = self.get_length_scale_curvature(mnt)
+            if np.ndim(idx_x) == 0:
+                idx_x = [idx_x]
+                idx_y = [idx_y]
             curvature = [self.curvature_map(mnt[y-2:y+3, x-2:x+3],
                                             scale=False,
                                             length_scale=length_scale,

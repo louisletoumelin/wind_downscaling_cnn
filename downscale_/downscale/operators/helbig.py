@@ -70,6 +70,9 @@ class Slope(Topo_utils):
     def mu_helbig_idx(self, mnt, dx, idx_x, idx_y):
         """This function can not be directly written with numba"""
         mu_helbig_func = self.mu_helbig_map
+        if np.ndim(idx_x) == 0:
+            idx_x = [idx_x]
+            idx_y = [idx_y]
         mu = [mu_helbig_func(mnt[y - 1:y + 2, x - 1:x + 2], dx, verbose=False)[1, 1] for (x, y) in zip(idx_x, idx_y)]
         return mu
 
@@ -331,14 +334,13 @@ class SgpHelbig(MovingStd):
 
         if idx_x is None and idx_y is None:
             idx_x, idx_y = self._idx_from_array_shape(mnt_large)
-        x_sgp_topo = self.x_sgp_topo_helbig_idx(mnt_large, idx_x, idx_y, dx,
+
+        return self.x_sgp_topo_helbig_idx(mnt_large, idx_x, idx_y, dx,
                                                 L=L,
                                                 x_win=x_win,
                                                 y_win=y_win,
                                                 library=library,
                                                 verbose=verbose)
-
-        return x_sgp_topo
 
 
 class DwnscHelbig(SgpHelbig):

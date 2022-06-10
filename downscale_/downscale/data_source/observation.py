@@ -3,6 +3,7 @@ import pandas as pd
 from scipy.spatial import cKDTree
 from datetime import datetime
 from collections import defaultdict
+import pickle
 
 from downscale.data_source.data_2D import Data_2D
 from downscale.utils.decorators import print_func_executed_decorator, timer_decorator
@@ -65,11 +66,13 @@ class Observation:
 
                 # Add additional time series
                 self._add_all_time_series(GPU=GPU)
+                self.time_series = self.modify_snow_height_dome()
+                print("__replaced HTN at Dome by HTN at Col")
 
             self._select_date_time_serie() if select_date_time_serie else None
 
             # Reject stations
-            self._assert_equal_station()
+            #self._assert_equal_station()
             self._reject_stations()
 
             # float32
@@ -80,49 +83,48 @@ class Observation:
             self.time_series = pd.read_pickle(path)
             print("__Used pd.read_pickle to load time series (fast method)") if verbose else None
 
-    def replace_obs_by_QC_obs(self, prm, replace_old_wind=True, drop_not_valid=True, verbose=True):
+    def replace_obs_by_QC_obs(self, prm, replace_old_wind=True, drop_not_valid=True,
+                              remove_Dome_and_Vallot_suspicious=False, verbose=True):
 
         time_series_qc_all = pd.read_pickle(prm["QC_pkl"])
         print(f"_loaded QC at {prm['QC_pkl']}")
 
-        """
-        time_series_lac_blanc = self.store_obs_lac_blanc_before_log_profile_and_modify_snow_height_dome()
-        col_0 = time_series_qc_all["name"] == "Col Lac Blanc"
-        dome_0 = time_series_qc_all["name"] == "Dome Lac Blanc"
-        muz_0 = time_series_qc_all["name"] == "La Muzelle Lac Blanc"
-        col_1 = time_series_lac_blanc["name"] == "Col Lac Blanc"
-        dome_1 = time_series_lac_blanc["name"] == "Dome Lac Blanc"
-        muz_1 = time_series_lac_blanc["name"] == "La Muzelle Lac Blanc"
-        index_intersection = time_series_lac_blanc.index.intersection(time_series_qc_all.index)
-
-        time_series_qc_all[col_0 & index_intersection] = time_series_lac_blanc[col_1 & index_intersection]
-        time_series_qc_all[dome_0 & index_intersection] = time_series_lac_blanc[dome_1 & index_intersection]
-        time_series_qc_all[muz_0 & index_intersection] = time_series_lac_blanc[muz_1 & index_intersection]
-        print("__Replaced obs at col, dome and muzelle by original observations") if verbose else None
-        """
-
+        print(time_series_qc_all.head())
         if replace_old_wind:
+            # Speed
             wind_corrected_not_nan = ~time_series_qc_all["wind_corrected"].isna()
-            time_series_qc_all['vw10m(m/s)'][wind_corrected_not_nan] = time_series_qc_all["wind_corrected"][wind_corrected_not_nan]
-            try:
-                time_series_qc_all['UV'][wind_corrected_not_nan] = time_series_qc_all["wind_corrected"][wind_corrected_not_nan]
-            except KeyError:
-                pass
-            try:
-                time_series_qc_all['winddir(deg)'] = time_series_qc_all["UV_DIR"]
-                time_series_qc_all["Wind_DIR"] = time_series_qc_all["Wind_DIR"]
-            except KeyError:
-                pass
+            time_series_qc_all['vw10m(m/s)'][wind_corrected_not_nan] = time_series_qc_all["wind_corrected"][
+                wind_corrected_not_nan]
+            time_series_qc_all['wind_corrected'] = time_series_qc_all['vw10m(m/s)']
+            time_series_qc_all['UV'] = time_series_qc_all['vw10m(m/s)']
+
+            # Direction
+            time_series_qc_all['winddir(deg)'] = time_series_qc_all["UV_DIR"]
+            time_series_qc_all["Wind_DIR"] = time_series_qc_all["UV_DIR"]
             print("__old wind name replaced by corrected wind name") if verbose else None
 
         time_series_qc = time_series_qc_all
 
+        if remove_Dome_and_Vallot_suspicious:
+            time_series_qc['qc_8_visual_obs'] = 1
+
+            # Remove Dome after May 2018
+            filter_dome = time_series_qc["name"] == "Dome Lac Blanc"
+            str_time = str(2018) + "-" + str(5) + "-" + str(1)
+            filter_time = time_series_qc.index >= str_time
+            time_series_qc['qc_8_visual_obs'][filter_dome & filter_time] = 0
+
+            # Remove Vallot after November 2017
+            filter_vallot = time_series_qc["name"] == "Vallot"
+            str_time = str(2017) + "-" + str(11) + "-" + str(1)
+            filter_time = time_series_qc.index >= str_time
+            time_series_qc['qc_8_visual_obs'][filter_vallot & filter_time] = 0
+
         if drop_not_valid:
-            #filter_validity_speed = (time_series_qc_all['validity_speed'] == 1)
-            #filter_validity_direction = (time_series_qc_all['validity_direction'] == 1)
-            #time_series_qc = time_series_qc_all[filter_validity_speed & filter_validity_direction]
-            time_series_qc = self.apply_qc_filters_to_time_series(time_series)
+            time_series_qc = self.apply_qc_filters_to_time_series(time_series_qc)
             assert len(time_series_qc) != len(time_series_qc_all)
+        else:
+            time_series_qc = self.apply_qc_filters_to_time_series(time_series_qc, create_qc=True)
 
         self.time_series = time_series_qc
         self._qc = True
@@ -183,7 +185,6 @@ class Observation:
             self.path_Muzelle_Lac_Blanc = path_Muzelle_Lac_Blanc
             self.path_Col_de_Porte = path_Col_de_Porte
             self.path_Col_du_Lautaret = path_Col_du_Lautaret
-
 
     @staticmethod
     def import_delayed_dask(use_dask=False):
@@ -466,6 +467,10 @@ class Observation:
             station_df["HTN(cm)"] = station_df["HTN(cm)"] * 100
             print("____Snow height expressed in cm at Col de Porte")
 
+        if name == "Col du Lautaret":
+            station_df["HTN(cm)"] = station_df["HTN(cm)"] * 100
+            print("____Snow height expressed in cm at Col du Lautaret")
+
         if log_profile:
             Z0_col = 0.054
             log_profile = np.log(10 / Z0_col) / np.log(z_wind_sensor / Z0_col)
@@ -473,6 +478,7 @@ class Observation:
             print(f"___log profile at {name} obs calculated")
 
         self.time_series = pd.concat([self.time_series, station_df])
+
         if verbose: print(f"__{name} time series loaded using pd.read_csv")
 
     def _add_time_serie_vallot(self, log_profile=True, verbose=True):
@@ -811,14 +817,14 @@ class Observation:
             return arr[(val % 16)]
 
     @timer_decorator("modify wind speed observations", unit="second", level=". . ")
-    def qc_log_profile(self, prm, z_out_height=10, wind_speed='vw10m(m/s)',
+    def qc_log_profile(self, prm, z_out_height=10, wind_speed='UV',
                        snow_height_str="HTN(cm)", Z0_snow=0.001, Z0_bare_ground=0.05, stations=None, time_series=None,
                        return_result=False):
 
         stations = self.stations if stations is None else stations
         time_series = self.time_series if time_series is None else time_series
+
         height_sensor = self.read_height_sensor(prm["height_sensor_path"])
-        time_series["wind_corrected"] = np.nan
         wu = Wind_utils()
 
         for station in stations["name"].values:
@@ -856,8 +862,8 @@ class Observation:
                 z_in_verbose = "multiple heights depending on snow height"
                 z_out_verbose = str(z_out_height)
                 wind_corrected = wu.apply_log_profile(z_in, z_out, UV, Z0,
-                                                        z_in_verbose=z_in_verbose,
-                                                        z_out_verbose=z_out_verbose)
+                                                      z_in_verbose=z_in_verbose,
+                                                      z_out_verbose=z_out_verbose)
 
             filter_time = time_series.index.isin(obs_station.index)
             time_series["wind_corrected"][filter_station & filter_time] = wind_corrected
@@ -875,12 +881,14 @@ class Observation:
 
     @print_func_executed_decorator("initialization")
     @timer_decorator("initialization", unit="minute")
-    def qc_initialization(self, wind_direction='winddir(deg)'):
+    def qc_initialization(self, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
 
         time_series = self.time_series
 
-        # Create UV_DIR
+        # Create new speed and direction variables
+        time_series["UV"] = time_series[wind_speed]
         time_series["UV_DIR"] = time_series[wind_direction]
+        time_series["wind_corrected"] = np.nan
 
         # Create validity
         time_series["validity_speed"] = 1
@@ -895,6 +903,11 @@ class Observation:
         # Create resolution
         time_series['resolution_speed'] = np.nan
         time_series['resolution_direction'] = np.nan
+
+        # unphysical values
+        time_series["qc_1"] = 1
+        time_series["qc_1_speed"] = 1
+        time_series["qc_1_direction"] = 1
 
         # Create qc_2 for excessive_MISS
         time_series['qc_2_speed'] = 1
@@ -915,15 +928,24 @@ class Observation:
         # Bias
         time_series["qc_6_speed"] = 1
 
-        # Bias
+        # Isolated records
         time_series["qc_7_isolated_records_speed"] = 1
         time_series["qc_7_isolated_records_direction"] = 1
 
-        # N, NNE, NE etc
-        time_series["cardinal"] = [self._degToCompass(direction) for direction in time_series[wind_direction].values]
+        time_series["cardinal"] = np.nan
+        time_series = self.qc_compute_cardinal(wind_speed=wind_speed, wind_direction=wind_direction)
 
         self.time_series = time_series
         self._qc_init = True
+
+    def qc_compute_cardinal(self, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
+        time_series = self.time_series
+        filter_positive_speeds = time_series[wind_speed] > 0
+        directions_to_compute = time_series[wind_direction][filter_positive_speeds].values
+        cardinals = [self._degToCompass(direction) for direction in directions_to_compute]
+        # N, NNE, NE etc
+        time_series["cardinal"][filter_positive_speeds] = cardinals
+        return time_series
 
     @print_func_executed_decorator("check_duplicates_in_index")
     @timer_decorator("check_duplicates_in_index", unit="minute")
@@ -1021,7 +1043,7 @@ class Observation:
 
     @print_func_executed_decorator("get_wind_speed_resolution")
     @timer_decorator("get_wind_speed_resolution", unit="minute")
-    def qc_get_wind_speed_resolution(self, wind_speed='vw10m(m/s)', verbose=True):
+    def qc_get_wind_speed_resolution(self, wind_speed='UV', verbose=True):
         """
         Quality control
 
@@ -1043,7 +1065,7 @@ class Observation:
 
     @print_func_executed_decorator("get_wind_direction_resolution")
     @timer_decorator("get_wind_direction_resolution", unit="minute")
-    def qc_get_wind_direction_resolution(self, wind_direction='winddir(deg)', verbose=True):
+    def qc_get_wind_direction_resolution(self, wind_direction='UV_DIR', verbose=True):
         """
         Quality control
 
@@ -1141,7 +1163,7 @@ class Observation:
 
     @print_func_executed_decorator("removal_unphysical_values")
     @timer_decorator("removal_unphysical_values", unit="minute")
-    def qc_removal_unphysical_values(self, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)'):
+    def qc_removal_unphysical_values(self, wind_speed='UV', wind_direction='UV_DIR'):
         """
         Quality control
 
@@ -1151,28 +1173,24 @@ class Observation:
         Unphysical direction: UV_DIR < 0 or UV_DIR > 360
         """
 
-        # Specify result of the test
-        self.time_series["qc_1"] = 1
-        self.time_series["qc_1_speed"] = 1
-        self.time_series["qc_1_direction"] = 1
-
         # Calm criteria: UV = 0m/s => UV_DIR = 0°
         filter_1 = (self.time_series[wind_speed] < 0)
         filter_2 = (self.time_series[wind_speed] > 100)
         filter_3 = (self.time_series[wind_direction] < 0)
         filter_4 = (self.time_series[wind_direction] > 360)
 
+        # Specify result of the test
         self.time_series['validity_speed'][(filter_1 | filter_2)] = 0
         self.time_series['validity_direction'][(filter_3 | filter_4)] = 0
         self.time_series["qc_1_speed"][(filter_1 | filter_2)] = "unphysical_wind_speed"
-        self.time_series["last_flagged_speed"][(filter_1 | filter_2)] = "unphysical_wind_speed"
         self.time_series["qc_1_direction"][(filter_3 | filter_4)] = "unphysical_wind_direction"
-        self.time_series["last_flagged_direction"][(filter_3 | filter_4)] = "unphysical_wind_direction"
         self.time_series["qc_1"][(filter_1 | filter_2) & (filter_3 | filter_4)] = "unphysical_wind_speed_and_direction"
+        self.time_series["last_flagged_speed"][(filter_1 | filter_2)] = "unphysical_wind_speed"
+        self.time_series["last_flagged_direction"][(filter_3 | filter_4)] = "unphysical_wind_direction"
 
     @print_func_executed_decorator("constant_sequences")
     @timer_decorator("constant_sequences", unit="minute")
-    def qc_constant_sequences(self, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)', tolerance_speed=0.08,
+    def qc_constant_sequences(self, wind_speed='UV', wind_direction='UV_DIR', tolerance_speed=0.08,
                               tolerance_direction=1, verbose=True):
         """
         Quality control
@@ -1187,7 +1205,7 @@ class Observation:
         list_dataframe = []
 
         # Initialize dictionary direction
-        dict_cst_seq = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(dict))))
+        dict_cst_seq = self.def_dict()
         for station in list_stations:
             # Direction
             for variable in ["length_constant_direction", "date_constant_direction_begin",
@@ -1374,7 +1392,7 @@ class Observation:
     @print_func_executed_decorator("excessive_MISS")
     @timer_decorator("excessive_MISS", unit="minute")
     def qc_excessive_MISS(self, dict_constant_sequence, percentage_miss=0.9,
-                          wind_speed='vw10m(m/s)', wind_direction='winddir(deg)', verbose=True):
+                          wind_speed='UV', wind_direction='UV_DIR', verbose=True):
         """
         Quality control
 
@@ -1438,7 +1456,6 @@ class Observation:
                 for begin, end in zip(begins, ends):
 
                     missing_period_direction = 0
-
                     nb_nan_current_seq = time_series_station[wind_direction][begin:end].isna().sum()
                     nb_obs_current_seq = time_series_station[wind_direction][begin:end].count()
 
@@ -1470,6 +1487,9 @@ class Observation:
 
         self.time_series = pd.concat(list_dataframe)
 
+    def def_dict(self):
+        return defaultdict(self.def_dict)
+
     @print_func_executed_decorator("get_stats_cst_seq")
     @timer_decorator("get_stats_cst_seq", unit="minute")
     def qc_get_stats_cst_seq(self, dict_constant_sequence, amplification_factor_speed=1,
@@ -1482,7 +1502,7 @@ class Observation:
         time_series = self.time_series
         list_stations = time_series["name"].unique()
 
-        dict_all_stations = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(dict))))
+        dict_all_stations = self.def_dict()
 
         # Wind speed resolution
         for resolution in range(5):
@@ -1514,8 +1534,8 @@ class Observation:
             for resolution in [10, 5, 1, 0.1]:
                 resolution = str(resolution)
                 array_1 = dict_constant_sequence[station]["length_constant_direction"][resolution]["!=0"]
-                if np.array(array_1).size != 0: dict_all_stations["length_constant_direction"][resolution]["!=0"][
-                    "values"].extend(array_1)
+                if np.array(array_1).size != 0:
+                    dict_all_stations["length_constant_direction"][resolution]["!=0"]["values"].extend(array_1)
 
         # Statistics speed
         for resolution in range(5):
@@ -1574,7 +1594,7 @@ class Observation:
                 criteria = P95_low + amplification_factor_speed * 7.5 * (P75_low - P25_low)
 
                 # Criteria = max(3, criteria)
-                criteria = np.max((3, criteria))
+                criteria = np.max((4, criteria))
 
                 # Criteria = min(12, criteria)
                 criteria = np.min((12, criteria))
@@ -1615,7 +1635,7 @@ class Observation:
                 criteria = P95 + amplification_factor_direction * 15 * (P75 - P25)
 
                 # Criteria = max(4, criteria)
-                criteria = np.max((4, criteria))
+                criteria = np.max((5, criteria))
 
                 # Criteria = max(12, criteria)
                 criteria = np.min((12, criteria))
@@ -1635,8 +1655,8 @@ class Observation:
 
     @print_func_executed_decorator("apply_stats_cst_seq")
     @timer_decorator("apply_stats_cst_seq", unit="minute")
-    def qc_apply_stats_cst_seq(self, dict_constant_sequence, dict_all_stations, wind_speed='vw10m(m/s)',
-                               wind_direction='winddir(deg)'):
+    def qc_apply_stats_cst_seq(self, dict_constant_sequence, dict_all_stations, wind_speed='UV',
+                               wind_direction='UV_DIR'):
         """
         Quality control
 
@@ -1708,7 +1728,10 @@ class Observation:
 
                         # Unflag if constant direction is preferred direction
                         count_cardinals = time_series_station['cardinal'][begin:end].value_counts()
-                        direction_cst_seq = count_cardinals.nlargest(n=1).index[0]
+                        try:
+                            direction_cst_seq = count_cardinals.nlargest(n=1).index[0]
+                        except IndexError:
+                            continue
                         time_series_station['preferred_direction_during_sequence'][begin:end] = direction_cst_seq
 
                         if direction_cst_seq == pref_direction:
@@ -1911,7 +1934,7 @@ class Observation:
 
     @print_func_executed_decorator("high_variability")
     @timer_decorator("high_variability", unit="minute")
-    def qc_high_variability(self, wind_speed='vw10m(m/s)'):
+    def qc_high_variability(self, wind_speed='UV'):
         """
         Quality control
 
@@ -1919,8 +1942,16 @@ class Observation:
 
         Specific to wind speed.
         """
+
         time_series = self.time_series
+
+        # Select valid observations (but keep constant sequences)
+        # Unphysical speed or direction
+        filter_1 = (time_series['qc_1_speed'] == 1) & (time_series['qc_1_direction'] == 1)
+
+        time_series = time_series[filter_1]
         list_stations = time_series["name"].unique()
+
         list_dataframe = []
 
         # Get statistics
@@ -1938,7 +1969,6 @@ class Observation:
 
             # Increment for several timesteps
             for time_step in range(1, 24):
-                time_step = str(time_step)
 
                 # Initialize values
                 dict_high_variability[station][time_step] = {}
@@ -1982,12 +2012,13 @@ class Observation:
                     criteria_n = 7.5
 
                 # Time resolution
-                delta_t = time_difference == time_step
+                delta_t = time_difference == np.float32(time_step)
                 too_high_positive = (increments >= 0) & (increments >= criteria_p) & delta_t
                 too_high_negative = (increments < 0) & (np.abs(increments) >= criteria_n) & delta_t
 
                 time_series_station["qc_5_speed"][too_high_positive] = "too high"
                 time_series_station["qc_5_speed"][too_high_negative] = "too high"
+
                 time_series_station["validity_speed"][too_high_positive] = 0
                 time_series_station["validity_speed"][too_high_negative] = 0
                 time_series_station["last_flagged_speed"][too_high_positive] = "high variation"
@@ -2000,9 +2031,11 @@ class Observation:
 
         self.time_series = pd.concat(list_dataframe)
 
+        return dict_high_variability
+
     @print_func_executed_decorator("bias")
     @timer_decorator("bias", unit="minute")
-    def qc_bias(self, stations='all', wind_speed='vw10m(m/s)', wind_direction='winddir(deg)',
+    def qc_bias(self, stations='all', wind_speed='UV', wind_direction='UV_DIR',
                 correct_factor_mean=1.5, correct_factor_std=1, correct_factor_coeff_var=4, update_file=True):
         pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -2131,12 +2164,25 @@ class Observation:
             # Add station to list of dataframe
             list_dataframe.append(time_serie_station)
         if update_file:
-            self.time_series = pd.concat(list_dataframe)
+            time_series_updated = pd.concat(list_dataframe)
+            time_series_not_updated = self.time_series
+            for station in time_series_not_updated["name"].unique():
+                station_not_updated = time_series_not_updated[time_series_not_updated["name"] == station]
+                station_updated = time_series_updated[time_series_updated["name"] == station]
+                index_intersection = station_not_updated.index.intersection(station_updated.index)
+
+                time_series_not_updated[
+                    (time_series_not_updated["name"] == station) & time_series_not_updated.index.isin(
+                        index_intersection)] = station_updated
+            self.time_series = time_series_not_updated
         else:
             return time_serie_station
 
     @staticmethod
-    def apply_qc_filters_to_time_series(self, time_series):
+    def apply_qc_filters_to_time_series(time_series, create_qc=False, remove_test_7=False):
+
+        if create_qc:
+            time_series["qc"] = 0
 
         # Unphysical speed or direction
         filter_1 = (time_series['qc_1_speed'] == 1) & (time_series['qc_1_direction'] == 1)
@@ -2157,20 +2203,34 @@ class Observation:
         # Bias
         filter_6 = (time_series['qc_6_speed'] == 1)
 
-        # Isolated records
-        filter_7 = (time_series['qc_7_isolated_records_speed']) & (time_series['qc_7_isolated_records_direction'])
+        if not remove_test_7:
+            # Isolated records
+            filter_7 = (time_series['qc_7_isolated_records_speed'] == 1) & (
+                        time_series['qc_7_isolated_records_direction'] == 1)
+            filters = filter_1 & filter_2 & filter_3 & filter_5 & filter_6 & filter_7
+        else:
+            filters = filter_1 & filter_2 & filter_3 & filter_5 & filter_6
 
-        filters = filter_1 & filter_2 & filter_3 & filter_5 & filter_6 & filter_7
-        time_series = time_series[filters]
+        if 'qc_8_visual_obs' in time_series.columns:
+            filter_8 = time_series['qc_8_visual_obs'] == 1
+            filters = filters & filter_8
+            print("__Removing observations at Dome and Vallot for suspicious dates")
+
+        if create_qc:
+            time_series["qc"][filters] = 1
+        else:
+            time_series = time_series[filters]
 
         return time_series
 
     def _qc_isolated_records(self, time_series_station, variable, max_time=24, min_time=12, type="speed", verbose=True):
 
-        # to detect isolated records after the qc process, we need to apply the result of the qc to the time series
+        # Remove flagged data
         wind = time_series_station.copy()
-        filter_last_flagged = wind["last_flagged_speed"] != 0
-        wind[variable][filter_last_flagged] = np.nan
+        filter_qc = wind["qc"] == 0
+        wind[variable][filter_qc] = np.nan
+
+        # Creata a DataFrame
         wind = pd.DataFrame(wind[variable].values, columns=[variable])
         wind.index = time_series_station.index
 
@@ -2215,9 +2275,9 @@ class Observation:
 
     @print_func_executed_decorator("isolated records")
     @timer_decorator("isolated_records", unit="minute")
-    def qc_isolated_records(self, wind_speed='vw10m(m/s)', wind_direction='winddir(deg)', verbose=True):
-
+    def qc_isolated_records(self, wind_speed='UV', wind_direction='UV_DIR', verbose=True):
         time_series = self.time_series
+        time_series = self.apply_qc_filters_to_time_series(time_series, create_qc=True, remove_test_7=True)
         list_stations = time_series["name"].unique()
         list_dataframe = []
 
@@ -2243,8 +2303,6 @@ class Observation:
 
         pd.options.mode.chained_assignment = None  # default='warn'
 
-        self.qc_initialization()
-
         # No flag
         self.qc_check_duplicates_in_index()
 
@@ -2254,19 +2312,20 @@ class Observation:
         # No flag
         self.qc_check_duplicates_in_index()
 
+        # Initialization
+        self.qc_initialization()
+
         # 'winddir(deg)' => UV_DIR
         self.qc_calm_criteria()
 
         # 'winddir(deg)' => UV_DIR
         self.qc_true_north()
 
-        # qc_1_speed, qc_1_direction
+        # qc_1_speed, qc_1_ direction
         self.qc_removal_unphysical_values()
 
         # No flag
         self.qc_get_wind_speed_resolution()
-
-        # No flag
         self.qc_get_wind_direction_resolution()
 
         # No flag
@@ -2278,6 +2337,7 @@ class Observation:
         dict_all_stations = self.qc_get_stats_cst_seq(dict_constant_sequence,
                                                       amplification_factor_speed=1.5,
                                                       amplification_factor_direction=1.5)
+
         # qc_3_speed, qc_3_direction, qc_3_direction_pref
         self.qc_apply_stats_cst_seq(dict_constant_sequence, dict_all_stations)
 
@@ -2288,7 +2348,7 @@ class Observation:
             self.qc_ra(dict_constant_sequence, dict_all_stations)
 
         # qc_5_speed
-        self.qc_high_variability()
+        dict_high_variability = self.qc_high_variability()
 
         # qc_6_speed
         self.qc_bias()
@@ -2301,13 +2361,22 @@ class Observation:
 
         self._qc = True
 
-        return dict_constant_sequence, dict_all_stations
+        with open(prm["QC_path"] + 'dict_high_variability' + prm["results_name"] + '.pickle', 'wb') as handle:
+            pickle.dump(dict_high_variability, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        with open(prm["QC_path"] + 'dict_constant_sequence' + prm["results_name"] + '.pickle', 'wb') as handle:
+            pickle.dump(dict_constant_sequence, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        with open(prm["QC_path"] + 'dict_all_stations' + prm["results_name"] + '.pickle', 'wb') as handle:
+            pickle.dump(dict_all_stations, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        return dict_constant_sequence, dict_all_stations, dict_high_variability
 
     """
     # Multiprocessing
     def qc_bias_station(self, time_series=None, station=None, wind_speed=None,
                         correct_factor_mean=None, correct_factor_std=None, correct_factor_coeff_var=None):
-                
+
         pd.options.mode.chained_assignment = None
         time_serie_station = time_series[time_series["name"] == station]
 
@@ -2447,15 +2516,21 @@ class Observation:
             self.time_series = pd.concat(list_dataframe)
     """
 
-    def store_obs_lac_blanc_before_log_profile_and_modify_snow_height_dome(self):
+    def modify_snow_height_dome(self):
 
         time_series = self.time_series
-        time_series = time_series[(time_series["name"] == "Col Lac Blanc") | (time_series["name"] == "Dome Lac Blanc") | (time_series["name"] == "La Muzelle Lac Blanc")]
 
         condition_dome = time_series["name"] == "Dome Lac Blanc"
-        condition_col = time_series["name"] == "Col Lac Blanc"
-        index_intersection = time_series[condition_dome].index.intersection(time_series[condition_col])
-        time_series['HTN(cm)'][condition_dome & index_intersection] = time_series['HTN(cm)'][condition_col & index_intersection]
+        condition_col = time_series["name"] == "Col du Lac Blanc"
+        time_series_col = time_series[condition_col]
+        time_series_dome = time_series[condition_dome]
+
+        index_intersection = time_series_dome.index.intersection(time_series_col.index)
+        index_intersection = time_series.index.isin(index_intersection)
+
+        condition_dome = condition_dome & index_intersection
+        condition_col = condition_col & index_intersection
+        time_series['HTN(cm)'][condition_dome] = time_series['HTN(cm)'][condition_col]
 
         return time_series
 

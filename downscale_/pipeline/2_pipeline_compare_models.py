@@ -26,11 +26,12 @@ AROME = NWP(prm["AROME_path_1"], begin=prm["begin"], end=prm["begin_after"], prm
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 
 # Quality control
-BDclim.replace_obs_by_QC_obs(prm, replace_old_wind=True)
-use_QC = True
+use_qc = True
+BDclim.replace_obs_by_QC_obs(replace_old_wind=True, remove_Dome_and_Vallot_suspicious=True,
+                             drop_not_valid=True, prm=prm)
 QC = BDclim.time_series
 
-with open(prm["working_directory"]+'Data/3_Predictions/Stations/prediction_classic_stations_21_12_2021.pickle', 'rb') as handle:
+with open(prm["working_directory"]+'Data/3_Predictions/Stations/11_02_2022.pickle', 'rb') as handle:
     results_1 = pickle.load(handle)
 """
 with open(prm["working_directory"]+'Data/3_Predictions/Stations/prediction_no_dropout_stations_21_12_2021.pickle', 'rb') as handle:
@@ -56,17 +57,22 @@ df_results = pd.DataFrame()
 all_predictions = []
 for index, result in enumerate(results_list):
 
-    print(f"Result: {title[index]}")
+    print("Result without QC")
 
-    # Integrated results
-    cnn, nwp, obs = e.results_to_three_arrays(result, variable=variable, use_QC=True, time_series_qc=QC)
+    cnn, nwp, obs = e.results_to_three_arrays(result, variable=variable, use_QC=False)
     all_predictions.append(cnn)
     print("\nRMSE CNN", e.RMSE(cnn, obs))
     print("\nRMSE NWP", e.RMSE(nwp, obs))
     print("\nBias CNN", e.mean_bias(cnn, obs))
     print("\nBias NWP", e.mean_bias(nwp, obs))
 
-    cnn, nwp, obs = e.results_to_three_arrays(result, variable=variable, use_QC=True, time_series_qc=QC[QC["name"] != "Vallot"])
+    del cnn
+    del nwp
+    del obs
+
+    # Integrated results
+    print("Result with QC")
+    cnn, nwp, obs = e.results_to_three_arrays(result, variable=variable, use_QC=True, time_series_qc=QC)
     all_predictions.append(cnn)
     print("\nRMSE CNN", e.RMSE(cnn, obs))
     print("\nRMSE NWP", e.RMSE(nwp, obs))

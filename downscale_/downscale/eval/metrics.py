@@ -143,8 +143,8 @@ class Metrics:
         input_is_dataframe = type(pred) == type(true) == pd.core.frame.DataFrame
         input_is_series = type(pred) == type(true) == pd.core.series.Series
 
-        pred = np.where(pred != 0, pred, 360)
-        true = np.where(true != 0, true, 360)
+        pred = np.where(pred != 0, pred, np.nan)
+        true = np.where(true != 0, true, np.nan)
 
         diff1 = np.mod((pred - true), 360)
         diff2 = np.mod((true - pred), 360)
@@ -160,8 +160,8 @@ class Metrics:
         input_is_dataframe = type(pred) == type(true) == pd.core.frame.DataFrame
         input_is_series = type(pred) == type(true) == pd.core.series.Series
 
-        pred = np.where(pred != 0, pred, 360)
-        true = np.where(true != 0, true, 360)
+        pred = np.where(pred != 0, pred, np.nan)
+        true = np.where(true != 0, true, np.nan)
 
         diff1 = np.mod((pred - true), 360)
         diff2 = np.mod((true - pred), 360)
@@ -170,7 +170,7 @@ class Metrics:
             print("Warning: this operation is outdated")
             return pd.concat([np.abs(diff1), np.abs(diff2)]).min(level=0)
         else:
-            result = np.min([np.abs(diff1), np.abs(diff2)], axis=0)
+            result = np.nanmin([np.abs(diff1), np.abs(diff2)], axis=0)
             return result
 
     def _select_metric(self, metric):

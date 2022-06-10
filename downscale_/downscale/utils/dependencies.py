@@ -1,5 +1,7 @@
-from tensorflow.keras import backend as K
-
+try:
+    from tensorflow.keras import backend as K
+except ImportError:
+    print("\nTensorflow not imported")
 
 def root_mse(y_true, y_pred):
     return K.sqrt(K.mean(K.square(y_true - y_pred)))

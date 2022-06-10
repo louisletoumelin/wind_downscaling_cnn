@@ -22,6 +22,7 @@ from utils_prm import update_selected_path_for_long_periods, select_stations
 IGN = MNT(prm=prm)
 AROME = NWP(prm["AROME_path_1"], begin=prm["begin"], end=prm["begin_after"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
+print(BDclim.stations.columns)
 
 prm = select_stations(prm, BDclim)
 
@@ -63,6 +64,9 @@ if prm["launch_predictions"]:
         AROME = NWP(begin=begin,
                     end=end,
                     prm=prm)
+
+        if len(AROME.data_xr.time) == 0:
+            continue
 
         # Processing
         p = Devine(obs=BDclim, mnt=IGN, nwp=AROME, prm=prm)

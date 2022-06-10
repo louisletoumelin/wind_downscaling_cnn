@@ -1,5 +1,8 @@
 import numpy as np
-import tensorflow as tf
+try:
+    import tensorflow as tf
+except ImportError:
+    print("\nTensorflow not imported")
 
 from downscale.utils.utils_func import change_dtype_if_required, change_several_dtype_if_required
 from downscale.utils.decorators import print_func_executed_decorator, timer_decorator, \
@@ -309,6 +312,12 @@ class Topo_utils:
         y_left, y_right, x_left, x_right = self._control_idx_boundaries([y_left, y_right, x_left, x_right],
                                                                         min_idx=[0, 0, 0, 0],
                                                                         max_idx=boundaries_mnt)
+
+        if np.ndim(y_left) == 0:
+            y_left = [y_left]
+            y_right = [y_right]
+            x_left = [x_left]
+            x_right = [x_right]
 
         mean_window = np.array([np.mean(mnt[i1:j1+1, i2:j2+1]) for i1, j1, i2, j2 in zip(y_left, y_right, x_left, x_right)])
         return mnt[idx_y, idx_x] - mean_window

@@ -18,8 +18,9 @@ from downscale.operators.wind_utils import Wind_utils
 def convert_slope_from_Nora(df):
     old_slopes = [5, 10, 13, 16, 20]
     new_slopes = [10, 19, 25, 30, 36]
+    df["degree_old"] = df["degree"]
     for old_slope, new_slope in zip(old_slopes, new_slopes):
-        df["degree"][df["degree"] == old_slope] = new_slope
+        df["degree"][df["degree_old"] == old_slope] = new_slope
     return df
 
 
@@ -183,11 +184,9 @@ class VisualizationGaussian(Visualization):
 
             # List of degrees to append to DataFrame
             list_deg_or_xi = [deg_or_xi] * len(uv_flat)
-            df_deg_or_xi_i = pd.DataFrame(np.transpose([var, list_deg_or_xi]), columns=dict_all_degree_or_xi.columns)
-            try:
+            df_deg_or_xi_i = pd.DataFrame(np.transpose([var, list_deg_or_xi]), columns=["value", degree_or_xi])
+            if degree_or_xi == "degree":
                 df_deg_or_xi_i = convert_slope_from_Nora(df_deg_or_xi_i)
-            except KeyError:
-                pass
             dict_all_degree_or_xi = dict_all_degree_or_xi.append(df_deg_or_xi_i, ignore_index=True)
         plt.figure()
         sns.displot(data=dict_all_degree_or_xi, x="value", hue=degree_or_xi, kind='kde', fill=fill, palette=cmap)

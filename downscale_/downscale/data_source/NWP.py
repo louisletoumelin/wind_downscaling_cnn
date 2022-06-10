@@ -322,7 +322,7 @@ class NWP(Data_2D):
 
         import pyproj
 
-        # Initialization
+        # Initialization²
         X_L93 = np.zeros(shape)
         Y_L93 = np.zeros(shape)
 

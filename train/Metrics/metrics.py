@@ -1,7 +1,10 @@
 import numpy as np
 import pandas as pd
 # import tensorflow_probability as tfp
-from tensorflow.keras import backend as K
+try:
+    from tensorflow.keras import backend as K
+except ImportError:
+    print("\nTensorflow not imported")
 
 '''
 Keras Metrics

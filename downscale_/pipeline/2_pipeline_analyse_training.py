@@ -24,7 +24,8 @@ from downscale.eval.metrics import Metrics
 from downscale.operators.devine import Devine
 from downscale.utils.dependencies import root_mse
 from downscale.visu.visualization import Visualization
-from downscale.eval.eval_training import figure_training_result_by_metrics, figure_epochs_bias, figure_heatmap_training
+from downscale.eval.eval_training import figure_training_result_by_metrics, figure_epochs_bias, figure_heatmap_training, \
+    table_latex_training,table_latex_training_train_data, figure_training_normalized_result_by_metrics
 
 
 #
@@ -44,9 +45,22 @@ config_figure_training = dict(
     name_dataframe_on_gaussian_topo_with_metrics="dataframe_on_gaussian_topo_with_metrics_d182.pkl",
     metric_already_loaded=True,
     fontsize=45,
-    return_df_results=True
+    return_df_results=False
 )
-results = figure_training_result_by_metrics(config_figure_training, prm)
+config_figure_training = dict(
+    tpi_500=True,
+    sx_300=True,
+    save_dataframe=True,
+    load_dataframe=False,
+    curvature=True,
+    laplacian=True,
+    mu=True,
+    name_dataframe_on_gaussian_topo_with_metrics="dataframe_on_gaussian_topo_with_metrics_d182.pkl",
+    metric_already_loaded=False,
+    fontsize=45,
+    return_df_results=False
+)
+#results = figure_training_result_by_metrics(config_figure_training, prm)
 
 
 
@@ -67,11 +81,37 @@ results = figure_training_result_by_metrics(config_figure_training, prm)
 #figure_heatmap_training(prm)
 
 
+#
+#
+# Figure 4: Table Latex training
+#
+#
+#df = table_latex_training(prm)
+
+#df1 = table_latex_training_train_data(prm)
 
 
 
+#
+#
+# Figure 5: Normalized bias = f(metric)
+#
+#
 
-
+config_figure_training = dict(
+    tpi_500=True,
+    sx_300=False,
+    save_dataframe=False,
+    load_dataframe=False,
+    curvature=True,
+    laplacian=True,
+    mu=True,
+    name_dataframe_on_gaussian_topo_with_metrics="dataframe_on_gaussian_topo_with_metrics_d182.pkl",
+    metric_already_loaded=False,
+    fontsize=45,
+    return_df_results=False
+)
+results = figure_training_normalized_result_by_metrics(config_figure_training, prm)
 
 
 """

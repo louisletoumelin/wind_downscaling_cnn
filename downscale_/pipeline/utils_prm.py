@@ -2,7 +2,10 @@ import numpy as np
 import datetime
 import os
 
-import tensorflow as tf
+try:
+    import tensorflow as tf
+except:
+    print("\nTensorflow not imported")
 
 
 def _update_selected_path(year, month, day, prm):
@@ -120,7 +123,7 @@ def select_stations(prm, observation):
         prm["stations_to_predict"] = list(prm["stations_to_predict"])
 
         stations_to_reject = ['ANTIBES-GAROUPE', 'CANNES', 'SEYNOD-AREA', 'TIGNES_SAPC', 'ST MICHEL MAUR_SAPC',
-                              'FECLAZ_SAPC', 'Dome Lac Blanc', 'MERIBEL BURGIN', "VAL D'I SOLAISE", 'CAP FERRAT',
+                              'FECLAZ_SAPC', 'MERIBEL BURGIN', "VAL D'I SOLAISE", 'CAP FERRAT',
                               'ALBERTVILLE', 'FREJUS', "VAL D'I BELLEVA", None]
 
         for station_to_reject in stations_to_reject:

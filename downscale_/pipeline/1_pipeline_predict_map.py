@@ -36,6 +36,7 @@ begin = np.datetime64(datetime(prm["year_begin"], prm["month_begin"], prm["day_b
 end = np.datetime64(datetime(prm["year_end"], prm["month_end"], prm["day_end"], prm["hour_end"] + 1))
 
 AROME = NWP(prm["selected_path"], begin=begin, end=end, prm=prm)
+AROME.data_xr = AROME.data_xr.isel(time=[0])
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 p = Devine(obs=BDclim, mnt=DEM, nwp=AROME, prm=prm)
 v = Visualization(p=p, prm=prm)
@@ -53,17 +54,17 @@ p = Devine(obs=BDclim, mnt=DEM, nwp=AROME, prm=prm)
 # p.update_stations_with_neighbors(mnt=DEM, nwp=AROME, GPU=prm["GPU"], number_of_neighbors=4, interpolated=False)
 #surfex = xr.open_dataset(prm["path_SURFEX"])
 
-t1 = t()
+
 if prm["launch_predictions"]:
     predict = p.predict_maps
+    t1 = t()
     wind_xr = predict(prm=prm)
+    print(f'\nPredictions in {np.round((t() - t1))} seconds')
     wind_xr = p.compute_speed_and_direction_xarray(xarray_data=wind_xr)
     #wind_xr = p.interpolate_mean_K_NN(high_resolution_wind=wind_xr, high_resolution_grid=p.mnt.data_xr,
     #                                  low_resolution_grid=surfex, length_square=250,
     #                                  x_name_LR="x", y_name_LR="y", x_name_HR="x", y_name_HR="y",
     #                                  resolution_HR_x=30, resolution_HR_y=30)
-
-print(f'\nPredictions in {np.round((t()-t1))} seconds')
 
 # Visualization
 v = Visualization(p)
@@ -87,4 +88,3 @@ config = dict(
 )
 
 v.figure_maps_large_domain(wind_xr, config=config, prm=prm)
-

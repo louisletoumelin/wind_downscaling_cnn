@@ -55,10 +55,11 @@ IGN = MNT(prm=prm)
 AROME = NWP(begin=prm["begin"], end=prm["end"], prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 
+
 BDclim.replace_obs_by_QC_obs(prm, replace_old_wind=True, drop_not_valid=False)
+
 use_QC = True
 QC = BDclim.time_series
-
 date_selected = np.datetime64(datetime(prm["year_begin"], prm["month_begin"], prm["day_begin"], prm["hour_begin"]))
 
 # Compute nearest neighbor if CPU, load them if GPU
@@ -85,21 +86,15 @@ if prm["launch_predictions"]:
 
 print(f'\nPredictions in {np.round(t()-t1, 2)} seconds')
 
-
-# Visualization
 v = Visualization(p)
-#v.qc_plot_last_flagged(stations=['Vallot', 'Argentiere'])
-# v.plot_predictions_2D(array_xr, ['Col du Lac Blanc'])
-
-
-prm["hour_begin"] = 9 #vent de nord est à 6 m/s
-prm["day_begin"] = 6
-prm["month_begin"] = 4
-prm["year_begin"] = 2021
+"""
+prm["hour_begin"] = 11  # 1 vent d'Ouest
+prm["day_begin"] = 7  # 2
+prm["month_begin"] = 3  # 8
+prm["year_begin"] = 2018  # 2017
 date_selected = np.datetime64(datetime(prm["year_begin"], prm["month_begin"], prm["day_begin"], prm["hour_begin"]))
-v.plot_predictions_2D(array_xr, ['Col du Lac Blanc'], random_selection=False, date_selected=date_selected, n=2, scale=1/0.04, fontsize=40, vmin=3, vmax=10)
+v.plot_predictions_2D(array_xr, ['Col du Lac Blanc'], random_selection=False, date_selected=date_selected, n=2, scale=1/0.04, fontsize=40, vmin=1.38/2, vmax=1.38*2)
 save_figure(f"map_example_{date_selected}", prm)
-
 
 prm["hour_begin"] = 0 # vent de sud est
 prm["day_begin"] = 9
@@ -107,31 +102,16 @@ prm["month_begin"] = 4
 prm["year_begin"] = 2021
 date_selected = np.datetime64(datetime(prm["year_begin"], prm["month_begin"], prm["day_begin"], prm["hour_begin"]))
 v.plot_predictions_2D(array_xr, ['Col du Lac Blanc'], random_selection=False, date_selected=date_selected, n=2,
-                      scale=1/0.04, fontsize=40, vmin=1, vmax=5)
+                      scale=1/0.04, fontsize=40, vmin=2.43/2, vmax=2.43*2)
 save_figure(f"map_example_{date_selected}", prm)
 
 
-
-prm["hour_begin"] = 13 # vent de sud ouest
-prm["day_begin"] = 9
+prm["hour_begin"] = 9
+prm["day_begin"] = 6
 prm["month_begin"] = 4
 prm["year_begin"] = 2021
 date_selected = np.datetime64(datetime(prm["year_begin"], prm["month_begin"], prm["day_begin"], prm["hour_begin"]))
 v.plot_predictions_2D(array_xr, ['Col du Lac Blanc'], random_selection=False, date_selected=date_selected, n=2,
-                      scale=1/0.04, fontsize=40, vmin=1, vmax=5)
+                      scale=1/0.04, fontsize=40, vmin=5.52/2, vmax=5.52*2)
 save_figure(f"map_example_{date_selected}", prm)
-
-
-# v.plot_predictions_3D(array_xr, ['Col du Lac Blanc'])
-# v.plot_comparison_topography_MNT_NWP(station_name='Col du Lac Blanc', new_figure=False)
-
-#prm["hour_begin"] = 22 ou 23#1
-#prm["day_begin"] = 10#2
-#prm["month_begin"] = 4#8
-#prm["year_begin"] = 2021#2017
-
-# Analysis
-#e = Evaluation(v, array_xr) if prm["launch_predictions"] else None
-# e.plot_time_serie(array_xr, 'Col du Lac Blanc', year=year_begin)
-
-#print(f"\n All prediction in  {round(t_init, t()) / 60} minutes")
+"""

@@ -6,7 +6,10 @@ import matplotlib
 matplotlib.use('Agg')
 #matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-import seaborn as sns
+try:
+    import seaborn as sns
+except ImportError:
+    pass
 
 from downscale.eval.synthetic_topographies import GaussianTopo
 from downscale.eval.metrics import Metrics
@@ -37,6 +40,14 @@ def load_test_group_in_gaussian_topo_df_all(fold_nb, prm):
     train_test_group = pd.read_csv(path_fold+f"df_all_{fold_nb}.csv")
     list_variables = ['degree', 'xi', 'degree_xi', 'topo_name', 'wind_name', 'group']
     test_group = train_test_group[list_variables][train_test_group["group"] == "test"]
+    return test_group
+
+
+def load_training_group_in_gaussian_topo_df_all(fold_nb, prm):
+    path_fold = prm["model_path_fold"] + f"fold{fold_nb}/"
+    train_test_group = pd.read_csv(path_fold+f"df_all_{fold_nb}.csv")
+    list_variables = ['degree', 'xi', 'degree_xi', 'topo_name', 'wind_name', 'group']
+    test_group = train_test_group[list_variables][train_test_group["group"] == "train"]
     return test_group
 
 
@@ -181,6 +192,9 @@ def compute_metrics(test_i, metric="bias"):
             test_i["absolute_error"] = metrics.absolute_error(np.array(test_i['UVW_pred']), np.array(test_i['UVW_test']))
             test_i["absolute_error_DIR"] = metrics.abs_bias_direction(np.array(test_i['Wind_DIR_pred']), np.array(test_i['Wind_DIR_test']))
 
+    elif metric == "bias_rel":
+        test_i["bias_rel"] = metrics.bias_rel(test_i['UVW_pred'].values, test_i['UVW_test'].values)
+
     return test_i
 
 
@@ -261,12 +275,10 @@ def figure_training_result_by_metrics(config, prm):
         test_i = flatten_arrays(list_variables, df_all)
 
         print("Compute metrics")
-        test_i = compute_metrics(test_i, metric="abs_error")
+        test_i = compute_metrics(test_i, metric="bias")
         test.append(test_i)
 
     test = pd.concat(test)
-    print("debug0")
-    print(test.describe())
     if config["return_df_results"]:
         return test
 
@@ -285,7 +297,576 @@ def figure_training_result_by_metrics(config, prm):
         del test
         test = loaded
 
-    """
+    # bias=f(degree)
+    plt.figure(figsize=(10, 13))
+    test = convert_slope_from_Nora(test)
+    sns_palette = sns.light_palette("SteelBlue", n_colors=len(test["degree"].unique()))
+    ax = sns.boxplot(data=test, x="degree", y="bias", palette=sns_palette, showfliers=False)
+    plt.xlabel("Mean slope [degree]", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [m/s]", fontsize=config.get("fontsize"))
+    plt.xticks(fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-1, 1)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("speed_degree", prm)
+
+    # bias=f(xi)
+    plt.figure(figsize=(10,13))
+    sns_palette = sns.light_palette("IndianRed", n_colors=len(test["xi"].unique()))
+    ax = sns.boxplot(data=test, x="xi", y="bias", palette=sns_palette, showfliers=False)
+    plt.xticks(fontsize=config.get("fontsize")/2)
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.xlabel("Xi [m]", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [m/s]", fontsize=config.get("fontsize"))
+    plt.ylim(-1, 1)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("speed_xi", prm)
+
+    # bias=f(tpi_500)
+    plt.figure(figsize=(10,13))
+    test = gaussian_topo.classify(test, variable="tpi_500", quantile=True)
+    sns_palette = sns.light_palette("SeaGreen", n_colors=len(test["class_tpi_500"].unique()))
+    ax = sns.boxplot(data=test, x="class_tpi_500", y="bias", palette=sns_palette, showfliers=False,
+                     order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+    plt.xlabel("TPI [m]", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [m/s]", fontsize=config.get("fontsize"))
+    plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-1, 1)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("speed_tpi_500", prm)
+
+
+    # bias=f(sx_300)
+    plt.figure(figsize=(10,13))
+    test = gaussian_topo.classify(test, variable="sx_300", quantile=True)
+    sns_palette = sns.light_palette("DarkKhaki", n_colors=len(test["class_sx_300"].unique()))
+    ax = sns.boxplot(data=test, x="class_sx_300", y="bias", palette=sns_palette, showfliers=False,
+                     order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+    plt.xlabel("Sx [m]", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [m/s]", fontsize=config.get("fontsize"))
+    plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-1, 1)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("speed_sx_300", prm)
+
+
+    # bias=f(curvature)
+    plt.figure(figsize=(10,13))
+    test = gaussian_topo.classify(test, variable="curvature", quantile=True)
+    sns_palette = sns.light_palette("PaleVioletRed", n_colors=len(test["class_curvature"].unique()))
+    ax = sns.boxplot(data=test, x="class_curvature", y="bias", palette=sns_palette, showfliers=False,
+                     order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+    plt.xlabel("curvature [m]", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [m/s]", fontsize=config.get("fontsize"))
+    plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-1, 1)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("speed_curvature", prm)
+
+    # bias=f(laplacian)
+    plt.figure(figsize=(10,13))
+    test = gaussian_topo.classify(test, variable="laplacian", quantile=True)
+    sns_palette = sns.light_palette("DarkOrchid", n_colors=len(test["class_laplacian"].unique()))
+    ax = sns.boxplot(data=test, x="class_laplacian", y="bias", palette=sns_palette, showfliers=False,
+                     order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+    plt.xlabel("Laplacian []", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [m/s]", fontsize=config.get("fontsize"))
+    plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-1, 1)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("speed_laplacian", prm)
+
+
+    # bias=f(mu)
+    plt.figure(figsize=(10,13))
+    test = gaussian_topo.classify(test, variable="mu", quantile=True)
+    sns_palette = sns.light_palette("SteelBlue", n_colors=len(test["class_mu"].unique()))
+    ax = sns.boxplot(data=test, x="class_mu", y="bias", palette=sns_palette, showfliers=False,
+                     order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+    plt.xlabel("Mu []", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [m/s]", fontsize=config.get("fontsize"))
+    plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-1, 1)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("speed_mu", prm)
+
+
+
+
+
+
+
+
+
+    # bias=f(degree)
+    plt.figure(figsize=(10, 13))
+    sns_palette = sns.light_palette("SteelBlue", n_colors=len(test["degree"].unique()))
+    ax = sns.boxplot(data=test, x="degree", y="bias_DIR", palette=sns_palette, showfliers=False)
+    plt.xlabel("Mean slope [degree]", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [°]", fontsize=config.get("fontsize"))
+    plt.xticks(fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-15, 15)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("direction_degree", prm)
+
+
+    # bias=f(xi)
+    plt.figure(figsize=(10,13))
+    sns_palette = sns.light_palette("IndianRed", n_colors=len(test["xi"].unique()))
+    ax = sns.boxplot(data=test, x="xi", y="bias_DIR", palette=sns_palette, showfliers=False)
+    plt.xlabel("Xi [m]", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [°]", fontsize=config.get("fontsize"))
+    plt.xticks(fontsize=config.get("fontsize")/2)
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-15, 15)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("direction_xi", prm)
+
+
+    # bias=f(tpi_500)
+    plt.figure(figsize=(10,13))
+    sns_palette = sns.light_palette("SeaGreen", n_colors=len(test["class_tpi_500"].unique()))
+    ax = sns.boxplot(data=test, x="class_tpi_500", y="bias_DIR", palette=sns_palette, showfliers=False,
+                     order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+    plt.xlabel("TPI [m]", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [°]", fontsize=config.get("fontsize"))
+    plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-15, 15)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("direction_tpi500", prm)
+
+
+    # bias=f(sx_300)
+    plt.figure(figsize=(10,13))
+    sns_palette = sns.light_palette("DarkKhaki", n_colors=len(test["class_sx_300"].unique()))
+    ax = sns.boxplot(data=test, x="class_sx_300", y="bias_DIR", palette=sns_palette, showfliers=False,
+                     order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+    plt.xlabel("Sx [m]", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [°]", fontsize=config.get("fontsize"))
+    plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-15, 15)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("direction_sx300", prm)
+
+
+    # bias=f(curvature)
+    plt.figure(figsize=(10,13))
+    sns_palette = sns.light_palette("PaleVioletRed", n_colors=len(test["class_curvature"].unique()))
+    ax = sns.boxplot(data=test, x="class_curvature", y="bias_DIR", palette=sns_palette, showfliers=False,
+                     order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+    plt.xlabel("curvature [m]", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [°]", fontsize=config.get("fontsize"))
+    plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-15, 15)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("direction_curvature", prm)
+
+
+    # bias=f(laplacian)
+    plt.figure(figsize=(10,13))
+    sns_palette = sns.light_palette("DarkOrchid", n_colors=len(test["class_laplacian"].unique()))
+    ax = sns.boxplot(data=test, x="class_laplacian", y="bias_DIR", palette=sns_palette, showfliers=False,
+                     order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+    plt.xlabel("Laplacian []", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [°]", fontsize=config.get("fontsize"))
+    plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-15, 15)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("direction_laplacian", prm)
+
+
+    # bias=f(mu)
+    plt.figure(figsize=(10,13))
+    sns_palette = sns.light_palette("SteelBlue", n_colors=len(test["class_mu"].unique()))
+    ax = sns.boxplot(data=test, x="class_mu", y="bias_DIR", palette=sns_palette, showfliers=False,
+                     order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+    plt.xlabel("Mu []", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [°]", fontsize=config.get("fontsize"))
+    plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-15, 15)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("direction_mu", prm)
+
+
+def figure_training_normalized_result_by_metrics(config, prm):
+
+    p = Devine(prm=prm)
+    gaussian_topo = GaussianTopo()
+
+    test = []
+    for fold_nb in range(10):
+
+        print(fold_nb)
+
+        print("Loading model and configuration")
+        p = load_model_fold(p, fold_nb, prm)
+        std = load_std_training_fold(fold_nb, prm)
+
+        print("Selecting test data")
+        test_group = load_test_group_in_gaussian_topo_df_all(fold_nb, prm)
+
+        print("Loading test data")
+        topos, winds = load_test_data(gaussian_topo, test_group, prm)
+
+        print("Predict test data")
+        predictions = normalize_and_predict_topos(p, topos, std)
+
+        print("Store test data in a dataframe")
+        df_all = test_group.copy(deep=True)
+        df_all = store_test_data_in_dataframe(topos, winds, df_all)
+
+        print("Store predict data in a dataframe")
+        df_all = store_predict_data_in_dataframe(predictions, df_all)
+
+        print("Compute speed and direction from components")
+        df_all = compute_speed_and_direction_from_components(gaussian_topo, df_all)
+
+        list_variables = ['topo_name', 'U_test', 'V_test',
+                          'W_test', 'U_pred', 'V_pred', 'W_pred', 'Wind_DIR_pred',
+                          'UV_test', 'UVW_test',
+                          'alpha_test', 'UV_pred', 'UVW_pred', 'alpha_pred', 'Wind_DIR_test']
+        list_variables_init = [variable for variable in list_variables]
+
+        if config["tpi_500"] or not config["metric_already_loaded"]:
+            print("Compute tpi_500")
+            df_all = add_tpi_to_df_all(gaussian_topo, topos, df_all)
+            list_variables.append('tpi_500')
+
+        if config["sx_300"] and not config["metric_already_loaded"]:
+            print("Compute sx_300")
+            df_all = add_sx_to_df_all(gaussian_topo, topos, df_all)
+            list_variables.append('sx_300')
+
+        if config["curvature"] or not config["metric_already_loaded"]:
+            print("Compute curvature")
+            df_all = add_curvature_to_df_all(gaussian_topo, topos, df_all)
+            list_variables.append('curvature')
+
+        if config["laplacian"] or not config["metric_already_loaded"]:
+            print("Compute laplacian")
+            df_all = add_laplacian_to_df_all(gaussian_topo, topos, df_all)
+            list_variables.append('laplacian')
+
+        if config["mu"] or not config["metric_already_loaded"]:
+            print("Compute mu")
+            df_all = add_mu_to_df_all(gaussian_topo, topos, df_all)
+            list_variables.append('mu')
+
+        print("Flatten arrays")
+        test_i = flatten_arrays(list_variables, df_all)
+
+        print("Compute metrics")
+        test_i = compute_metrics(test_i, metric="bias_rel")
+        test.append(test_i)
+
+    test = pd.concat(test)
+    print("min test/pred")
+    print(test[['UVW_test', 'UVW_pred']].min())
+
+    if config["return_df_results"]:
+        return test
+
+    if config["save_dataframe"]:
+        save_path = prm["preprocessed_data"] + "Analysis/Gaussian_topo/"
+        test.to_pickle(save_path + f"dataframe_on_gaussian_topo_with_metrics_{str(uuid.uuid4())[:4]}.pkl")
+
+    if config["load_dataframe"]:
+        save_path = prm["preprocessed_data"] + "Analysis/Gaussian_topo/"
+        loaded = pd.read_pickle(save_path + config["name_dataframe_on_gaussian_topo_with_metrics"])
+        list_variables_init.extend(["bias_rel"])
+        variable_not_loaded = list_variables_init
+        loaded[variable_not_loaded] = test[variable_not_loaded]
+        del test
+        test = loaded
+        return test
+
+    test["bias_rel"] = 100*test["bias_rel"]
+
+    # bias=f(degree)
+    plt.figure(figsize=(10, 13))
+    test = convert_slope_from_Nora(test)
+    sns_palette = sns.light_palette("SteelBlue", n_colors=len(test["degree"].unique()))
+    ax = sns.boxplot(data=test, x="degree", y="bias_rel", palette=sns_palette, showfliers=False)
+    plt.xlabel("Mean slope [degree]", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [m/s]", fontsize=config.get("fontsize"))
+    plt.xticks(fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-50, 50)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("speed_degree", prm)
+
+    # bias=f(xi)
+    plt.figure(figsize=(10, 13))
+    sns_palette = sns.light_palette("IndianRed", n_colors=len(test["xi"].unique()))
+    ax = sns.boxplot(data=test, x="xi", y="bias_rel", palette=sns_palette, showfliers=False)
+    plt.xticks(fontsize=config.get("fontsize") / 2)
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.xlabel("Xi [m]", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [m/s]", fontsize=config.get("fontsize"))
+    plt.ylim(-50, 50)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("speed_xi", prm)
+
+    # bias=f(tpi_500)
+    plt.figure(figsize=(10, 13))
+    test = gaussian_topo.classify(test, variable="tpi_500", quantile=True)
+    sns_palette = sns.light_palette("SeaGreen", n_colors=len(test["class_tpi_500"].unique()))
+    ax = sns.boxplot(data=test, x="class_tpi_500", y="bias_rel", palette=sns_palette, showfliers=False,
+                     order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+    plt.xlabel("TPI [m]", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [m/s]", fontsize=config.get("fontsize"))
+    plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-50, 50)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("speed_tpi_500", prm)
+
+    # bias=f(sx_300)
+    if config["sx_300"]:
+        plt.figure(figsize=(10, 13))
+        test = gaussian_topo.classify(test, variable="sx_300", quantile=True)
+        sns_palette = sns.light_palette("DarkKhaki", n_colors=len(test["class_sx_300"].unique()))
+        ax = sns.boxplot(data=test, x="class_sx_300", y="bias_rel", palette=sns_palette, showfliers=False,
+                         order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+        plt.xlabel("Sx [m]", fontsize=config.get("fontsize"))
+        plt.ylabel("Bias [m/s]", fontsize=config.get("fontsize"))
+        plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+        plt.yticks(fontsize=config.get("fontsize"))
+        plt.ylim(-50, 50)
+        plt.grid(True)
+        plt.tight_layout()
+        save_figure("speed_sx_300", prm)
+
+    # bias=f(curvature)
+    plt.figure(figsize=(10, 13))
+    test = gaussian_topo.classify(test, variable="curvature", quantile=True)
+    sns_palette = sns.light_palette("PaleVioletRed", n_colors=len(test["class_curvature"].unique()))
+    ax = sns.boxplot(data=test, x="class_curvature", y="bias_rel", palette=sns_palette, showfliers=False,
+                     order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+    plt.xlabel("curvature [m]", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [m/s]", fontsize=config.get("fontsize"))
+    plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-50, 50)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("speed_curvature", prm)
+
+    # bias=f(laplacian)
+    plt.figure(figsize=(10, 13))
+    test = gaussian_topo.classify(test, variable="laplacian", quantile=True)
+    sns_palette = sns.light_palette("DarkOrchid", n_colors=len(test["class_laplacian"].unique()))
+    ax = sns.boxplot(data=test, x="class_laplacian", y="bias_rel", palette=sns_palette, showfliers=False,
+                     order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+    plt.xlabel("Laplacian []", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [m/s]", fontsize=config.get("fontsize"))
+    plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-50, 50)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("speed_laplacian", prm)
+
+    # bias=f(mu)
+    plt.figure(figsize=(10, 13))
+    test = gaussian_topo.classify(test, variable="mu", quantile=True)
+    sns_palette = sns.light_palette("SteelBlue", n_colors=len(test["class_mu"].unique()))
+    ax = sns.boxplot(data=test, x="class_mu", y="bias_rel", palette=sns_palette, showfliers=False,
+                     order=["$x \leq q_{25}$", "$q_{25}<x \leq q_{50}$", "$q_{50}<x \leq q_{75}$", "$q_{75}<x$"])
+    plt.xlabel("Mu []", fontsize=config.get("fontsize"))
+    plt.ylabel("Bias [m/s]", fontsize=config.get("fontsize"))
+    plt.xticks(rotation=45, ha="right", fontsize=config.get("fontsize"))
+    plt.yticks(fontsize=config.get("fontsize"))
+    plt.ylim(-50, 50)
+    plt.grid(True)
+    plt.tight_layout()
+    save_figure("speed_mu", prm)
+
+
+def table_latex_training(prm):
+
+    p = Devine(prm=prm)
+    gaussian_topo = GaussianTopo()
+    metrics = Metrics()
+
+    test = []
+    for fold_nb in [5]:
+        print(fold_nb)
+
+        print("Loading model and configuration")
+        p = load_model_fold(p, fold_nb, prm)
+        std = load_std_training_fold(fold_nb, prm)
+
+        print("Selecting test data")
+        test_group = load_test_group_in_gaussian_topo_df_all(fold_nb, prm)
+
+        print("Loading test data")
+        topos, winds = load_test_data(gaussian_topo, test_group, prm)
+        print(f"Number of topos: {len(topos)}")
+
+        print("Predict test data")
+        predictions = normalize_and_predict_topos(p, topos, std)
+
+        print("Store test data in a dataframe")
+        df_all = test_group.copy(deep=True)
+        df_all = store_test_data_in_dataframe(topos, winds, df_all)
+
+        print("Store predict data in a dataframe")
+        df_all = store_predict_data_in_dataframe(predictions, df_all)
+
+        print("Compute speed and direction from components")
+        df_all = compute_speed_and_direction_from_components(gaussian_topo, df_all)
+
+        list_variables = ['topo_name', 'U_test', 'V_test',
+                          'W_test', 'U_pred', 'V_pred', 'W_pred', 'Wind_DIR_pred',
+                          'UV_test', 'UVW_test',
+                          'alpha_test', 'UV_pred', 'UVW_pred', 'alpha_pred', 'Wind_DIR_test']
+
+        print("Flatten arrays")
+        test_i = flatten_arrays(list_variables, df_all)
+
+        print("Compute metrics")
+        test.append(test_i)
+
+    test = pd.concat(test)
+    statistics_training = np.zeros((6, 6))
+    for index, variable in enumerate(["U", "V", "W", "UV", "UVW", 'Wind_DIR']):
+        pred_values = test[variable + "_pred"].values
+        test_values = test[variable + "_test"].values
+        if variable != 'Wind_DIR':
+            bias = metrics.bias(pred_values, test_values)
+            ae = metrics.absolute_error(pred_values, test_values)
+            mean_bias = np.nanmean(bias)
+            mae = np.nanmean(ae)
+            q25 = np.nanquantile(ae, 0.25)
+            q50 = np.nanquantile(ae, 0.5)
+            q75 = np.nanquantile(ae, 0.75)
+            rho = test[[variable + "_pred", variable + "_test"]].corr().iloc[0, 1]
+        else:
+            ae = metrics.abs_bias_direction(pred_values, test_values)
+            mean_bias = "nan"
+            mae = np.nanmean(ae)
+            q25 = np.nanquantile(ae, 0.25)
+            q50 = np.nanquantile(ae, 0.5)
+            q75 = np.nanquantile(ae, 0.75)
+            rho = "nan"
+        statistics_variable = np.array([mean_bias, mae, q25, q50, q75, rho])
+        statistics_training[:, index] = statistics_variable
+
+    index = ["Mean Bias", "Mean AE", "q25 AE", "q50 AE", "q75 AE", "rho"]
+    columns = ["U [m/s]", "V [m/s]", "W [m/s]", "UV [m/s]", "UVW [m/s]", 'Wind direction [°]']
+    result_df = pd.DataFrame(statistics_training, index=index, columns=columns)
+
+    print(result_df.to_latex())
+    return result_df
+
+
+def table_latex_training_train_data(fold_nb, prm):
+
+    p = Devine(prm=prm)
+    gaussian_topo = GaussianTopo()
+    metrics = Metrics()
+
+    train = []
+    for fold_nb in [fold_nb]:
+        print(fold_nb)
+
+        print("Loading model and configuration")
+        p = load_model_fold(p, fold_nb, prm)
+        std = load_std_training_fold(fold_nb, prm)
+
+        print("Selecting test data")
+        train_group = load_training_group_in_gaussian_topo_df_all(fold_nb, prm)
+
+        print("Loading test data")
+        topos, winds = load_test_data(gaussian_topo, train_group, prm)
+        print(f"Number of topos: {len(topos)}")
+
+        print("Predict test data")
+        predictions = normalize_and_predict_topos(p, topos, std)
+
+        print("Store test data in a dataframe")
+        df_all = train_group.copy(deep=True)
+        df_all = store_test_data_in_dataframe(topos, winds, df_all)
+
+        print("Store predict data in a dataframe")
+        df_all = store_predict_data_in_dataframe(predictions, df_all)
+
+        print("Compute speed and direction from components")
+        df_all = compute_speed_and_direction_from_components(gaussian_topo, df_all)
+
+        list_variables = ['topo_name', 'U_test', 'V_test',
+                          'W_test', 'U_pred', 'V_pred', 'W_pred', 'Wind_DIR_pred',
+                          'UV_test', 'UVW_test',
+                          'alpha_test', 'UV_pred', 'UVW_pred', 'alpha_pred', 'Wind_DIR_test']
+
+        print("Flatten arrays")
+        train_i = flatten_arrays(list_variables, df_all)
+
+        print("Compute metrics")
+        train.append(train_i)
+
+    train = pd.concat(train)
+    statistics_training = np.zeros((6, 6))
+    for index, variable in enumerate(["U", "V", "W", "UV", "UVW", 'Wind_DIR']):
+        pred_values = train[variable + "_pred"].values
+        test_values = train[variable + "_test"].values
+        if variable != 'Wind_DIR':
+            bias = metrics.bias(pred_values, test_values)
+            ae = metrics.absolute_error(pred_values, test_values)
+            mean_bias = np.nanmean(bias)
+            mae = np.nanmean(ae)
+            q25 = np.nanquantile(ae, 0.25)
+            q50 = np.nanquantile(ae, 0.5)
+            q75 = np.nanquantile(ae, 0.75)
+            rho = train[[variable + "_pred", variable + "_test"]].corr().iloc[0, 1]
+        else:
+            ae = metrics.abs_bias_direction(pred_values, test_values)
+            mean_bias = "nan"
+            mae = np.nanmean(ae)
+            q25 = np.nanquantile(ae, 0.25)
+            q50 = np.nanquantile(ae, 0.5)
+            q75 = np.nanquantile(ae, 0.75)
+            rho = "nan"
+        statistics_variable = np.array([mean_bias, mae, q25, q50, q75, rho])
+        statistics_training[:, index] = statistics_variable
+
+    index = ["Mean Bias", "Mean AE", "q25 AE", "q50 AE", "q75 AE", "rho"]
+    columns = ["U [m/s]", "V [m/s]", "W [m/s]", "UV [m/s]", "UVW [m/s]", 'Wind direction [°]']
+    result_df = pd.DataFrame(statistics_training, index=index, columns=columns)
+
+    print(result_df.to_latex())
+    return result_df
+
+"""
     # bias=f(degree)
     plt.figure(figsize=(10, 13))
     test = convert_slope_from_Nora(test)
@@ -500,7 +1081,7 @@ def figure_training_result_by_metrics(config, prm):
     plt.grid(True)
     plt.tight_layout()
     save_figure("direction_mu", prm)
-    """
+"""
 
 
 def figure_epochs_bias(prm):
@@ -566,13 +1147,12 @@ def figure_distribution_gaussian(prm):
     gaussian_topo = GaussianTopo()
 
     # Distributions by degree or xi
-    type_plots = ["wind speed", "wind speed", "angular deviation"]
-    type_of_winds = ["uv", "uvw", None]
-    for topo_carac in ["degree", "xi"]:
+    type_plots = ["wind speed", "angular deviation"]
+    type_of_winds = ["uvw", None]
+
+    for topo_carac in ["degree"]: #["degree", "xi"]
         for type_plot, type_of_wind in zip(type_plots, type_of_winds):
             dict_gaussian_deg_or_xi = gaussian_topo.load_data_by_degree_or_xi(prm, degree_or_xi=topo_carac)
-            print("Mean values:")
-            print(dict_gaussian_deg_or_xi.groupby(topo_carac).mean())
             visu.plot_gaussian_distrib_by_degree_or_xi(dict_gaussian_deg_or_xi,
                                                        degree_or_xi=topo_carac,
                                                        type_plot=type_plot,

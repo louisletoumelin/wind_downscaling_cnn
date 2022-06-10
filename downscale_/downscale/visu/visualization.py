@@ -75,13 +75,13 @@ class Visualization:
             idx = z.argsort()
             x, y, z = x[idx], y[idx], z[idx]
         if use_power_norm == 1:
-            ax.scatter(x, y, c=z, norm=PowerNorm(gamma=0.25, vmin=0), **kwargs)
+            im = ax.scatter(x, y, c=z, norm=PowerNorm(gamma=0.25, vmin=0), **kwargs)
         elif use_power_norm == 2:
-            ax.scatter(x, y, c=z, norm=PowerNorm(gamma=0.25, vmin=0), **kwargs)
+            im = ax.scatter(x, y, c=z, norm=PowerNorm(gamma=0.25, vmin=0), **kwargs)
         else:
-            ax.scatter(x, y, c=z, **kwargs)
+            im = ax.scatter(x, y, c=z, **kwargs)
         if colorbar:
-            plt.colorbar()
+            plt.colorbar(im)
         # norm = Normalize(vmin=np.min(z), vmax=np.max(z))
         # cbar = fig.colorbar(cm.ScalarMappable(norm=norm), ax=ax)
         # cbar.ax.set_ylabel('Density')
@@ -331,7 +331,8 @@ class Visualization:
         plt.colorbar()
         plt.title(f"Wind direction: {wind_direction}")
 
-    def _plot_arrow_for_NWP(self, array_xr, time_index, station_name='Col du Lac Blanc', vmin=1, vmax=5, scale_cmap=2):
+    def _plot_arrow_for_NWP(self, array_xr, time_index, station_name='Col du Lac Blanc', vmin=1, vmax=5, scale_cmap=2,
+                            scale_nwp=1/0.04):
         # Arrow for NWP wind
         ax = plt.gca()
         stations = self.p.observation.stations
@@ -353,7 +354,7 @@ class Visualization:
         print(station_name)
         print(NWP_wind_speed)
         ax.quiver(x_nwp, y_nwp, U_nwp, V_nwp, NWP_wind_speed, cmap="coolwarm", norm=divnorm,
-                  edgecolor="C1", linewidths=1)
+                  edgecolor="C1", linewidths=1, scale=scale_nwp)
         #ax.text(x_nwp - 100, y_nwp + 100, str(np.round(NWP_wind_speed, 1)) + " m/s", color='red')
         #ax.text(x_nwp + 100, y_nwp - 100, str(np.round(NWP_wind_DIR)) + '°', color='red')
 
@@ -383,8 +384,10 @@ class Visualization:
         V_observed = -np.cos((np.pi / 180) * observed_UV_DIR) * observed_UV
         from matplotlib import colors
         divnorm = colors.TwoSlopeNorm(vmin=vmin, vcenter=nwp_speed, vmax=vmax)
+        print("Observation")
         print(station_name)
         print(observed_UV)
+        print(observed_UV_DIR)
         ax.quiver(x_observation, y_observation, U_observed, V_observed, observed_UV, cmap="coolwarm",
                   norm=divnorm, edgecolor="black", linewidths=1)
 
@@ -408,8 +411,6 @@ class Visualization:
         XX, YY = np.meshgrid(x, y)
         from matplotlib import colors
         divnorm = colors.TwoSlopeNorm(vmin=vmin, vcenter=NWP_wind_speed, vmax=vmax)
-        print("debug")
-        print(XX.shape, YY.shape)
         if size_proportionnal:
             arrows = ax.quiver(XX[::n, ::n], YY[::n, ::n], U[::n, ::n], V[::n, ::n], UV[::n, ::n],
                                scale=scale,
@@ -427,9 +428,9 @@ class Visualization:
         cbar = plt.colorbar(arrows, ax=ax, extend="both", orientation='vertical')
         cbar.ax.tick_params(labelsize=fontsize)
 
-
     def plot_predictions_2D(self, array_xr=None, stations_name=['Col du Lac Blanc'],
-                            random_selection=True, date_selected=None, scale_cmap=2, fontsize=20, vmin=1, vmax=5, **kwargs):
+                            random_selection=True, date_selected=None, scale_cmap=2, fontsize=20, vmin=1, vmax=5,
+                            fraction=0.01, vert_exag=10_000, scale_nwp=1/0.04, **kwargs):
 
         if array_xr is None:
             array_xr = self.predict_UV_with_CNN(self, stations_name)
@@ -460,10 +461,6 @@ class Visualization:
         else:
             time = array_xr.time.sel(time=time_selected)
 
-        # l93 coordinates
-        XX_station = array_xr["XX"].sel(station=station_name).data
-        YY_station = array_xr["YY"].sel(station=station_name).data
-
         # Plot results
         for variable in ["U", "V", "W", "UV", "UVW", "UV_DIR_deg", "alpha_deg"]:
 
@@ -489,10 +486,53 @@ class Visualization:
                 topo = mnt_small[0][100 - 79 // 2:100 + 79 // 2 + 1, 100 - 80 // 2: 100 + 80 // 2 + 1]
                 XX = mnt_small[1][100 - 80 // 2: 100 + 80 // 2 + 1]
                 YY = mnt_small[2][100 - 79 // 2:100 + 79 // 2 + 1]
+                x_min = np.min(XX)
+                y_max = np.max(YY)
+                stations = self.p.observation.stations
+                x_dome, y_dome = stations[["X", "Y"]][stations["name"] == "Dome Lac Blanc"].values[0]
+                x_lac, y_lac = stations[["X", "Y"]][stations["name"] == "Col du Lac Blanc"].values[0]
+                x_muzelle, y_muzelle = stations[["X", "Y"]][stations["name"] == "La Muzelle Lac Blanc"].values[0]
+                XX_station = array_xr["XX"].sel(station=stations_name).data
+                YY_station = array_xr["YY"].sel(station=stations_name).data
+                x_min = np.nanmin(XX_station)
+                y_max = np.nanmax(YY_station)
+
+                idx_dome = np.intp((x_dome-x_min) // 30)
+                idx_lac = np.intp((x_lac-x_min) // 30)
+                idx_muzelle = np.intp((x_muzelle-x_min) // 30)
+
+                idy_dome = np.intp((y_max-y_dome) // 30)
+                idy_lac = np.intp((y_max-y_lac) // 30)
+                idy_muzelle = np.intp((y_max-y_muzelle) // 30)
+
+                speed_dome = array_xr.sel(time=time_selected, station=stations_name).isel(x=idx_dome, y=idy_dome).UV.values
+                direction_dome = array_xr.sel(time=time_selected, station=stations_name).isel(x=idx_dome, y=idy_dome).UV_DIR_deg.values
+                print("DEVINE: wind speed dome")
+                print(speed_dome)
+                print("DEVINE: wind direction dome")
+                print(direction_dome)
+                speed_lac = array_xr.sel(time=time_selected, station=stations_name).isel(x=idx_lac, y=idy_lac).UV.values
+                direction_lac = array_xr.sel(time=time_selected, station=stations_name).isel(x=idx_lac, y=idy_lac).UV_DIR_deg.values
+                print("DEVINE: wind speed lac")
+                print(speed_lac)
+                print("DEVINE: wind direction lac")
+                print(direction_lac)
+                speed_muzelle = array_xr.sel(time=time_selected, station=stations_name).isel(x=idx_muzelle, y=idy_muzelle).UV.values
+                direction_muzelle = array_xr.sel(time=time_selected, station=stations_name).isel(x=idx_muzelle, y=idy_muzelle).UV_DIR_deg.values
+                print("DEVINE: wind speed muzelle")
+                print(speed_muzelle)
+                print("DEVINE: wind direction muzelle")
+                print(direction_muzelle)
+
+                print("Domain")
+                print(np.min(XX))
+                print(np.max(XX))
+                print(np.min(YY))
+                print(np.max(YY))
 
                 ls = LightSource(azdeg=270, altdeg=45)
                 plt.contourf(XX, YY,
-                             ls.hillshade(topo, fraction=0.01, vert_exag=10_000, dx=35, dy=35),
+                             ls.hillshade(topo, fraction=fraction, vert_exag=vert_exag, dx=35, dy=35),
                              cmap=plt.cm.gray, vmin=0.48, vmax=0.51)
                 CS = plt.contour(XX, YY, topo, colors="dimgrey", levels=15, alpha=0.75)
                 ax = plt.gca()
@@ -506,7 +546,8 @@ class Visualization:
 
                 self._plot_arrows_for_CNN(array_xr, time_selected, station_name=station_name, scale_cmap=scale_cmap,
                                           fontsize=fontsize, vmin=vmin, vmax=vmax, **kwargs)
-                self._plot_arrow_for_NWP(array_xr, time_selected, station_name=station_name, vmin=vmin, vmax=vmax, scale_cmap=scale_cmap)
+                self._plot_arrow_for_NWP(array_xr, time_selected, station_name=station_name, vmin=vmin, vmax=vmax,
+                                         scale_cmap=scale_cmap, scale_nwp=scale_nwp)
                 self._plot_arrow_for_observation_station(array_xr, time_selected,
                                                          station_name=station_name,
                                                          nwp_speed=nwp_speed,
@@ -1140,13 +1181,18 @@ class Visualization:
         idx_y=idx_cross_section
         fontsize =  config.get("fontsize")
 
-        time_value = wind_xr.isel(time=1).time.values
+        time_idx = 0
+        time_value = wind_xr.isel(time=time_idx).time.values
+        print("Time value")
+        print(time_value)
         mnt_values = self.p.mnt.data_xr.values[0, 860:-1310, 2150:-2005]
-        wind_values = wind_xr.isel(time=1).Wind.values[860:-1310, 2150:-2005]
-        alpha_values = wind_xr.isel(time=1).alpha.values[860:-1310, 2150:-2005]
-        U = wind_xr.isel(time=1).U.values[860:-1310, 2150:-2005]
-        V = wind_xr.isel(time=1).V.values[860:-1310, 2150:-2005]
-        W = wind_xr.isel(time=1).W.values[860:-1310, 2150:-2005]
+        wind_values = wind_xr.isel(time=time_idx).Wind.values[860:-1310, 2150:-2005]
+        alpha_values = wind_xr.isel(time=time_idx).alpha.values[860:-1310, 2150:-2005]
+        U = wind_xr.isel(time=time_idx).U.values[860:-1310, 2150:-2005]
+        V = wind_xr.isel(time=time_idx).V.values[860:-1310, 2150:-2005]
+        W = wind_xr.isel(time=time_idx).W.values[860:-1310, 2150:-2005]
+        print("Shape downscale wind")
+        print(U.shape)
         x = wind_xr.x.values[2150:-2005]
         y = wind_xr.y.values[860:-1310]
         x_min = np.min(x)
@@ -1154,6 +1200,10 @@ class Visualization:
         y_min = np.min(y)
         y_max = np.max(y)
         print("All domain size")
+        print(x_min)
+        print(x_max)
+        print(y_min)
+        print(y_max)
         print("y")
         print(wind_xr.y.max()-wind_xr.y.min())
         print("x")
@@ -1195,7 +1245,7 @@ class Visualization:
         cbar = plt.colorbar(im, orientation="horizontal")
         cbar.ax.tick_params(labelsize=fontsize)
 
-        NWP1 = self.p.nwp.data_xr.isel(time=1)
+        NWP1 = self.p.nwp.data_xr.isel(time=time_idx)
         NWP1 = self.p.horizontal_wind_component(xarray_data=NWP1,
                                                 library="xarray",
                                                 wind_name="Wind",
@@ -1274,9 +1324,6 @@ class Visualization:
         #
         plt.figure(figsize=(50, 15))
         cross_section = xx[idx_y, 650:1250]
-        print("debug")
-        print(xx[idx_y, 650:1250])
-        print(yy[idx_y, 650:1250])
         plt.fill_between(cross_section,
                          mnt_values[idx_y, 650:1250],
                          color=color_cross_section)
@@ -1287,9 +1334,35 @@ class Visualization:
                   W[idx_y, 650:1250:nb_arrows],
                   scale=scale_cross_section,
                   width=width_cross_section)
+        plt.plot(xx[idx_y, 1250-115:1250-90], np.full_like(xx[idx_y, 1250-115:1250-90], 2550), linewidth=5, color='red')
         ax.tick_params(axis='both', which='major', labelsize=fontsize)
         plt.ylim(500, 4000)
         save_figure(f"cross_section_idx_y_{idx_y}_{time_value}", prm)
+
+
+        #
+        #
+        # Figure: ZOOM cross section
+        #
+        #
+        plt.figure(figsize=(25, 15))
+        cross_section = xx[idx_y, 1250-115:1250-93]
+        print("Size")
+        print(len(cross_section)*30)
+        plt.fill_between(cross_section,
+                         mnt_values[idx_y, 1250-115:1250-93],
+                         color=color_cross_section)
+        ax = plt.gca()
+        nb_arrows=1
+        ax.quiver(cross_section[::nb_arrows],
+                  mnt_values[idx_y, 1250-115:1250-93:nb_arrows] + 15,
+                  U[idx_y, 1250-115:1250-93:nb_arrows],
+                  W[idx_y, 1250-115:1250-93:nb_arrows],
+                  scale=scale_cross_section/2.5,
+                  width=width_cross_section*2)
+        ax.tick_params(axis='both', which='major', labelsize=fontsize)
+        plt.ylim(2550, 2730)
+        save_figure(f"ZOOM_cross_section_idx_y_{idx_y}_{time_value}", prm)
 
     def plot_features_maps(self, dem, station="Col du Lac Blanc", dependencies=True):
         import tensorflow as tf
@@ -1301,7 +1374,7 @@ class Visualization:
         visualization_model = tf.keras.models.Model(inputs=model.input, outputs=successive_outputs)
 
         observation = self.p.observation
-        x = observation.extract_MNT_around_station("Col du Lac Blanc", station, dem, 69//2+1, 79//2+1)[0][:79,:69]
+        x = observation.extract_MNT_around_station("Col du Lac Blanc", station, dem, 69//2+1, 79//2+1)[0][:79, :69]
         x = x.reshape((1, 79, 69, 1))
         successive_feature_maps = visualization_model.predict(x)
         layer_names = np.array([layer.name for layer in model.layers[1:]])

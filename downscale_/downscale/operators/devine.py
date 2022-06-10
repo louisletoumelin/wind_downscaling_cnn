@@ -2,9 +2,13 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
-import tensorflow as tf
-from tensorflow.keras.models import load_model
+try:
+    import tensorflow as tf
+    from tensorflow.keras.models import load_model
+except ImportError:
+    print("\nTensorflow not imported")
 import random
+from time import time as t
 
 # try importing optional modules
 try:
@@ -88,7 +92,9 @@ class Devine(Processing):
             # model = load_model(self.model_path+"model_weights.h5", custom_objects=dependencies)
             import tensorflow as tf
 
-            model = load_model(model_path, custom_objects=dependencies, options=tf.saved_model.LoadOptions(experimental_io_device='/job:localhost'))
+            model = load_model(model_path,
+                               custom_objects=dependencies,
+                               options=tf.saved_model.LoadOptions(experimental_io_device='/job:localhost'))
 
             print("____Dependencies: True") if verbose else None
         else:
@@ -247,7 +253,8 @@ class Devine(Processing):
         self._select_timeframe_nwp(ideal_case=ideal_case, verbose=True)
 
         # Simulation parameters
-        time_xr = self._extract_variable_from_nwp_at_station(random.choice(stations_name), variable_to_extract=["time"],
+        time_xr = self._extract_variable_from_nwp_at_station(random.choice(stations_name),
+                                                             variable_to_extract=["time"],
                                                              interp_str=interp_str)
         nb_sim = len(time_xr)
         nb_station = len(stations_name)
@@ -302,6 +309,7 @@ class Devine(Processing):
                                                                            station=single_station,
                                                                            nwp=nwp,
                                                                            extract_around=extract_around)
+
             # Rotate topographies
             if type_rotation == "tfa":
                 initial_shape = topo_HD.shape
@@ -312,11 +320,12 @@ class Devine(Processing):
                 selected_wind_dir = wind_dir_all[idx_station, :]
 
             topo[idx_station, :, :, :, 0] = self.select_rotation(data=topo_HD,
-                                                                 wind_dir=selected_wind_dir,
+                                                                 wind_dir=np.deg2rad(selected_wind_dir),
                                                                  clockwise=False,
                                                                  type_rotation=type_rotation,
                                                                  GPU=GPU)[:, 0, y_offset_left:y_offset_right,
                                             x_offset_left:x_offset_right, 0]
+
             if type_rotation == "tfa":
                 topo_HD = topo_HD.reshape(initial_shape)
 
@@ -465,9 +474,8 @@ class Devine(Processing):
             wind_dir_all = wind_dir_all.reshape((nb_station, nb_sim, 1))
         else:
             wind_dir_all = wind_dir_all.reshape((nb_station, nb_sim))
-
         prediction = self.select_rotation(data=prediction,
-                                          wind_dir=wind_dir_all,
+                                          wind_dir=np.deg2rad(wind_dir_all),
                                           clockwise=True,
                                           type_rotation=type_rotation,
                                           GPU=GPU,
@@ -762,11 +770,20 @@ class Devine(Processing):
             angle = angle.reshape((nb_time_step, nb_px_nwp_y * nb_px_nwp_x))
             device = '/gpu:0' if GPU else '/cpu:0'
             with tf.device(device):
-                topo_rot = self.select_rotation(data=topo,
-                                                wind_dir=angle,
-                                                type_rotation=type_rotation,
-                                                clockwise=False,
-                                                GPU=GPU).squeeze()[:, :, y_left:y_right, x_left:x_right]
+                try:
+                    topo_rot = self.select_rotation(data=topo,
+                                                    wind_dir=angle,
+                                                    type_rotation=type_rotation,
+                                                    clockwise=False,
+                                                    GPU=GPU).squeeze()[:, :, y_left:y_right, x_left:x_right]
+                except IndexError:
+                    print("First rotation did not work: this could happen if you try to downscale only one time step")
+                    topo_rot = self.select_rotation(data=topo,
+                                                    wind_dir=angle,
+                                                    type_rotation=type_rotation,
+                                                    clockwise=False,
+                                                    GPU=GPU).squeeze()[:, y_left:y_right, x_left:x_right]
+
         return topo_rot
 
     def _rotation_wrapper_for_wind_in_predict_maps(self, wind, angle, type_rotation,
@@ -919,7 +936,7 @@ class Devine(Processing):
         angle = np.where(wind_DIR_nwp > 0, np.int32(wind_DIR_nwp - 1), np.int32(359))
 
         # Rotate topography
-        topo_rot = self._rotation_wrapper_for_topo_in_map_predictions(topo_i, angle, type_rotation,
+        topo_rot = self._rotation_wrapper_for_topo_in_map_predictions(topo_i, np.deg2rad(angle), type_rotation,
                                                                       GPU=GPU,
                                                                       nb_time_step=nb_time_step,
                                                                       nb_px_nwp_y=nb_px_nwp_y,
@@ -1041,12 +1058,12 @@ class Devine(Processing):
             alpha = alpha.reshape((nb_time_step, nb_px_nwp_y, nb_px_nwp_x, 79 * 69, 1))
 
         # Rotate back
-        wind_large = self._rotation_wrapper_for_wind_in_predict_maps(prediction, angle, type_rotation,
+        wind_large = self._rotation_wrapper_for_wind_in_predict_maps(prediction, np.deg2rad(angle), type_rotation,
                                                                      GPU=GPU, nb_time_step=nb_time_step,
                                                                      nb_px_nwp_y=nb_px_nwp_y, nb_px_nwp_x=nb_px_nwp_x)
 
         if store_alpha_in_results:
-            alpha = self._rotation_wrapper_for_wind_in_predict_maps(alpha, angle, type_rotation,
+            alpha = self._rotation_wrapper_for_wind_in_predict_maps(alpha, np.deg2rad(angle), type_rotation,
                                                                     GPU=GPU, nb_time_step=nb_time_step,
                                                                     nb_px_nwp_y=nb_px_nwp_y, nb_px_nwp_x=nb_px_nwp_x)
 
@@ -1095,6 +1112,10 @@ class Devine(Processing):
                         y=(["y"], coord[1]),
                         time=times_to_save))
 
+            print("Final shape")
+            print(wind_map[:, :, :, 0].shape[1])
+            print(wind_map[:, :, :, 0].shape[2])
+            print(wind_map[:, :, :, 0].shape[1] * wind_map[:, :, :, 0].shape[2])
             return wind_xr
 
         return wind_map, acceleration_all, coord, _, nwp_data, mnt_data

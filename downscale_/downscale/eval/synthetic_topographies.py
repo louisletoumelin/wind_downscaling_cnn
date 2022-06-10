@@ -2,7 +2,10 @@ import numpy as np
 import pandas as pd
 from collections import defaultdict
 import matplotlib.pyplot as plt
-import seaborn as sns
+try:
+    import seaborn as sns
+except ImportError:
+    pass
 from time import time as t
 
 from downscale.utils.utils_func import print_current_line, save_figure
@@ -215,6 +218,29 @@ class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):
 
         return df
 
+    @staticmethod
+    def classify_tpi(df):
+        variable="tpi_500"
+        df[f"class_{variable}"] = np.nan
+
+        q25 = df[variable].quantile(0.25)
+        q50 = df[variable].quantile(0.5)
+        q75 = df[variable].quantile(0.75)
+
+        filter_1 = (df[variable] <= q25)
+        filter_2 = (df[variable] > q25) & (df[variable] <= q50)
+        filter_3 = (df[variable] > q50) & (df[variable] <= q75)
+        filter_4 = (df[variable] > q75)
+
+        df[f"class_{variable}"][filter_1] = "$TPI \leq q_{25}$"
+        df[f"class_{variable}"][filter_2] = "$q_{25}<TPI \leq q_{50}$"
+        df[f"class_{variable}"][filter_3] = "$q_{50}<TPI \leq q_{75}$"
+        df[f"class_{variable}"][filter_4] = "$q_{75}<TPI$"
+
+        print(f"Quantiles {variable}: ", q25, q50, q75)
+
+        return df
+
     def load_initial_and_predicted_data_in_df(self, prm):
         p = Processing(prm=prm)
         p.load_model(dependencies=True)
@@ -285,7 +311,6 @@ class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):
 
         return df_all_flat
 
-
     def figure_example_topo_wind_gaussian(self, config, prm):
 
         topo, wind = self.load_data_all(prm)
@@ -310,6 +335,7 @@ class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):
         vmax = config.get("vmax")
         fontsize = config.get("fontsize")
         fontsize_3D = config.get("fontsize_3D")
+        linewidth = config.get("linewidth")
 
         u, v, w = wind[:, :, :, 0], wind[:, :, :, 1], wind[:, :, :, 2]
         uv = self.compute_wind_speed(U=u, V=v)
@@ -340,11 +366,15 @@ class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):
             YY = YY * 30
             fig = plt.gcf()
             ax = fig.gca(projection='3d')
-            im = ax.plot_surface(XX, YY, topo1, cmap=cmap_topo, lw=0.5, rstride=1, cstride=1, alpha=1, linewidth=1)
+            im = ax.plot_surface(XX, YY, topo1, cmap=cmap_topo, lw=0.5, rstride=1, cstride=1, alpha=1, linewidth=0 ,shade=False)
             visu._set_axes_equal(ax)
-            ax.xaxis.set_tick_params(labelsize=fontsize_3D)
-            ax.yaxis.set_tick_params(labelsize=fontsize_3D)
+            #ax.xaxis.set_tick_params(labelsize=fontsize_3D)
+            #ax.yaxis.set_tick_params(labelsize=fontsize_3D)
             #ax.zaxis.set_tick_params(labelsize=fontsize_3D)
+
+            ax.xaxis.set_ticklabels([])
+            ax.yaxis.set_ticklabels([])
+            ax.zaxis.set_ticklabels([])
 
             ax.zaxis.set_ticklabels([])
             for line in ax.zaxis.get_ticklines():
@@ -369,11 +399,12 @@ class GaussianTopo(Wind_utils, DwnscHelbig, MicroMet):
                                uv1[::n, ::n],
                                cmap=cmap_arrow,
                                scale=scale,
+                               width=linewidth,
                                norm=MidpointNormalize(midpoint=midpoint, vmin=vmin, vmax=vmax))
             plt.axis("square")
             plt.xticks(fontsize=fontsize)
             plt.yticks(fontsize=fontsize)
-            cbar = plt.colorbar(arrows)
+            cbar = plt.colorbar(arrows, extend="both")
             cbar.ax.tick_params(labelsize=fontsize)
             save_figure(f"2D_map_{idx_simu}_degree_{degree}_xi_{xi}", prm)
 

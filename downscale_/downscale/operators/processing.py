@@ -1,7 +1,10 @@
 # Packages: numpy, pandas, xarray, scipy, tensorflow, matplotlib
 import numpy as np
 import pandas as pd
-from tensorflow.keras import backend as K
+try:
+    from tensorflow.keras import backend as K
+except ImportError:
+    print("Tensorflow not imported")
 import datetime
 from time import time as t
 
@@ -46,26 +49,32 @@ class Processing(DwnscHelbig, MicroMet, Rotation, Interpolation, Generators):
         if prm.get("GPU") is not None:
             environment_GPU(GPU=prm["GPU"])
 
-    def update_station_with_topo_characteristics(self):
-        self.update_stations_with_laplacian()
+    def update_station_with_topo_characteristics(self, stations=None, mnt_name=None, str_x=None, str_y=None):
+        self.update_stations_with_laplacian(stations=stations, mnt_name=mnt_name, str_x=str_x, str_y=str_y)
         self.update_stations_with_tpi(radius=2000)
         self.update_stations_with_tpi(radius=500)
         self.update_stations_with_mu()
         self.update_stations_with_curvature()
         self.is_updated_with_topo_characteristics = True
 
-    def update_stations_with_laplacian(self):
+    def update_stations_with_laplacian(self, stations=None, mnt_data=None, mnt_name=None, str_x=None, str_y=None, resolution_mnt=None):
 
-        stations = self.observation.stations
-        mnt_name = self.mnt.name
+        stations = self.observation.stations if stations is None else stations
+        mnt_name = self.mnt.name if mnt_name is None else mnt_name
+        resolution_mnt = self.mnt.resolution_x if resolution_mnt is None else resolution_mnt
+        mnt_data = self.mnt.data if mnt_data is None else mnt_data
 
-        idx_x = stations[f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"].str[0].values
-        idx_y = stations[f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"].str[1].values
+        if (str_x is None) and (str_y is None):
+            idx_x = stations[f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"].str[0].values
+            idx_y = stations[f"index_{mnt_name}_NN_0_cKDTree_ref_{mnt_name}"].str[1].values
 
-        idx_x = idx_x.astype(np.int32)
-        idx_y = idx_y.astype(np.int32)
+            idx_x = idx_x.astype(np.int32)
+            idx_y = idx_y.astype(np.int32)
+        else:
+            idx_x = stations[str_x].values
+            idx_y = stations[str_y].values
 
-        laplacians = self.laplacian_idx(self.mnt.data, idx_x, idx_y, self.mnt.resolution_x, helbig=False)
+        laplacians = self.laplacian_idx(self.mnt.data, idx_x, idx_y, resolution_mnt, helbig=False)
 
         self.observation.stations["laplacian"] = laplacians
 

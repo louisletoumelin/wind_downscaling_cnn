@@ -34,7 +34,12 @@ IGN = MNT(prm=prm)
 BDclim = Observation(prm["BDclim_stations_path"], prm["BDclim_data_path"], prm=prm)
 gaussian_topo = GaussianTopo()
 
+#
+#
 # Figure example_topo_wind_gaussian
+#
+#
+
 config = dict(
     cmap_topo="viridis",
     cmap_arrow="coolwarm",
@@ -47,12 +52,18 @@ config = dict(
     vmax=4.5,
     fontsize=50,
     fontsize_3D=50,
+    linewidth=3
 )
 
 
 #gaussian_topo.figure_example_topo_wind_gaussian(config=config, prm=prm)
 
+#
+#
 # figure tpi_sx
+#
+#
+
 config = dict(
     min_y_dem=16380,
     max_y_dem=26830,
@@ -71,7 +82,11 @@ config = dict(
 
 #gaussian_topo.figure_tpi_vs_sx(IGN, BDclim, config, prm)
 
+#
+#
 # Figure laplacian vs mu
+#
+#
 
 config = dict(
     min_y_dem=16380,
@@ -88,6 +103,21 @@ config = dict(
 )
 
 #gaussian_topo.figure_laplacian_vs_mu(IGN, BDclim, config, prm)
+
+#
+#
+# Figure distribution gaussian
+#
+#
+
+#figure_distribution_gaussian(prm)
+
+
+
+
+
+
+
 
 """
 down_helb = DwnscHelbig()
