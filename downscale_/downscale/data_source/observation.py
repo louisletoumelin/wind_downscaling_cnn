@@ -2298,7 +2298,7 @@ class Observation:
     @timer_decorator("qc", unit="minute")
     def qc(self, prm, compare_calm_long_sequences_to_neighbors=False):
         """
-        52 minutes on LabIA cluster
+        3 hours on LabIA cluster
         """
 
         pd.options.mode.chained_assignment = None  # default='warn'
