@@ -1,7 +1,8 @@
 # Emulating an atmospheric model with deep learning to downscale wind fields in complex terrain
 
 ![image](/images/example_downscaling.jpg)
-
+Vitesse du vent = Wind speed
+Col du Lac Blanc (Alpes = location)
 Work in progress
 
 Ongoing study - PhD Louis Le Toumelin - louis.letoumelin@gmail.com
