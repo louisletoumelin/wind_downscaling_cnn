@@ -1513,7 +1513,7 @@ class Observation:
         for resolution in [10, 5, 1, 0.1]:
             dict_all_stations["length_constant_direction"][str(resolution)]["!=0"]["values"] = []
 
-        # riteria min and max
+        # Criteria min and max
         criteria_min = 4
         criteria_max = 12
 
@@ -1998,9 +1998,9 @@ class Observation:
                 P95_n = np.nanquantile(increments_negative.values, 0.95)
                 P75_n = np.nanquantile(increments_negative.values, 0.75)
                 P25_n = np.nanquantile(increments_negative.values, 0.25)
-                dict_high_variability[station][time_step]["P95_p"] = P95_n
-                dict_high_variability[station][time_step]["P75_p"] = P75_n
-                dict_high_variability[station][time_step]["P25_p"] = P25_n
+                dict_high_variability[station][time_step]["P95_n"] = P95_n
+                dict_high_variability[station][time_step]["P75_n"] = P75_n
+                dict_high_variability[station][time_step]["P25_n"] = P25_n
 
                 criteria_p = P95_p + 8.9 * (P75_p - P25_p)
                 criteria_n = P95_n + 8.9 * (P75_n - P25_n)
@@ -2298,7 +2298,7 @@ class Observation:
     @timer_decorator("qc", unit="minute")
     def qc(self, prm, compare_calm_long_sequences_to_neighbors=False):
         """
-        52 minutes on LabIA cluster
+        3 hours on LabIA cluster
         """
 
         pd.options.mode.chained_assignment = None  # default='warn'

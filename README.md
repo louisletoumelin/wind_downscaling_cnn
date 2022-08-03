@@ -1,5 +1,7 @@
 # Emulating an atmospheric model with deep learning to downscale wind fields in complex terrain
 
+![image](images/example_downscaling.jpg)
+
 Work in progress
 
 Ongoing study - PhD Louis Le Toumelin - louis.letoumelin@gmail.com
@@ -7,6 +9,10 @@ Ongoing study - PhD Louis Le Toumelin - louis.letoumelin@gmail.com
 **Supervisors:** Isabelle Gouttevin, Fatima Karbou
 
 *Centre Etudes de la Neige (Snow Research Center) - CNRM - CNRS - Météo-France*
+
+## Method
+
+![image](images/SchemeDevine.png)
 
 
 ## Structure

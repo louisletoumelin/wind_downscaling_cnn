@@ -1,0 +1,127 @@
+2022-01-21 19:04:48.416482: I tensorflow/core/platform/cpu_feature_guard.cc:142] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  SSE4.1 SSE4.2 AVX AVX2 AVX512F FMA
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+//home/mrmn/letoumelinl/downscale_/downscale/data_source/observation.py:63: DtypeWarning: Columns (18) have mixed types.Specify dtype option on import or set low_memory=False.
+  self.load_observation_files(type='time_series', path=path_to_time_series)
+//home/mrmn/letoumelinl/downscale_/downscale/operators/topo_utils.py:342: RuntimeWarning: All-NaN slice encountered
+  amax = np.nanmax(slope, -1)
+//home/mrmn/letoumelinl/downscale_/downscale/operators/topo_utils.py:345: RuntimeWarning: All-NaN slice encountered
+  amin = np.nanmin(slope, -1)
+//home/mrmn/letoumelinl/downscale_/downscale/operators/topo_utils.py:350: RuntimeWarning: Mean of empty slice
+  result = np.nanmean(np.arctan(result))
+/scratch/mrmn/letoumelinl/.conda/my_envs/devine_cnn_labia/lib/python3.9/site-packages/seaborn/distributions.py:1699: FutureWarning: The `bw` parameter is deprecated in favor of `bw_method` and `bw_adjust`. Using 0.8 for `bw_method`, but please see the docs for the new parameters and update your code.
+  warnings.warn(msg, FutureWarning)
+/scratch/mrmn/letoumelinl/.conda/my_envs/devine_cnn_labia/lib/python3.9/site-packages/seaborn/distributions.py:1699: FutureWarning: The `bw` parameter is deprecated in favor of `bw_method` and `bw_adjust`. Using 0.8 for `bw_method`, but please see the docs for the new parameters and update your code.
+  warnings.warn(msg, FutureWarning)
+debug0
+['/home/mrmn/letoumelinl/downscale_/pipeline', '/scratch/mrmn/letoumelinl/.conda/my_envs/devine_cnn_labia/lib/python39.zip', '/scratch/mrmn/letoumelinl/.conda/my_envs/devine_cnn_labia/lib/python3.9', '/scratch/mrmn/letoumelinl/.conda/my_envs/devine_cnn_labia/lib/python3.9/lib-dynload', '/scratch/mrmn/letoumelinl/.conda/my_envs/devine_cnn_labia/lib/python3.9/site-packages', '//home/mrmn/letoumelinl/downscale_']
+Module path added
+
+Begin connection on GPU
+GPU device not found
+End connection on GPU
+
+debug
+['/home/mrmn/letoumelinl/downscale_/pipeline', '/scratch/mrmn/letoumelinl/.conda/my_envs/devine_cnn_labia/lib/python39.zip', '/scratch/mrmn/letoumelinl/.conda/my_envs/devine_cnn_labia/lib/python3.9', '/scratch/mrmn/letoumelinl/.conda/my_envs/devine_cnn_labia/lib/python3.9/lib-dynload', '/scratch/mrmn/letoumelinl/.conda/my_envs/devine_cnn_labia/lib/python3.9/site-packages', '//home/mrmn/letoumelinl/downscale_']
+
+Begin calculating MNT
+__Used xr.open_dataset to open MNT
+____MNT characteristics:
+________________________ Resolution_x :30
+________________________ Resolution_y :30
+________________________ Name :cen_gr
+________________________ File found at ://scratch/mrmn/letoumelinl/predict_real/MNT/CEN/DEM_FRANCE_L93_30m_bilinear.nc
+Time to calculate MNT: 5.46 seconds
+End calculating MNT
+
+
+Begin calculating Observation
+__Stations loaded using pd.read_csv and eval function to convert str into tuples
+__Time series loaded using pd.read_csv
+__Selected stations that can be found both in stations and time_series
+__Rejected specific stations
+Time to calculate Observation: 54.39 seconds
+End calculating Observation
+
+DEM domain selected
+Loading topographies
+__Begin loading synthetic topographies
+ 1/5
+ 2/5
+ 3/5
+ 4/5
+ 5/5
+__End loading synthetic topographies
+Loading wind
+__Begin loading winds on synthetic topographies
+ 1/5
+ 2/5
+ 3/5
+ 4/5
+ 5/5
+__End loading winds on synthetic topographies
+Nb synthetic topographies:  7279
+Begin computing TPI on real topographies
+Time in minutes: 2.0
+End computing TPI on real topographies
+Begin computing Sx on real topographies
+Time in minutes: 64.0
+End computing Sx on real topographies
+Border Sx and TPI removed
+TPI and sx real flat calculated
+Begin computing TPI on gaussian topographies
+Time in minutes: 2.0
+End computing TPI on gaussian topographies
+Begin computing Sx on gaussian topographies
+Time in minutes: 36.0
+End computing Sx on gaussian topographies
+tpi_gau shape
+(7279, 79, 69)
+tpi_gau shape
+(7279, 79, 69)
+Border Sx and TPI removed on gaussian topographies
+TPI and sx gau flat calculated
+Dataframe created
+TPI and sx stations calculated
+TPI and sx unique calculated
+Data transformed to float32
+Begin plot figure tpi vs sx
+End plot figure tpi vs sx
+DEM domain selected
+Loading topographies
+__Begin loading synthetic topographies
+ 1/5
+ 2/5
+ 3/5
+ 4/5
+ 5/5
+__End loading synthetic topographies
+Loading wind
+__Begin loading winds on synthetic topographies
+ 1/5
+ 2/5
+ 3/5
+ 4/5
+ 5/5
+__End loading winds on synthetic topographies
+Nb synthetic topographies:  7279
+Begin computing Laplacian on gaussian topographies
+Time in minutes: 0.0
+End computing Laplacian on gaussian topographies
+Begin computing Mu on gaussian topographies
+Time in minutes: 0.0
+End computing Mu on gaussian topographies
+Gaussian topographies flatten
+Begin computing Laplacian on real topographies
+Time in minutes: 0.0
+End computing Laplacian on real topographies
+Begin computing Mu on real topographies
+Time in minutes: 0.0
+End computing Mu on real topographies
+Real topographies flatten
+Dataframe created
+
+__Begin mu_helbig_idx
+....Time to calculate mu_helbig_idx: 0.0 minutes
+__End mu_helbig_idx
+
+__Laplacian calculated. Library: numpy

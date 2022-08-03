@@ -15,7 +15,6 @@ t_init = t()
 
 # Create prm
 from PRM_predict import create_prm
-
 prm = create_prm(month_prediction=True)
 
 from downscale.data_source.observation import Observation

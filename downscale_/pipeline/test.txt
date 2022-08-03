@@ -1,0 +1,17 @@
+\begin{tabular}{llrrrr}
+\toprule
+          &         &      0 &      1 &      2 &      3 \\
+Variable & Metric &        &        &        &        \\
+\midrule
+Speed & Bias &  -0.33 &  -0.24 &  -0.29 &  -0.17 \\
+          & \$\textbackslash rho\$ &   0.56 &   0.57 &   0.73 &   0.71 \\
+          & mean MAE &   1.40 &   1.38 &   1.07 &   1.09 \\
+          & q25 MAE &   0.44 &   0.44 &   0.41 &   0.41 \\
+          & median MAE &   0.98 &   0.97 &   0.91 &   0.90 \\
+          & q75 MAE &   1.89 &   1.86 &   0.91 &   0.90 \\
+Direction & mean MAE &  57.33 &  57.50 &  14.13 &  14.79 \\
+          & q25 MAE &  18.10 &  18.26 &   6.68 &   6.75 \\
+          & median MAE &  42.26 &  42.59 &  13.70 &  13.86 \\
+          & q75 MAE &  86.79 &  86.98 &  13.70 &  13.86 \\
+\bottomrule
+\end{tabular}

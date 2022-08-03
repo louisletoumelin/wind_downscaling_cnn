@@ -3,7 +3,7 @@ import uuid
 import numpy as np
 import pandas as pd
 import matplotlib
-from scipy.stats import ttest_ind
+from scipy.stats import c
 
 matplotlib.use('Agg')
 # matplotlib.use('Qt5Agg')
@@ -18,6 +18,7 @@ from downscale.visu.MidpointNormalize import MidpointNormalize
 from downscale.eval.evaluation import Evaluation
 from downscale.utils.utils_func import save_figure
 from downscale.eval.synthetic_topographies import GaussianTopo
+
 
 class EvaluationFromDict(Evaluation):
 
@@ -657,7 +658,7 @@ class EvaluationFromDict(Evaluation):
                 # Boxplot
                 for y in ["name", "alti", "hour", "month", "tpi_2000", "tpi_500", "laplacian", "mu", "curvature"]:
                     sort_by_i = sort_by if y == "name" else None
-                    self._plot_boxplot(data=metric_result, x=metric, y=y, sort_by=sort_by_i)
+                    self._add_topo_carac_to_df_results(data=metric_result, x=metric, y=y, sort_by=sort_by_i)
                     ax = plt.gca()
                     ax.set_yticklabels(ax.get_yticklabels(), fontsize=10)
                     save_figure(f"boxplot_{y}", prm)

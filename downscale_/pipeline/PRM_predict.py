@@ -15,7 +15,7 @@ def create_prm(month_prediction=True):
     # GPU
     prm["GPU"] = True
     prm["horovod"] = True
-    prm["results_name"] = "2022_02_28_Ange_1_April_2019_to_31_August_2019"
+    prm["results_name"] = "Ange_HR"
 
     """
     MNT, NWP and observations
@@ -24,7 +24,7 @@ def create_prm(month_prediction=True):
     # Observations
     prm["add_additional_stations"] = True
     prm["select_date_time_serie"] = True
-    prm["fast_loading"] = False
+    prm["fast_loading"] = True
 
     # MNT
     prm["name_mnt"] = "cen_gr"
@@ -88,8 +88,8 @@ def create_prm(month_prediction=True):
     prm["select_area"] = "coord"
     prm["coords_domain_for_map_prediction"] = [937875, 6439125, 973375, 6464125] #[959000, 6462000, 960000, 6464000]  #[xmin, ymin, xmax, ymax]
     prm["method"] = "linear"
-    prm["nb_batch_sent_to_gpu"] = 10 # Number of batches sent from the cpu to the gpu to avoid out of memory error
-    prm["batch_size_prediction"] = 2**10 # Number of batches in the gpu to accelerate computation
+    prm["nb_batch_sent_to_gpu"] = 10  # Number of batches sent from the cpu to the gpu to avoid out of memory error
+    prm["batch_size_prediction"] = 2**10  # Number of batches in the gpu to accelerate computation
     prm["store_alpha_in_results"] = True
 
     """
@@ -106,21 +106,44 @@ def create_prm(month_prediction=True):
     prm["year_end"] = 2021 #2020
     """
 
-    prm["hour_begin"] = 0 #1 #temporary 2019-4-1 to 2019-7-31, launched 2019-8-1 to 2019-11-30
-    prm["day_begin"] = 1 #2
-    prm["month_begin"] = 3 #8
-    prm["year_begin"] = 2020 #2017
+    prm["hour_begin"] = 0  #1 #temporary 2019-4-1 to 2019-7-31, launched 2019-8-1 to 2019-11-30
+    prm["day_begin"] = 1  #2
+    prm["month_begin"] = 4  #8
+    prm["year_begin"] = 2020  #2017
 
     # 31 May 2020 1h
-    prm["hour_end"] = 23 #1
-    prm["day_end"] = 31 #31
-    prm["month_end"] = 5 #5
-    prm["year_end"] = 2020 #2020
+    prm["hour_end"] = 1  #1
+    prm["day_end"] = 31  #31
+    prm["month_end"] = 5  #5
+    prm["year_end"] = 2020  #2020
 
-    prm["list_no_HTN"] = ["DIGNE LES BAINS", "LA MURE-ARGENS", "ARVIEUX", "EMBRUN", "LA FAURIE", "GAP", "ANTIBES-GAROUPE", "ASCROS", "CANNES", "CAUSSOLS", "PEILLE",
-                          "CHAPELLE-EN-VER", "TRICASTIN", "ST ROMAN-DIOIS", "CREYS-MALVILLE", "ST-ALBAN", "ST-PIERRE-LES EGAUX", "LUS L CROIX HTE", "GRENOBLE–LVD", "ALBERTVILLE JO",
-                          "MERIBEL BURGIN", "MONT DU CHAT", "FECLAZ_SAPC", "FREJUS", "LA MASSE", "RISTOLAS", "TALLARD", "ST MICHEL MAUR_SAPC", "TIGNES_SAPC", "VAL D’I SOLAISE",
-                          "AGUIL. DU MIDI", "Vallot", "Saint-Sorlin", "Argentiere"]
+    prm["list_no_HTN"] = ["DIGNE LES BAINS", "LA MURE-ARGENS", "ARVIEUX", "EMBRUN", "LA FAURIE", "GAP",
+                          "ANTIBES-GAROUPE", "ASCROS", "CANNES", "CAUSSOLS", "PEILLE",
+                          "CHAPELLE-EN-VER", "TRICASTIN", "ST ROMAN-DIOIS", "CREYS-MALVILLE", "ST-ALBAN",
+                          "ST-PIERRE-LES EGAUX", "LUS L CROIX HTE", "GRENOBLE–LVD", "ALBERTVILLE JO",
+                          "MERIBEL BURGIN", "MONT DU CHAT", "FECLAZ_SAPC", "FREJUS", "LA MASSE", "RISTOLAS", "TALLARD",
+                          "ST MICHEL MAUR_SAPC", "TIGNES_SAPC", "VAL D’I SOLAISE",
+                          "AGUIL. DU MIDI", "Vallot", "Saint-Sorlin", "Argentiere",
+                          "AEG", "AGAAR", "AGSUA", "AIG", "ALT", "AND", "ARH", "ARO", "BAS", "BEH", "BER", "BEZ",
+                          "BIA", "BIE", "BIN", "BIZ", "BOL", "BRZ", "BUS", "CDM", "CEV", "CGI", "CHB", "CHD", "CHU",
+                          "CHZ", "CIM", "CMA", "COM", "COS", "COV", "COY", "CRM", "DEM", "DIA", "DIS", "EBK", "EGH",
+                          "EGO", "EIN", "EVO", "FAH", "FRU", "GEN", "GES", "GIH", "GOE", "GOR", "GOS", "GRA", "GRE",
+                          "GRO", "GSB", "GUT", "GVE", "HAI", "HLL", "INNEBI", "INNESF", "INNRED", "INT", "JUN",
+                          "KAWEG", "KLO", "KOP", "LAE", "LAG", "LAT", "LEI", "LUG", "LUZ", "MAG", "MAH", "MAR",
+                          "MAS", "MER", "MLS", "MMBIR", "MMBOY", "MMCPY", "MMDAS", "MMERZ", "MMFRS", "MMGTT",
+                          "MMHIR", "MMHIW", "MMIBG", "MMKSB", "MMLAF", "MMLEN", "MMLIN", "MMLOP", "MMMAT", "MMMEL",
+                          "MMMES", "MMMOU", "MMMUE", "MMMUM", "MMNOI", "MMOES", "MMPRV", "MMRAF", "MMRIC", "MMRIG",
+                          "MMROM",  "MMSAA", "MMSAF", "MMSAS", "MMSAX", "MMSRL", "MMSSE", "MMSTA", "MMSVG", "MMTIT",
+                          "MMTRG", "MMUNS", "MMZNZ", "MMZOZ", "MMZWE", "MOA", "MOE", "MRP", "MTE", "MTR", "MUB", "NAS",
+                          "NEU", "OBR", "OTL", "PAY", "PILE", "PLF", "PMA", "PRE", "QUI", "RAG", "REH", "ROB", "ROE",
+                          "RUE", "SBO", "SCM", "SCU", "SHA", "SIM", "SPF", "SRS", "STG", "STK", "TGALL", "TGAMR",
+                          "TGARE", "TGDIE", "TGDUS", "TGEGN", "TGFRA", "TGILL", "TGKAL", "TGKRE", "TGLAN", "TGLOM",
+                          "TGNOL", "TGNUS", "TGOTT", "TGRIC", "TGUSH", "TGWEI", "THU", "TIAIR", "TIBIO", "TICAM",
+                          "TIMOL", "TIT", "VAD", "VEV", "VIO", "VLS", "WYN",
+                          "ALISTRO", "ANDORRE-LA-VIEILLE", "BAZUS-AURE", "BIARRITZ-PAYS-BASQUE", "CALVI", "CAP CORSE",
+                          "CAP PERTUSATO", "CAP SAGRO", "CLARAC", "CONCA", "FIGARI", "ILE ROUSSE", "IRATY ORGAMBIDE",
+                          "LA CHIAPPA", "MOCA-CROCE", "OLETTA", "PIETRALBA", "PILA-CANALE", "RENNO", "SALINES",
+                          "SARTENE", "SERRALONGUE", "SOLENZARA", "TOULOUSE-BLAGNAC"]
 
     prm["list_additionnal"] = ['Vallot', 'Saint-Sorlin', 'Argentiere', 'Dome Lac Blanc', 'Col du Lac Blanc',
                                'La Muzelle Lac Blanc', 'Col de Porte']
@@ -185,13 +208,13 @@ def create_prm(month_prediction=True):
 
         # Observations
         #prm["BDclim_stations_path"] = prm["data_path"] + "BDclim/19_01_2022/stations.csv" # Default
-        prm["BDclim_stations_path"] = prm["data_path"] + "bias_correction/stations_alps.csv"
+        prm["BDclim_stations_path"] = prm["data_path"] + "bias_correction/2022_06_10/stations_alps.csv"
 
         # 2009-2021
         #prm["BDclim_data_path"] = prm["data_path"] + "BDclim/19_01_2022/time_series.csv" # Default
         #prm["height_sensor_path"] = prm["data_path"] + "BDclim/height_sensors.csv" # Default
-        prm["BDclim_data_path"] = prm["data_path"] + "bias_correction/time_series_alps.csv"
-        prm["height_sensor_path"] = prm["data_path"] + "bias_correction/height_sensors_bc.csv"
+        prm["BDclim_data_path"] = prm["data_path"] + "bias_correction/2022_06_10/time_series_alps.csv"
+        prm["height_sensor_path"] = prm["data_path"] + "bias_correction/2022_06_10/height_sensors_bc.csv"
 
         # NWP
         #prm["AROME_path_1"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2017080106_2018080106_32bits.nc"
@@ -206,6 +229,7 @@ def create_prm(month_prediction=True):
         prm["AROME_path_4"] = prm["data_path"] + "AROME/32bits/FORCING_alp_2019060106_2020060206_32bits.nc"
 
         prm["AROME_path"] = [prm["AROME_path_1"], prm["AROME_path_2"], prm["AROME_path_3"], prm["AROME_path_4"]]
+        prm["AROME_path"] = prm["AROME_path_1"]
 
         # Path to python module downscale
         prm["path_module"] = "//home/mrmn/letoumelinl/downscale_"
@@ -222,8 +246,9 @@ def create_prm(month_prediction=True):
 
     # QC
     prm["QC_path"] = prm["data_path"] + "BDclim/QC/"
-    prm["QC_pkl"] = prm["QC_path"] + "qc_15_02_2022.pkl" # Quality controled time series (where to save the file), qc_21_01_2022
-    prm["path_fast_loading"] = prm["data_path"] + "BDclim/QC/qc_15_02_2022.pkl" # qc_59.pkl before Quality controled time series (where to load the file)
+    prm["QC_pkl"] = prm["QC_path"] + "qc_2022_06_10.pkl" # Quality controled time series (where to save the file), qc_21_01_2022
+    prm["QC_pkl_no_qc"] = prm["QC_path"] + "qc_2022_06_10_no_qc.pkl" # Quality controled time series (where to save the file), qc_21_01_2022
+    prm["path_fast_loading"] = prm["data_path"] + "BDclim/QC/qc_15_02_2022.pkl" # qc_59.pkl before Quality controled time series (where to load the file), qc_15_02_2022
 
     # Observation
     prm["path_vallot"] = prm["data_path"] + "BDclim/Vallot/"
@@ -261,7 +286,6 @@ def create_prm(month_prediction=True):
     connect_on_GPU(prm)
 
     return prm
-
 
 
 """

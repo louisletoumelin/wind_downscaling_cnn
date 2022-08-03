@@ -1045,7 +1045,7 @@ class Visualization:
                 self.qc_plot_bias_speed(stations=[station], update_file=False, df=time_serie_station)
                 plt.title(f'{metric} threshold divided by {correct_factor}')
 
-    def qc_sankey_diagram_speed(self, stations='all', wind_speed='vw10m(m/s)', scale=10):
+    def qc_sankeyy_diagram_speed(self, stations='all', wind_speed='vw10m(m/s)', scale=10):
         from matplotlib.sankey import Sankey
         import matplotlib.pylab as pl
 
